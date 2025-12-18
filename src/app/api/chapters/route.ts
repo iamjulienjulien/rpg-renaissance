@@ -8,44 +8,66 @@ export async function GET(req: Request) {
     const id = url.searchParams.get("id");
     const latest = url.searchParams.get("latest");
 
+    const selectWithAdventure = `
+        *,
+        adventures:adventure_id (
+            code
+        )
+    `;
+
+    const mapChapter = (row: any) => {
+        if (!row) return row;
+
+        const adventure_code = row?.adventures?.code ?? null;
+
+        // On renvoie un objet "chapitre" propre, avec adventure_code à plat
+        const { adventures, ...rest } = row;
+        return {
+            ...rest,
+            adventure_code,
+        };
+    };
+
     // ✅ 1) Chapitre par ID
     if (id) {
         const { data, error } = await supabase
             .from("chapters")
-            .select("*")
+            .select(selectWithAdventure)
             .eq("id", id)
             .maybeSingle();
 
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
         if (!data) return NextResponse.json({ error: "Chapter not found" }, { status: 404 });
 
-        return NextResponse.json({ chapter: data });
+        return NextResponse.json({ chapter: mapChapter(data) });
     }
 
     // ✅ 2) Chapitre le plus récent (latest=1)
     if (latest === "1" || latest === "true") {
         const { data, error } = await supabase
             .from("chapters")
-            .select("*")
+            .select(selectWithAdventure)
             .order("created_at", { ascending: false })
             .limit(1)
             .maybeSingle();
 
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-        if (!data) return NextResponse.json({ chapter: null }); // pas d'erreur, juste vide
+        if (!data) return NextResponse.json({ chapter: null });
 
-        return NextResponse.json({ chapter: data });
+        return NextResponse.json({ chapter: mapChapter(data) });
     }
 
-    // ✅ 3) Liste (comportement historique)
+    // ✅ 3) Liste
     const { data, error } = await supabase
         .from("chapters")
-        .select("*")
+        .select(selectWithAdventure)
         .order("created_at", { ascending: false });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    return NextResponse.json({ chapters: data ?? [] });
+    return NextResponse.json({
+        chapters: (data ?? []).map(mapChapter),
+    });
 }
 
 export async function POST(req: Request) {

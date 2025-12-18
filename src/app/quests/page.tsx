@@ -4,10 +4,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
+import { useGameStore } from "@/stores/gameStore";
 
 type Chapter = {
     id: string;
     adventure_id: string;
+    adventure_code?: string | null;
     title: string;
     pace: string;
     status?: string | null;
@@ -75,62 +77,68 @@ function adventureTypeLabel(code?: string | null, type?: string | null) {
 export default function QuestsPage() {
     const router = useRouter();
 
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
+    // ✅ Zustand: chapitre courant
+    const chapter = useGameStore((s) => s.chapter) as Chapter | null;
+    const chapterLoading = useGameStore((s) => s.chapterLoading);
+    const loadLatestChapter = useGameStore((s) => s.loadLatestChapter);
 
-    const [chapter, setChapter] = useState<Chapter | null>(null);
+    // ✅ Local state: données dépendantes du chapitre
+    const [refreshing, setRefreshing] = useState(false);
     const [adventure, setAdventure] = useState<Adventure | null>(null);
     const [items, setItems] = useState<ChapterQuest[]>([]);
 
-    const load = async (mode: "initial" | "refresh") => {
-        if (mode === "initial") setLoading(true);
-        else setRefreshing(true);
+    // 1) Charge le chapitre via store
+    useEffect(() => {
+        void loadLatestChapter();
+    }, [loadLatestChapter]);
 
-        try {
-            // 1) Chapitre courant (latest)
-            const chRes = await fetch("/api/chapters?latest=1", { cache: "no-store" });
-            const chJson = await chRes.json();
-
-            const ch = (chJson.chapter ?? null) as Chapter | null;
-            setChapter(ch);
-
-            if (!ch) {
+    // 2) Quand chapter change, charge les quêtes du chapitre + aventure
+    useEffect(() => {
+        const run = async () => {
+            if (!chapter?.id) {
                 setItems([]);
                 setAdventure(null);
                 return;
             }
 
-            // 2) Quêtes du chapitre
-            const cqRes = await fetch(
-                `/api/chapter-quests?chapterId=${encodeURIComponent(ch.id)}`,
-                { cache: "no-store" }
-            );
-            const cqJson = await cqRes.json();
+            try {
+                // Quêtes du chapitre
+                const cqRes = await fetch(
+                    `/api/chapter-quests?chapterId=${encodeURIComponent(chapter.id)}`,
+                    { cache: "no-store" }
+                );
+                const cqJson = await cqRes.json();
+                if (cqRes.ok) setItems((cqJson.items ?? []) as ChapterQuest[]);
+                else setItems([]);
 
-            if (cqRes.ok) setItems((cqJson.items ?? []) as ChapterQuest[]);
-            else setItems([]);
+                // Détails aventure (best-effort)
+                // si tu as déjà un endpoint by id, on le garde
+                const advRes = await fetch(
+                    `/api/adventures?id=${encodeURIComponent(chapter.adventure_id)}`,
+                    { cache: "no-store" }
+                );
+                const advJson = await advRes.json();
+                if (advRes.ok) setAdventure((advJson.adventure ?? null) as Adventure | null);
+                else setAdventure(null);
+            } catch (e) {
+                console.error(e);
+                setItems([]);
+                setAdventure(null);
+            }
+        };
 
-            // 3) Détails aventure (best-effort)
-            //    Si ton endpoint diffère, on l’adaptera.
-            const advRes = await fetch(
-                `/api/adventures?id=${encodeURIComponent(ch.adventure_id)}`,
-                { cache: "no-store" }
-            );
-            const advJson = await advRes.json();
+        void run();
+    }, [chapter?.id, chapter?.adventure_id]);
 
-            if (advRes.ok) setAdventure((advJson.adventure ?? null) as Adventure | null);
-            else setAdventure(null);
-        } catch (e) {
-            console.error(e);
+    const onSync = async () => {
+        setRefreshing(true);
+        try {
+            await loadLatestChapter();
+            // le useEffect ci-dessus relancera les fetch items/adventure quand chapter est dispo
         } finally {
-            setLoading(false);
             setRefreshing(false);
         }
     };
-
-    useEffect(() => {
-        void load("initial");
-    }, []);
 
     const grouped = useMemo(() => {
         const map = new Map<string, Array<{ cq: ChapterQuest; q: AdventureQuest | null }>>();
@@ -147,7 +155,6 @@ export default function QuestsPage() {
             map.get(key)!.push({ cq, q });
         }
 
-        // tri stable: titre de pièce puis titre de quête
         const ordered = Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0], "fr"));
         for (const [, arr] of ordered) {
             arr.sort((a, b) => (a.q?.title ?? "").localeCompare(b.q?.title ?? "", "fr"));
@@ -164,12 +171,14 @@ export default function QuestsPage() {
         router.push("/new");
     };
 
+    const loading = chapterLoading; // UI: même comportement qu’avant
+
     return (
         <RpgShell
             title="Quêtes"
             rightSlot={
                 <div className="flex items-center gap-2">
-                    <ActionButton onClick={() => void load("refresh")}>
+                    <ActionButton onClick={() => void onSync()}>
                         {refreshing ? "⏳" : "🔄 Sync"}
                     </ActionButton>
                 </div>
@@ -197,7 +206,7 @@ export default function QuestsPage() {
                 </Panel>
             ) : (
                 <div className="grid gap-4">
-                    {/* ✅ AVENTURE (remplace l’ancienne card Chapitre) */}
+                    {/* ✅ AVENTURE */}
                     <Panel
                         title="Aventure"
                         emoji="🧭"
@@ -238,9 +247,7 @@ export default function QuestsPage() {
                                 ) : (
                                     <Pill>✨ Aventure</Pill>
                                 )}
-                                {typeof items.length === "number" ? (
-                                    <Pill>📜 {items.length} quêtes</Pill>
-                                ) : null}
+                                <Pill>📜 {items.length} quêtes</Pill>
                             </div>
 
                             <div className="mt-3 text-xs text-white/55">

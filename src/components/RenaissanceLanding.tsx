@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
 
+import { useGameStore } from "@/stores/gameStore";
+
 type Chapter = {
     id: string;
     adventure_id: string | null;
@@ -33,8 +35,9 @@ function adventureNameFromCode(code?: string | null) {
 export default function RenaissanceLanding() {
     const router = useRouter();
 
-    const [chapter, setChapter] = useState<Chapter | null>(null);
-    const [loading, setLoading] = useState(true);
+    const chapter = useGameStore((s) => s.chapter);
+    const loading = useGameStore((s) => s.chapterLoading);
+    const loadLatest = useGameStore((s) => s.loadLatestChapter);
 
     const menu = useMemo(() => {
         return [
@@ -44,6 +47,14 @@ export default function RenaissanceLanding() {
                 subtitle: "Choisir un thème, préparer les quêtes",
                 emoji: "✨",
                 href: "/new",
+                disabled: false,
+            },
+            {
+                key: "characters",
+                title: "Personnages",
+                subtitle: "Choisir ton avatar, le ton du Maître du Jeu",
+                emoji: "🧙",
+                href: "/characters",
                 disabled: false,
             },
             {
@@ -72,20 +83,6 @@ export default function RenaissanceLanding() {
             },
         ];
     }, []);
-
-    const loadLatest = async () => {
-        setLoading(true);
-        try {
-            const res = await fetch("/api/chapters?latest=1", { cache: "no-store" });
-            const json = await res.json();
-            setChapter(json.chapter ?? null);
-        } catch (e) {
-            console.error(e);
-            setChapter(null);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     useEffect(() => {
         void loadLatest();

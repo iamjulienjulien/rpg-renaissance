@@ -3,6 +3,8 @@
 import React, { useMemo, useState } from "react";
 import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
+import { useToastStore } from "@/stores/toastStore";
+import { useDevStore } from "@/stores/devStore";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -69,26 +71,60 @@ export default function SettingsPage() {
     const [devLatency, setDevLatency] = useState<"off" | "250" | "750">("off");
     const [devOverlays, setDevOverlays] = useState(false);
 
+    const devEnabled = useDevStore((s) => s.enabled);
+    const toggleDev = useDevStore((s) => s.toggleEnabled);
+
+    const logsVerbose = useDevStore((s) => s.logsVerbose);
+    const setLogsVerbose = useDevStore((s) => s.setLogsVerbose);
+
+    const overlays = useDevStore((s) => s.overlays);
+    const setOverlays = useDevStore((s) => s.setOverlays);
+
+    const apiLatencyMs = useDevStore((s) => s.apiLatencyMs);
+    const setApiLatencyMs = useDevStore((s) => s.setApiLatencyMs);
+
+    const resetDevSettings = useDevStore((s) => s.resetDevSettings);
+
+    const [resetting, setResetting] = useState(false);
+
+    const toastSuccess = useToastStore((s) => s.success);
+    const toastError = useToastStore((s) => s.error);
+    const toastInfo = useToastStore((s) => s.info);
+
     const resetGame = async () => {
         const token = process.env.NEXT_PUBLIC_DEV_RESET_TOKEN ?? "";
 
-        const res = await fetch("/api/dev/reset", {
-            method: "POST",
-            headers: {
-                "x-dev-reset-token": token,
-            },
-        });
-
-        const json = await res.json();
-
-        if (!res.ok) {
-            console.error(json?.error ?? "Reset failed");
-            alert(`Reset échoué: ${json?.error ?? "unknown error"}`);
+        if (!token) {
+            toastError("Reset impossible", "NEXT_PUBLIC_DEV_RESET_TOKEN manquant.");
             return;
         }
 
-        alert("✅ Reset OK. Tout est remis à zéro.");
-        window.location.href = "/";
+        setResetting(true);
+        toastInfo("Reset en cours…", "On efface les traces du royaume 🧹");
+
+        try {
+            const res = await fetch("/api/dev/reset", {
+                method: "POST",
+                headers: {
+                    "x-dev-reset-token": token,
+                },
+            });
+
+            const json = await res.json().catch(() => null);
+
+            if (!res.ok) {
+                toastError("Reset échoué", json?.error ?? "unknown error");
+                return;
+            }
+
+            toastSuccess("Reset OK ✅", "Tout est remis à zéro.");
+            window.location.href = "/";
+        } catch (e) {
+            console.error(e);
+            toastError("Reset échoué", "Erreur réseau ou serveur.");
+        } finally {
+            setResetting(false);
+        }
     };
 
     const devActions = useMemo(() => {
@@ -464,67 +500,116 @@ export default function SettingsPage() {
                     emoji="🧪"
                     subtitle="Outils temporaires pour itérer vite."
                     right={
-                        <ActionButton variant="solid" onClick={() => void resetGame()}>
-                            💥 Reset (DEV)
-                        </ActionButton>
+                        <div className="flex items-center gap-2">
+                            <Pill>{devEnabled ? "🧪 DEV ON" : "🧪 DEV OFF"}</Pill>
+                            <ActionButton variant="solid" onClick={toggleDev}>
+                                {devEnabled ? "✅ Activé" : "⛔ Désactivé"}
+                            </ActionButton>
+                        </div>
                     }
                 >
                     <div className="grid gap-2">
-                        <SettingRow
-                            emoji="🪵"
-                            title="Logs détaillés"
-                            description="Plus tard: afficher logs UI + requêtes réseau."
-                            value={devLogs ? "On" : "Off"}
-                            right={
-                                <ActionButton variant="soft" onClick={() => setDevLogs((v) => !v)}>
-                                    {devLogs ? "✅ On" : "🪵 Off"}
+                        {/* Logs */}
+                        <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <div className="text-sm font-semibold text-white/85">
+                                        🪵 Logs détaillés
+                                    </div>
+                                    <div className="mt-1 text-sm text-white/60">
+                                        Afficher logs UI + requêtes réseau.
+                                    </div>
+                                    <div className="mt-2 text-xs text-white/50">
+                                        Valeur:{" "}
+                                        <span className="text-white/70">
+                                            {logsVerbose ? "On" : "Off"}
+                                        </span>
+                                    </div>
+                                </div>
+                                <ActionButton
+                                    variant="soft"
+                                    disabled={!devEnabled}
+                                    onClick={() => setLogsVerbose(!logsVerbose)}
+                                >
+                                    {logsVerbose ? "🟢 On" : "⚫ Off"}
                                 </ActionButton>
-                            }
-                        />
+                            </div>
+                        </div>
 
-                        <SettingRow
-                            emoji="🐢"
-                            title="Simuler latence API"
-                            description="Pour tester les loaders et états vides."
-                            value={devLatency === "off" ? "Off" : `${devLatency}ms`}
-                            right={
+                        {/* Latence API */}
+                        <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <div className="text-sm font-semibold text-white/85">
+                                        🦖 Simuler latence API
+                                    </div>
+                                    <div className="mt-1 text-sm text-white/60">
+                                        Pour tester loaders, états vides, et transitions.
+                                    </div>
+                                    <div className="mt-2 text-xs text-white/50">
+                                        Valeur:{" "}
+                                        <span className="text-white/70">
+                                            {apiLatencyMs === 0 ? "Off" : `${apiLatencyMs}ms`}
+                                        </span>
+                                    </div>
+                                </div>
+
                                 <div className="flex items-center gap-2">
                                     <ActionButton
-                                        variant={devLatency === "off" ? "solid" : "soft"}
-                                        onClick={() => setDevLatency("off")}
+                                        variant="soft"
+                                        disabled={!devEnabled}
+                                        onClick={() =>
+                                            setApiLatencyMs(apiLatencyMs === 0 ? 250 : 0)
+                                        }
                                     >
-                                        ⚡
+                                        {apiLatencyMs === 0 ? "⚫ Off" : "⚡ On"}
                                     </ActionButton>
+
                                     <ActionButton
-                                        variant={devLatency === "250" ? "solid" : "soft"}
-                                        onClick={() => setDevLatency("250")}
+                                        variant="soft"
+                                        disabled={!devEnabled}
+                                        onClick={() => setApiLatencyMs(250)}
                                     >
                                         250
                                     </ActionButton>
+
                                     <ActionButton
-                                        variant={devLatency === "750" ? "solid" : "soft"}
-                                        onClick={() => setDevLatency("750")}
+                                        variant="soft"
+                                        disabled={!devEnabled}
+                                        onClick={() => setApiLatencyMs(750)}
                                     >
                                         750
                                     </ActionButton>
                                 </div>
-                            }
-                        />
+                            </div>
+                        </div>
 
-                        <SettingRow
-                            emoji="🧭"
-                            title="Overlays DEV"
-                            description="Plus tard: afficher id, room_code, états, etc."
-                            value={devOverlays ? "On" : "Off"}
-                            right={
+                        {/* Overlays */}
+                        <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <div className="text-sm font-semibold text-white/85">
+                                        🧷 Overlays DEV
+                                    </div>
+                                    <div className="mt-1 text-sm text-white/60">
+                                        Afficher ids, room_code, états, etc.
+                                    </div>
+                                    <div className="mt-2 text-xs text-white/50">
+                                        Valeur:{" "}
+                                        <span className="text-white/70">
+                                            {overlays ? "On" : "Off"}
+                                        </span>
+                                    </div>
+                                </div>
                                 <ActionButton
                                     variant="soft"
-                                    onClick={() => setDevOverlays((v) => !v)}
+                                    disabled={!devEnabled}
+                                    onClick={() => setOverlays(!overlays)}
                                 >
-                                    {devOverlays ? "✅ On" : "🧭 Off"}
+                                    {overlays ? "🟢 On" : "⚫ Off"}
                                 </ActionButton>
-                            }
-                        />
+                            </div>
+                        </div>
 
                         <div className="mt-2 grid gap-2">
                             {devActions.map((a) => (
@@ -543,18 +628,37 @@ export default function SettingsPage() {
                             ))}
                         </div>
 
-                        <SettingRow
-                            tone="danger"
-                            emoji="☠️"
-                            title="Danger zone"
-                            description="Actions destructives. À utiliser uniquement en DEV."
-                            value="—"
-                            right={
-                                <ActionButton variant="solid" onClick={() => void resetGame()}>
-                                    💥 Reset total
-                                </ActionButton>
-                            }
-                        />
+                        {/* Actions DEV */}
+                        <div className="rounded-2xl bg-red-500/10 p-4 ring-1 ring-red-500/20">
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <div className="text-sm font-semibold text-white/85">
+                                        ☠️ Danger zone
+                                    </div>
+                                    <div className="mt-1 text-sm text-white/60">
+                                        Actions destructives. Uniquement en DEV.
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-2">
+                                    <ActionButton
+                                        variant="soft"
+                                        disabled={!devEnabled}
+                                        onClick={resetDevSettings}
+                                    >
+                                        🧽 Reset DEV settings
+                                    </ActionButton>
+
+                                    <ActionButton
+                                        variant="solid"
+                                        disabled={!devEnabled || resetting}
+                                        onClick={() => void resetGame()}
+                                    >
+                                        {resetting ? "⏳ Reset…" : "💥 Reset (DEV)"}
+                                    </ActionButton>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </Panel>
             </div>
