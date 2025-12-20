@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabaseServer } from "@/lib/supabase/server";
+import { getActiveSessionOrThrow } from "@/lib/sessions/getActiveSession";
 
 type InputRoom = {
     code: string;
@@ -25,14 +26,12 @@ function safeTrim(s: unknown) {
 }
 
 function normalizeDifficulty(d: unknown) {
-    const v = clampInt(d, 1, 3, 2);
-    return v;
+    return clampInt(d, 1, 3, 2);
 }
 
 function normalizeEstimate(n: unknown) {
     if (n === null || n === undefined) return null;
-    const v = clampInt(n, 1, 240, 10);
-    return v;
+    return clampInt(n, 1, 240, 10);
 }
 
 export async function POST(req: Request) {
@@ -42,14 +41,9 @@ export async function POST(req: Request) {
         const adventureId = safeTrim(body?.adventureId);
         const perRoomCount = clampInt(body?.perRoomCount, 1, 10, 5);
         const allowGlobal = !!body?.allowGlobal;
-        const rooms = (Array.isArray(body?.rooms) ? body.rooms : []) as InputRoom[];
 
         if (!adventureId) {
             return NextResponse.json({ error: "Missing adventureId" }, { status: 400 });
-        }
-
-        if (!rooms.length) {
-            return NextResponse.json({ error: "No rooms provided" }, { status: 400 });
         }
 
         const apiKey = process.env.OPENAI_API_KEY ?? "";
@@ -57,13 +51,36 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Missing OPENAI_API_KEY" }, { status: 500 });
         }
 
-        const supabase = supabaseServer();
+        const supabase = await supabaseServer();
+        const session = await getActiveSessionOrThrow();
 
-        // 1) Charger les quêtes existantes (pour éviter les doublons)
+        // 0) Charger les rooms actives depuis la BDD (source de vérité)
+        const { data: dbRooms, error: roomsErr } = await supabase
+            .from("adventure_rooms")
+            .select("code,title")
+            .eq("adventure_id", adventureId)
+            .eq("session_id", session.id)
+            .order("sort", { ascending: true })
+            .order("title", { ascending: true });
+
+        if (roomsErr) {
+            return NextResponse.json({ error: roomsErr.message }, { status: 500 });
+        }
+
+        const rooms = (dbRooms ?? []) as InputRoom[];
+        if (!rooms.length) {
+            return NextResponse.json(
+                { error: "No active rooms for this session/adventure" },
+                { status: 400 }
+            );
+        }
+
+        // 1) Charger les quêtes existantes (scopées session) pour éviter les doublons
         const { data: existing, error: existingErr } = await supabase
             .from("adventure_quests")
             .select("title, room_code")
-            .eq("adventure_id", adventureId);
+            .eq("adventure_id", adventureId)
+            .eq("session_id", session.id);
 
         if (existingErr) {
             return NextResponse.json({ error: existingErr.message }, { status: 500 });
@@ -108,7 +125,6 @@ export async function POST(req: Request) {
         ].join("\n");
 
         const completion = await client.chat.completions.create({
-            // Tu peux changer de modèle plus tard si tu veux.
             model: "gpt-4.1-mini",
             temperature: 0.7,
             messages: [
@@ -137,7 +153,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "AI returned no quests", raw }, { status: 500 });
         }
 
-        // 3) Normaliser, filtrer doublons, filtrer room_code invalides
+        // 3) Normaliser + filtrer (doublons / room_code invalides)
         const allowedCodes = new Set<string>(rooms.map((r) => r.code));
         const cleaned: GeneratedQuest[] = [];
 
@@ -166,8 +182,9 @@ export async function POST(req: Request) {
             );
         }
 
-        // 4) Insert batch dans adventure_quests
+        // 4) Insert batch dans adventure_quests (avec session_id)
         const insertRows = cleaned.map((q) => ({
+            session_id: session.id,
             adventure_id: adventureId,
             room_code: q.room_code,
             title: q.title,
@@ -187,6 +204,7 @@ export async function POST(req: Request) {
         return NextResponse.json({
             quests: inserted ?? [],
             generated: cleaned.length,
+            session_id: session.id,
         });
     } catch (e: any) {
         return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 500 });

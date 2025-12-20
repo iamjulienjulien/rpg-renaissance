@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
+import { getActiveSessionOrThrow } from "@/lib/sessions/getActiveSession";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -10,6 +11,7 @@ const baseSelect = `
     adventure_quest_id,
     status,
     created_at,
+    session_id,
     adventure_quests!chapter_quests_adventure_quest_id_fkey (
         id,
         adventure_id,
@@ -18,50 +20,72 @@ const baseSelect = `
         description,
         difficulty,
         estimate_min,
-        created_at
+        created_at,
+        session_id
+    ),
+    quest_mission_orders (
+        id,
+        mission_md,
+        mission_json,
+        model,
+        created_at,
+        updated_at,
+        session_id
     )
 `;
 
+function normalizeOne<T>(v: T | T[] | null | undefined): T | null {
+    if (!v) return null;
+    return Array.isArray(v) ? (v[0] ?? null) : v;
+}
+
 export async function GET(_req: NextRequest, context: Ctx) {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
+    const session = await getActiveSessionOrThrow();
     const { id } = await context.params;
 
     const { data, error } = await supabase
         .from("chapter_quests")
         .select(baseSelect)
         .eq("id", id)
+        .eq("session_id", session.id)
         .maybeSingle();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    // ✅ format attendu par QuestClient
-    const quest = Array.isArray((data as any).adventure_quests)
-        ? ((data as any).adventure_quests[0] ?? null)
-        : ((data as any).adventure_quests ?? null);
+    const quest = normalizeOne((data as any).adventure_quests);
+    const mission = normalizeOne((data as any).quest_mission_orders);
 
+    // ✅ compat QuestClient: quest_id attendu
     const chapterQuest = {
         id: data.id,
         chapter_id: data.chapter_id,
+        quest_id: data.adventure_quest_id,
         adventure_quest_id: data.adventure_quest_id,
         status: data.status,
         created_at: data.created_at,
+        session_id: data.session_id,
     };
 
-    return NextResponse.json({ chapterQuest, quest });
+    return NextResponse.json({
+        chapterQuest,
+        quest,
+        mission, // ✅ contient mission_md
+        mission_md: mission?.mission_md ?? null, // ✅ shortcut pratique
+        session_id: session.id,
+    });
 }
 
 export async function PATCH(req: NextRequest, context: Ctx) {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
+    const session = await getActiveSessionOrThrow();
     const { id } = await context.params;
 
     const body = await req.json().catch(() => null);
     const status = typeof body?.status === "string" ? body.status : "";
 
-    if (!status) {
-        return NextResponse.json({ error: "Missing status" }, { status: 400 });
-    }
-
+    if (!status) return NextResponse.json({ error: "Missing status" }, { status: 400 });
     if (!["todo", "doing", "done"].includes(status)) {
         return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
@@ -70,32 +94,44 @@ export async function PATCH(req: NextRequest, context: Ctx) {
         .from("chapter_quests")
         .update({ status })
         .eq("id", id)
-        .select(baseSelect)
+        .eq("session_id", session.id)
+        .select(baseSelect) // ✅ renvoie aussi la mission si besoin
         .maybeSingle();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    const mission = normalizeOne((data as any).quest_mission_orders);
+
     const chapterQuest = {
         id: data.id,
         chapter_id: data.chapter_id,
+        quest_id: data.adventure_quest_id,
         adventure_quest_id: data.adventure_quest_id,
         status: data.status,
         created_at: data.created_at,
+        session_id: data.session_id,
     };
 
-    return NextResponse.json({ chapterQuest });
+    return NextResponse.json({
+        chapterQuest,
+        mission,
+        mission_md: mission?.mission_md ?? null,
+        session_id: session.id,
+    });
 }
 
 export async function DELETE(_req: NextRequest, context: Ctx) {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
+    const session = await getActiveSessionOrThrow();
     const { id } = await context.params;
 
-    const { error } = await supabase.from("chapter_quests").delete().eq("id", id);
+    const { error } = await supabase
+        .from("chapter_quests")
+        .delete()
+        .eq("id", id)
+        .eq("session_id", session.id);
 
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
 }

@@ -70,13 +70,13 @@ export default function Toasts() {
                                 <div className="text-lg" aria-hidden>
                                     {toneEmoji(t.tone)}
                                 </div>
-                                <div className="truncate text-sm font-semibold text-white/90">
+                                <div className="truncate rpg-text-sm font-semibold text-white/90">
                                     {t.title}
                                 </div>
                             </div>
 
                             {t.message ? (
-                                <div className="mt-2 text-sm text-white/70">{t.message}</div>
+                                <div className="mt-2 rpg-text-sm text-white/70">{t.message}</div>
                             ) : null}
                         </div>
 

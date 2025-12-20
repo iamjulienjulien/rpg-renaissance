@@ -18,7 +18,10 @@ export default function DevHud(props: DevHudProps) {
     const logsVerbose = useDevStore((s) => s.logsVerbose);
     const apiLatencyMs = useDevStore((s) => s.apiLatencyMs);
 
-    const [href, setHref] = useState<string>("");
+    // ✅ init safe (évite un setState immédiat “gratuit”)
+    const [href, setHref] = useState<string>(() =>
+        typeof window !== "undefined" ? window.location.href : ""
+    );
 
     const show = devEnabled && overlays;
 
@@ -40,25 +43,35 @@ export default function DevHud(props: DevHudProps) {
         // Track URL changes (pushState/replaceState + popstate)
         const update = () => setHref(window.location.href);
 
+        // ✅ microtask: évite “useInsertionEffect must not schedule updates”
+        const scheduleUpdate = () => {
+            if (typeof queueMicrotask !== "undefined") {
+                queueMicrotask(update);
+            } else {
+                Promise.resolve().then(update);
+            }
+        };
+
+        // Sync initial (ok car on est dans useEffect)
         update();
 
         const onPop = () => update();
 
-        const wrapHistory = (method: "pushState" | "replaceState") => {
-            const original = history[method];
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            return function (this: any, ...args: any[]) {
-                const ret = original.apply(this, args);
-                update();
-                return ret;
-            };
-        };
-
         const originalPush = history.pushState;
         const originalReplace = history.replaceState;
 
-        history.pushState = wrapHistory("pushState");
-        history.replaceState = wrapHistory("replaceState");
+        // ✅ wrap en utilisant les originaux (pas history[method] qui peut déjà être patché)
+        history.pushState = function (...args: Parameters<History["pushState"]>) {
+            const ret = originalPush.apply(history, args as any);
+            scheduleUpdate();
+            return ret;
+        };
+
+        history.replaceState = function (...args: Parameters<History["replaceState"]>) {
+            const ret = originalReplace.apply(history, args as any);
+            scheduleUpdate();
+            return ret;
+        };
 
         window.addEventListener("popstate", onPop);
 
@@ -108,7 +121,7 @@ export default function DevHud(props: DevHudProps) {
                         <div className="text-[11px] tracking-[0.18em] text-white/60">
                             🧪 DEV OVERLAY
                         </div>
-                        <div className="mt-2 text-sm text-white/85">
+                        <div className="mt-2 rpg-text-sm text-white/85">
                             <span className="text-white/60">Route:</span>{" "}
                             <span className="font-semibold">{info.path || "—"}</span>
                         </div>

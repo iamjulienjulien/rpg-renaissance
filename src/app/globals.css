@@ -37,3 +37,33 @@ body {
     font-weight: 400;
     font-style: italic;
 }
+
+:root {
+    --rpg-text: 16px;
+    --rpg-title: 34px;
+    --rpg-line: 1.6;
+}
+
+:root {
+    /* Base scale */
+    --rpg-font-scale: 1;
+
+    /* Font sizes (rem, pour s’aligner avec Tailwind) */
+    --rpg-text-xs: calc(0.75rem * var(--rpg-font-scale));
+    --rpg-rpg-text-sm: calc(0.875rem * var(--rpg-font-scale));
+    --rpg-text-base: calc(1rem * var(--rpg-font-scale));
+    --rpg-text-lg: calc(1.125rem * var(--rpg-font-scale));
+    --rpg-text-xl: calc(1.25rem * var(--rpg-font-scale));
+    --rpg-text-2xl: calc(1.5rem * var(--rpg-font-scale));
+
+    /* Line heights */
+    --rpg-leading-tight: 1.25;
+    --rpg-leading-normal: 1.6;
+    --rpg-leading-relaxed: 1.75;
+}
+
+/* Exemple d’application globale (à ajuster à ton design) */
+body {
+    font-size: var(--rpg-text);
+    line-height: var(--rpg-line);
+}

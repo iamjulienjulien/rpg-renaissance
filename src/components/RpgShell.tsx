@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { ChevronLeft, Sparkles } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 
 import CommandPalette from "@/components/CommandPalette";
 
@@ -38,24 +38,22 @@ export default function RpgShell({
     rightSlot?: React.ReactNode;
 }) {
     return (
-        <div className="min-h-dvh bg-slate-950 text-white">
-            <div className="relative isolate overflow-hidden min-h-dvh">
-                <div
-                    aria-hidden
-                    className="absolute inset-0"
-                    style={{
-                        backgroundImage:
-                            "radial-gradient(1200px 600px at 25% 20%, rgba(129,140,248,0.18), transparent 60%), radial-gradient(900px 500px at 70% 35%, rgba(34,211,238,0.12), transparent 55%), radial-gradient(700px 500px at 55% 80%, rgba(52,211,153,0.10), transparent 55%), linear-gradient(to bottom, rgba(2,6,23,1), rgba(0,0,0,1))",
-                    }}
-                />
-                <div
-                    aria-hidden
-                    className="absolute inset-0"
-                    style={{
-                        backgroundImage:
-                            "radial-gradient(circle at 50% 35%, transparent 35%, rgba(0,0,0,0.55) 75%)",
-                    }}
-                />
+        <div className="min-h-dvh text-white">
+            <div className="relative isolate min-h-dvh overflow-hidden">
+                {/* ✅ Background like Home */}
+                <div className="pointer-events-none absolute inset-0">
+                    <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_20%_20%,rgba(99,102,241,0.18),transparent_60%),radial-gradient(900px_500px_at_80%_25%,rgba(34,211,238,0.12),transparent_55%),radial-gradient(900px_520px_at_50%_95%,rgba(16,185,129,0.10),transparent_60%)]" />
+                    <div className="absolute inset-0 bg-black/60" />
+                    <div
+                        aria-hidden
+                        className="absolute inset-0"
+                        style={{
+                            backgroundImage:
+                                "radial-gradient(circle at 50% 35%, transparent 35%, rgba(0,0,0,0.55) 75%)",
+                        }}
+                    />
+                </div>
+
                 <CRTNoise strength={0.1} />
 
                 <main className="relative mx-auto max-w-6xl px-6 py-10">
@@ -69,40 +67,43 @@ export default function RpgShell({
                                 <ChevronLeft className="h-4 w-4" />
                                 Retour
                             </Link>
-
-                            <div className="hidden sm:flex items-center gap-3">
-                                <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white/5 ring-1 ring-white/10">
-                                    <Sparkles className="h-5 w-5" aria-hidden />
-                                </div>
-                                <div>
-                                    <div className="text-xs tracking-[0.28em] text-white/60">
-                                        RPG RENAISSANCE
-                                    </div>
-                                    <div className="text-sm text-white/90">{title}</div>
-                                </div>
-                            </div>
                         </div>
 
                         <div className="flex items-center gap-2">{rightSlot}</div>
                     </header>
 
-                    {/* Title */}
+                    {/* Brand + Title (more like Home) */}
                     <section className="mt-10">
-                        <div className="text-xs tracking-[0.22em] text-white/55">CHAPITRE</div>
-                        <h1 className="mt-2 text-4xl sm:text-5xl font-semibold tracking-tight text-white">
-                            {title}
-                        </h1>
-                        {subtitle ? (
-                            <p className="mt-3 max-w-2xl text-base leading-relaxed text-white/70">
-                                {subtitle}
-                            </p>
-                        ) : null}
+                        <div className="flex flex-col items-center text-center">
+                            <img
+                                src="/assets/images/logo-renaissance_cropped.png"
+                                alt="Renaissance"
+                                className="h-20 w-auto select-none opacity-95"
+                                draggable={false}
+                            />
+
+                            {/* <div className="mt-3 text-xs tracking-[0.22em] text-white/55">
+                                🜁 RENAISSANCE
+                            </div> */}
+
+                            <h1 className="mt-2 text-4xl font-semibold text-white/95 sm:text-5xl">
+                                <span className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent fondamento-regular">
+                                    {title}
+                                </span>
+                            </h1>
+
+                            {subtitle ? (
+                                <p className="mt-3 max-w-2xl rpg-text-sm leading-relaxed text-white/60">
+                                    {subtitle}
+                                </p>
+                            ) : null}
+                        </div>
                     </section>
 
                     {/* Content */}
                     <section
                         className={cn(
-                            "mt-8 rounded-[28px] bg-white/5 ring-1 ring-white/10 backdrop-blur-md",
+                            "mt-8 rounded-[28px] bg-black/25 ring-1 ring-white/10 backdrop-blur-md",
                             "p-5 sm:p-6"
                         )}
                     >
@@ -114,9 +115,7 @@ export default function RpgShell({
                         <div className="h-px w-full bg-gradient-to-r from-white/0 via-white/15 to-white/0" />
                         <div className="mt-3 flex items-center justify-between">
                             <span>© Renaissance</span>
-                            <span className="hidden sm:inline">
-                                Placeholder UI, données plus tard.
-                            </span>
+                            <span className="hidden sm:inline">By @iamjulienjulien</span>
                         </div>
                     </div>
 

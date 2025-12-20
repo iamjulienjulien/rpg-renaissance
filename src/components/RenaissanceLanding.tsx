@@ -32,6 +32,11 @@ function adventureNameFromCode(code?: string | null) {
     return "Aventure";
 }
 
+function adventureEmojiFromCode(code?: string | null) {
+    if (code === "home_realignment") return "🏠";
+    return "";
+}
+
 export default function RenaissanceLanding() {
     const router = useRouter();
 
@@ -71,6 +76,14 @@ export default function RenaissanceLanding() {
                 subtitle: "Objets, ressources, reliques",
                 emoji: "🎒",
                 href: "/inventory",
+                disabled: false,
+            },
+            {
+                key: "account",
+                title: "Compte",
+                subtitle: "Profil, personnage, session",
+                emoji: "👤",
+                href: "/account",
                 disabled: false,
             },
             {
@@ -115,7 +128,7 @@ export default function RenaissanceLanding() {
                         </span>
                     </h1>
 
-                    <div className="mt-3 max-w-2xl text-sm text-white/60">
+                    <div className="mt-3 max-w-2xl rpg-text-sm text-white/60">
                         🛡️ Ton RPG du quotidien, à la lame douce 🗡️
                     </div>
 
@@ -138,12 +151,17 @@ export default function RenaissanceLanding() {
                         emoji={hasRun ? "🧭" : "🕯️"}
                         subtitle={
                             hasRun
-                                ? "Ton aventure t'attends. Tu peux reprendre ta progression."
-                                : "Commence par une aventure. Ensuite on préparera les pièces et les quêtes."
+                                ? adventureEmojiFromCode((chapter as any)?.adventure_code ?? null) +
+                                  " " +
+                                  adventureNameFromCode((chapter as any)?.adventure_code ?? null)
+                                : "Tu es au seuil du jeu. Clique sur ✨ Nouvelle aventure et choisis 🏠 Réalignement du foyer"
                         }
                         right={
                             hasRun ? (
-                                <ActionButton onClick={() => onNavigate("/quests")} variant="solid">
+                                <ActionButton
+                                    onClick={() => onNavigate("/adventure")}
+                                    variant="solid"
+                                >
                                     ▶️ Reprendre l'aventure
                                 </ActionButton>
                             ) : (
@@ -154,56 +172,37 @@ export default function RenaissanceLanding() {
                         }
                     >
                         {loading ? (
-                            <div className="rounded-2xl bg-black/30 p-4 text-sm text-white/60 ring-1 ring-white/10">
+                            <div className="rounded-2xl bg-black/30 p-4 rpg-text-sm text-white/60 ring-1 ring-white/10">
                                 ⏳ Lecture de l’état…
                             </div>
                         ) : hasRun ? (
-                            <div className="rounded-2xl bg-black/30 p-5 ring-1 ring-white/10">
-                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                        <div className="text-xs tracking-[0.22em] text-white/55">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    {/* <div className="text-xs tracking-[0.22em] text-white/55">
                                             🧭 AVENTURE DÉTECTÉE
-                                        </div>
+                                        </div> */}
 
-                                        <div className="mt-2 text-lg font-semibold text-white/90">
-                                            {adventureNameFromCode(
-                                                (chapter as any)?.adventure_code ?? null
-                                            )}
-                                        </div>
+                                    {/* <div className="text-lg font-semibold text-white/90">
+                                        {adventureEmojiFromCode(
+                                            (chapter as any)?.adventure_code ?? null
+                                        )}
+                                        &nbsp;
+                                        {adventureNameFromCode(
+                                            (chapter as any)?.adventure_code ?? null
+                                        )}
+                                    </div> */}
 
-                                        <div className="mt-4 grid gap-1">
-                                            <div className="text-sm font-semibold text-white/85">
-                                                ⚡ {chapter.title}
-                                            </div>
-                                            <div className="text-sm text-white/60">
-                                                🎯 Quête en cours
-                                            </div>
+                                    <div className="mt-1 grid gap-1">
+                                        <div className="rpg-text-sm text-white/60">
+                                            📖 Chapitre en cours : {chapter.title}
                                         </div>
-                                    </div>
-
-                                    <div className="flex flex-wrap gap-2">
-                                        <Pill>
-                                            {paceEmoji(chapter.pace)} {chapter.pace}
-                                        </Pill>
-                                        <Pill>📍 {chapter.status}</Pill>
+                                        <div className="rpg-text-sm text-white/60">
+                                            🎯 Quête en cours :
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        ) : (
-                            <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
-                                <div className="text-sm text-white/70">
-                                    Tu es au seuil du jeu. Clique sur{" "}
-                                    <span className="text-white/90 font-semibold">
-                                        ✨ Nouvelle aventure
-                                    </span>{" "}
-                                    et choisis{" "}
-                                    <span className="text-white/90 font-semibold">
-                                        🏠 Réalignement du foyer
-                                    </span>
-                                    .
-                                </div>
-                            </div>
-                        )}
+                        ) : null}
                     </Panel>
                 </div>
 
@@ -242,7 +241,7 @@ export default function RenaissanceLanding() {
                                             </div>
                                             {item.key === "new" ? <Pill>Setup</Pill> : null}
                                         </div>
-                                        <div className="mt-1 text-sm text-white/60">
+                                        <div className="mt-1 rpg-text-sm text-white/60">
                                             {item.subtitle}
                                         </div>
                                     </div>
@@ -257,7 +256,7 @@ export default function RenaissanceLanding() {
                 {/* Footer note */}
                 <div className="mt-8 rounded-2xl bg-black/20 p-4 ring-1 ring-white/10">
                     <div className="text-xs tracking-[0.18em] text-white/55">🧠 NOTE</div>
-                    <div className="mt-2 text-sm text-white/60">
+                    <div className="mt-2 rpg-text-sm text-white/60">
                         Ton flow cible: <span className="text-white/80">Aventure</span> →{" "}
                         <span className="text-white/80">Backlog de quêtes (IA)</span> →{" "}
                         <span className="text-white/80">Chapitre</span> →{" "}

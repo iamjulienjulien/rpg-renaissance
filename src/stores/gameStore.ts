@@ -1,3 +1,4 @@
+// src/stores/gameStore.ts
 import { create } from "zustand";
 
 type Chapter = {
@@ -31,11 +32,11 @@ type GameStore = {
     loadLatestChapter: () => Promise<void>;
     setChapter: (chapter: Chapter | null) => void;
 
-    loadActiveCharacter: (deviceId: string) => Promise<void>;
+    loadActiveCharacter: () => Promise<void>;
     setCharacter: (character: Character | null) => void;
 };
 
-export const useGameStore = create<GameStore>((set, get) => ({
+export const useGameStore = create<GameStore>((set) => ({
     chapter: null,
     chapterLoading: false,
 
@@ -49,8 +50,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ chapterLoading: true });
         try {
             const res = await fetch("/api/chapters?latest=1", { cache: "no-store" });
-            const json = await res.json();
-            set({ chapter: json.chapter ?? null });
+            const json = await res.json().catch(() => null);
+
+            if (!res.ok) {
+                console.error("loadLatestChapter failed:", json?.error ?? res.statusText);
+                set({ chapter: null });
+                return;
+            }
+
+            set({ chapter: json?.chapter ?? null });
         } catch (e) {
             console.error(e);
             set({ chapter: null });
@@ -59,14 +67,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
     },
 
-    loadActiveCharacter: async (deviceId: string) => {
+    // ✅ login-only: plus de deviceId
+    loadActiveCharacter: async () => {
         set({ characterLoading: true });
         try {
-            const res = await fetch(
-                `/api/profile/character?deviceId=${encodeURIComponent(deviceId)}`,
-                { cache: "no-store" }
-            );
-            const json = await res.json();
+            const res = await fetch("/api/profile/character", { cache: "no-store" });
+            const json = await res.json().catch(() => null);
+
+            if (!res.ok) {
+                console.error("loadActiveCharacter failed:", json?.error ?? res.statusText);
+                set({ character: null });
+                return;
+            }
+
             const character = json?.profile?.character ?? null;
             set({ character });
         } catch (e) {

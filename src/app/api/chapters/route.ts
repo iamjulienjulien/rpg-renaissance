@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
+import { getActiveSessionOrThrow } from "@/lib/sessions/getActiveSession";
 
 export async function GET(req: Request) {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
+    const session = await getActiveSessionOrThrow();
+
     const url = new URL(req.url);
 
     const id = url.searchParams.get("id");
@@ -34,6 +37,7 @@ export async function GET(req: Request) {
             .from("chapters")
             .select(selectWithAdventure)
             .eq("id", id)
+            .eq("session_id", session.id)
             .maybeSingle();
 
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -47,6 +51,7 @@ export async function GET(req: Request) {
         const { data, error } = await supabase
             .from("chapters")
             .select(selectWithAdventure)
+            .eq("session_id", session.id)
             .order("created_at", { ascending: false })
             .limit(1)
             .maybeSingle();
@@ -61,6 +66,7 @@ export async function GET(req: Request) {
     const { data, error } = await supabase
         .from("chapters")
         .select(selectWithAdventure)
+        .eq("session_id", session.id)
         .order("created_at", { ascending: false });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -71,7 +77,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
+    const session = await getActiveSessionOrThrow();
+
     const body = await req.json().catch(() => null);
 
     const adventure_id = typeof body?.adventure_id === "string" ? body.adventure_id : "";
@@ -89,11 +97,18 @@ export async function POST(req: Request) {
             title,
             pace,
             status: "draft",
+            session_id: session.id,
         })
-        .select("id,adventure_id,title,pace,status,created_at")
+        .select("id,adventure_id,title,pace,status,created_at,session_id")
         .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    return NextResponse.json({ chapter: data }, { status: 201 });
+    return NextResponse.json(
+        {
+            chapter: data,
+            journal: "best_effort",
+        },
+        { status: 201 }
+    );
 }

@@ -1,0 +1,680 @@
+"use client";
+
+import React, { useMemo, useState } from "react";
+import RpgShell from "@/components/RpgShell";
+import { ActionButton, Panel, Pill } from "@/components/RpgUi";
+import { useToastStore } from "@/stores/toastStore";
+import { useDevStore } from "@/stores/devStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+
+function cn(...classes: Array<string | false | null | undefined>) {
+    return classes.filter(Boolean).join(" ");
+}
+
+function SettingRow(props: {
+    emoji: string;
+    title: string;
+    description?: string;
+    value?: string;
+    right?: React.ReactNode;
+    tone?: "default" | "danger";
+}) {
+    const tone = props.tone ?? "default";
+
+    return (
+        <div
+            className={cn(
+                "rounded-2xl p-4 ring-1",
+                tone === "danger" ? "bg-red-500/10 ring-red-500/20" : "bg-black/30 ring-white/10"
+            )}
+        >
+            <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                        <div className="text-base" aria-hidden>
+                            {props.emoji}
+                        </div>
+                        <div className="rpg-text-sm font-semibold text-white/90">{props.title}</div>
+                    </div>
+
+                    {props.description ? (
+                        <div className="mt-1 rpg-text-sm text-white/60">{props.description}</div>
+                    ) : null}
+
+                    {props.value ? (
+                        <div className="mt-2 text-xs text-white/55">
+                            Valeur:{" "}
+                            <span className="text-white/80 font-semibold">{props.value}</span>
+                        </div>
+                    ) : null}
+                </div>
+
+                {props.right ? <div className="shrink-0">{props.right}</div> : null}
+            </div>
+        </div>
+    );
+}
+
+export default function SettingsPage() {
+    // UI placeholders (on branchera ensuite à localStorage / DB / profile)
+    const [audioEnabled, setAudioEnabled] = useState(true);
+    const [microFeedback, setMicroFeedback] = useState(true);
+    const [uiMode, setUiMode] = useState<"cinematic" | "minimal">("cinematic");
+    // const [textSize, setTextSize] = useState<"sm" | "md" | "lg">("md");
+    const [contrast, setContrast] = useState<"balanced" | "high">("balanced");
+    const [reduceMotion, setReduceMotion] = useState(false);
+
+    // Accessibilité (store)
+    const textSize = useSettingsStore((s) => s.textSize);
+    const setTextSize = useSettingsStore((s) => s.setTextSize);
+
+    const [aiTone, setAiTone] = useState<"calm" | "coach" | "strict">("calm");
+    const [aiVerbosity, setAiVerbosity] = useState<"short" | "normal" | "rich">("normal");
+    const [aiAutoBrief, setAiAutoBrief] = useState(true);
+
+    const [devLogs, setDevLogs] = useState(false);
+    const [devLatency, setDevLatency] = useState<"off" | "250" | "750">("off");
+    const [devOverlays, setDevOverlays] = useState(false);
+
+    const devEnabled = useDevStore((s) => s.enabled);
+    const toggleDev = useDevStore((s) => s.toggleEnabled);
+
+    const logsVerbose = useDevStore((s) => s.logsVerbose);
+    const setLogsVerbose = useDevStore((s) => s.setLogsVerbose);
+
+    const overlays = useDevStore((s) => s.overlays);
+    const setOverlays = useDevStore((s) => s.setOverlays);
+
+    const apiLatencyMs = useDevStore((s) => s.apiLatencyMs);
+    const setApiLatencyMs = useDevStore((s) => s.setApiLatencyMs);
+
+    const resetDevSettings = useDevStore((s) => s.resetDevSettings);
+
+    const [resetting, setResetting] = useState(false);
+
+    const toastSuccess = useToastStore((s) => s.success);
+    const toastError = useToastStore((s) => s.error);
+    const toastInfo = useToastStore((s) => s.info);
+
+    const resetGame = async () => {
+        const token = process.env.NEXT_PUBLIC_DEV_RESET_TOKEN ?? "";
+
+        if (!token) {
+            toastError("Reset impossible", "NEXT_PUBLIC_DEV_RESET_TOKEN manquant.");
+            return;
+        }
+
+        setResetting(true);
+        toastInfo("Reset en cours…", "On efface les traces du royaume 🧹");
+
+        try {
+            const res = await fetch("/api/dev/reset", {
+                method: "POST",
+                headers: {
+                    "x-dev-reset-token": token,
+                },
+            });
+
+            const json = await res.json().catch(() => null);
+
+            if (!res.ok) {
+                toastError("Reset échoué", json?.error ?? "unknown error");
+                return;
+            }
+
+            toastSuccess("Reset OK ✅", "Tout est remis à zéro.");
+            window.location.href = "/";
+        } catch (e) {
+            console.error(e);
+            toastError("Reset échoué", "Erreur réseau ou serveur.");
+        } finally {
+            setResetting(false);
+        }
+    };
+
+    const devActions = useMemo(() => {
+        return [
+            {
+                key: "seed",
+                emoji: "🌱",
+                title: "Seed de démo",
+                description: "Recrée une aventure + pièces + backlog (pour tests rapides).",
+                value: "Placeholder",
+                action: () => alert("TODO: seed demo"),
+                cta: "🌱 Seed",
+            },
+            {
+                key: "snap",
+                emoji: "📸",
+                title: "Snapshot UI",
+                description: "Capture/trace l’état UI pour débugger plus tard.",
+                value: "Placeholder",
+                action: () => alert("TODO: snapshot"),
+                cta: "📸 Capturer",
+            },
+        ];
+    }, []);
+
+    return (
+        <RpgShell
+            title="Réglages"
+            subtitle="Ambiance, accessibilité, préférences du Maître du Jeu, et outils DEV."
+            rightSlot={
+                <div className="flex items-center gap-2">
+                    <Pill>⌨️ S</Pill>
+                    <Pill>⚙️ Settings</Pill>
+                    <Pill>🧪 Dev</Pill>
+                </div>
+            }
+        >
+            <div className="grid gap-4 lg:grid-cols-2">
+                {/* AMBIANCE */}
+                <Panel
+                    title="Ambiance"
+                    emoji="🎧"
+                    subtitle="Sons, feedback, atmosphère."
+                    right={
+                        <ActionButton onClick={() => alert("TODO: play UI sound")} variant="solid">
+                            🔊 Tester
+                        </ActionButton>
+                    }
+                >
+                    <div className="grid gap-2">
+                        <SettingRow
+                            emoji={audioEnabled ? "🔊" : "🔇"}
+                            title="Son"
+                            description="Activer/désactiver les sons d’interface et l’ambiance."
+                            value={audioEnabled ? "Activé" : "Désactivé"}
+                            right={
+                                <ActionButton
+                                    variant="soft"
+                                    onClick={() => setAudioEnabled((v) => !v)}
+                                >
+                                    {audioEnabled ? "🔇 Couper" : "🔊 Activer"}
+                                </ActionButton>
+                            }
+                        />
+
+                        <SettingRow
+                            emoji="✨"
+                            title="Micro-feedback"
+                            description="Hover/click/validation: petits signaux qui rendent le jeu “vivant”."
+                            value={microFeedback ? "On" : "Off"}
+                            right={
+                                <ActionButton
+                                    variant="soft"
+                                    onClick={() => setMicroFeedback((v) => !v)}
+                                >
+                                    {microFeedback ? "🧊 Calmer" : "✨ Activer"}
+                                </ActionButton>
+                            }
+                        />
+
+                        <SettingRow
+                            emoji="🎚️"
+                            title="Niveau d’ambiance"
+                            description="Plus tard: intensité, musique, ambiance par chapitre."
+                            value="Placeholder"
+                            right={<Pill>à venir</Pill>}
+                        />
+                    </div>
+                </Panel>
+
+                {/* INTERFACE */}
+                <Panel title="Interface" emoji="🖼️" subtitle="Look & feel de Renaissance.">
+                    <div className="grid gap-2">
+                        <SettingRow
+                            emoji="🌌"
+                            title="Style"
+                            description="Cinematic: plus de matière. Minimal: plus d’efficacité."
+                            value={uiMode === "cinematic" ? "Cinematic" : "Minimal"}
+                            right={
+                                <div className="flex items-center gap-2">
+                                    <ActionButton
+                                        variant={uiMode === "cinematic" ? "solid" : "soft"}
+                                        onClick={() => setUiMode("cinematic")}
+                                    >
+                                        🌌
+                                    </ActionButton>
+                                    <ActionButton
+                                        variant={uiMode === "minimal" ? "solid" : "soft"}
+                                        onClick={() => setUiMode("minimal")}
+                                    >
+                                        🧾
+                                    </ActionButton>
+                                </div>
+                            }
+                        />
+
+                        <SettingRow
+                            emoji="🌀"
+                            title="Réduire les animations"
+                            description="Utile sur machines modestes, ou en phase dev."
+                            value={reduceMotion ? "Oui" : "Non"}
+                            right={
+                                <ActionButton
+                                    variant="soft"
+                                    onClick={() => setReduceMotion((v) => !v)}
+                                >
+                                    {reduceMotion ? "✅ On" : "🌀 Off"}
+                                </ActionButton>
+                            }
+                        />
+
+                        <SettingRow
+                            emoji="🧼"
+                            title="Nettoyer l’interface"
+                            description="Plus tard: masquer labels DEV, hints, badges."
+                            value="Placeholder"
+                            right={<Pill>à venir</Pill>}
+                        />
+                    </div>
+                </Panel>
+
+                {/* MAÎTRE DU JEU (IA) */}
+                <Panel
+                    title="Maître du Jeu"
+                    emoji="🧙"
+                    subtitle="Le ton de l’IA, sa façon de te guider."
+                >
+                    <div className="grid gap-2">
+                        <SettingRow
+                            emoji="🗣️"
+                            title="Ton du MJ"
+                            description="Calme: doux. Coach: motivant. Strict: cadré."
+                            value={
+                                aiTone === "calm"
+                                    ? "Calme"
+                                    : aiTone === "coach"
+                                      ? "Coach"
+                                      : "Strict"
+                            }
+                            right={
+                                <div className="flex items-center gap-2">
+                                    <ActionButton
+                                        variant={aiTone === "calm" ? "solid" : "soft"}
+                                        onClick={() => setAiTone("calm")}
+                                    >
+                                        🌿
+                                    </ActionButton>
+                                    <ActionButton
+                                        variant={aiTone === "coach" ? "solid" : "soft"}
+                                        onClick={() => setAiTone("coach")}
+                                    >
+                                        🥊
+                                    </ActionButton>
+                                    <ActionButton
+                                        variant={aiTone === "strict" ? "solid" : "soft"}
+                                        onClick={() => setAiTone("strict")}
+                                    >
+                                        📏
+                                    </ActionButton>
+                                </div>
+                            }
+                        />
+
+                        <SettingRow
+                            emoji="📜"
+                            title="Densité des réponses"
+                            description="Short: direct. Normal: équilibré. Rich: narratif."
+                            value={
+                                aiVerbosity === "short"
+                                    ? "Short"
+                                    : aiVerbosity === "normal"
+                                      ? "Normal"
+                                      : "Rich"
+                            }
+                            right={
+                                <div className="flex items-center gap-2">
+                                    <ActionButton
+                                        variant={aiVerbosity === "short" ? "solid" : "soft"}
+                                        onClick={() => setAiVerbosity("short")}
+                                    >
+                                        ⚡
+                                    </ActionButton>
+                                    <ActionButton
+                                        variant={aiVerbosity === "normal" ? "solid" : "soft"}
+                                        onClick={() => setAiVerbosity("normal")}
+                                    >
+                                        🧭
+                                    </ActionButton>
+                                    <ActionButton
+                                        variant={aiVerbosity === "rich" ? "solid" : "soft"}
+                                        onClick={() => setAiVerbosity("rich")}
+                                    >
+                                        ✒️
+                                    </ActionButton>
+                                </div>
+                            }
+                        />
+
+                        <SettingRow
+                            emoji="🪧"
+                            title="Brief automatique des missions"
+                            description="Génère automatiquement l’ordre de mission à la création."
+                            value={aiAutoBrief ? "Activé" : "Désactivé"}
+                            right={
+                                <ActionButton
+                                    variant="soft"
+                                    onClick={() => setAiAutoBrief((v) => !v)}
+                                >
+                                    {aiAutoBrief ? "✅ On" : "🪧 Off"}
+                                </ActionButton>
+                            }
+                        />
+                    </div>
+                </Panel>
+
+                {/* ACCESSIBILITÉ */}
+                <Panel title="Accessibilité" emoji="🧑‍🦯" subtitle="Lisibilité et confort.">
+                    <div className="grid gap-2">
+                        <SettingRow
+                            emoji="🔎"
+                            title="Taille du texte"
+                            description="Ajuste la taille globale (UI + briefs)."
+                            value={
+                                textSize === "sm"
+                                    ? "Petit"
+                                    : textSize === "md"
+                                      ? "Standard"
+                                      : textSize === "lg"
+                                        ? "Grand"
+                                        : "Très grand"
+                            }
+                            right={
+                                <div className="flex items-center gap-2">
+                                    <ActionButton
+                                        variant={textSize === "sm" ? "solid" : "soft"}
+                                        onClick={() => setTextSize("sm")}
+                                    >
+                                        A-
+                                    </ActionButton>
+                                    <ActionButton
+                                        variant={textSize === "md" ? "solid" : "soft"}
+                                        onClick={() => setTextSize("md")}
+                                    >
+                                        A
+                                    </ActionButton>
+                                    <ActionButton
+                                        variant={textSize === "lg" ? "solid" : "soft"}
+                                        onClick={() => setTextSize("lg")}
+                                    >
+                                        A+
+                                    </ActionButton>
+                                    <ActionButton
+                                        variant={textSize === "xl" ? "solid" : "soft"}
+                                        onClick={() => setTextSize("xl")}
+                                    >
+                                        A++
+                                    </ActionButton>
+                                </div>
+                            }
+                        />
+
+                        <SettingRow
+                            emoji="🌓"
+                            title="Contraste"
+                            description="High: plus lisible. Balanced: plus doux."
+                            value={contrast === "high" ? "Élevé" : "Équilibré"}
+                            right={
+                                <ActionButton
+                                    variant="soft"
+                                    onClick={() =>
+                                        setContrast((v) => (v === "high" ? "balanced" : "high"))
+                                    }
+                                >
+                                    {contrast === "high" ? "🌓 Balanced" : "🌗 High"}
+                                </ActionButton>
+                            }
+                        />
+
+                        <SettingRow
+                            emoji="🎯"
+                            title="Focus visible"
+                            description="Plus tard: anneau de focus renforcé pour navigation clavier."
+                            value="Placeholder"
+                            right={<Pill>à venir</Pill>}
+                        />
+                    </div>
+                </Panel>
+
+                {/* CLAVIER */}
+                <Panel title="Clavier" emoji="⌨️" subtitle="Raccourcis et navigation.">
+                    <div className="grid gap-2">
+                        <SettingRow
+                            emoji="🧭"
+                            title="Navigation clavier"
+                            description="⬆️⬇️ pour naviguer, ⏎ pour valider, Esc pour fermer."
+                            value="Actif (placeholder)"
+                            right={<Pill>OK</Pill>}
+                        />
+
+                        <SettingRow
+                            emoji="⌘K"
+                            title="Command Palette"
+                            description="Plus tard: commandes globales (Go to, actions, debug)."
+                            value="Placeholder"
+                            right={<Pill>à venir</Pill>}
+                        />
+
+                        <SettingRow
+                            emoji="🧩"
+                            title="Remap touches"
+                            description="Plus tard: personnaliser H/J/K/L, Enter, etc."
+                            value="Placeholder"
+                            right={<Pill>à venir</Pill>}
+                        />
+                    </div>
+                </Panel>
+
+                {/* DONNÉES */}
+                <Panel title="Données" emoji="🗄️" subtitle="Sauvegarde et confidentialité.">
+                    <div className="grid gap-2">
+                        <SettingRow
+                            emoji="☁️"
+                            title="Synchronisation"
+                            description="Plus tard: auto-sync Supabase, offline-first."
+                            value="Placeholder"
+                            right={<Pill>à venir</Pill>}
+                        />
+
+                        <SettingRow
+                            emoji="🧾"
+                            title="Exporter"
+                            description="Export JSON du journal, quêtes, chapitres (pour backup)."
+                            value="Placeholder"
+                            right={
+                                <ActionButton variant="soft" onClick={() => alert("TODO: export")}>
+                                    📤 Export
+                                </ActionButton>
+                            }
+                        />
+
+                        <SettingRow
+                            emoji="🧽"
+                            title="Effacer cache local"
+                            description="LocalStorage / IndexedDB (si utilisé plus tard)."
+                            value="Placeholder"
+                            right={
+                                <ActionButton
+                                    variant="soft"
+                                    onClick={() => alert("TODO: clear cache")}
+                                >
+                                    🧽 Nettoyer
+                                </ActionButton>
+                            }
+                        />
+                    </div>
+                </Panel>
+
+                {/* DEV */}
+                <Panel
+                    title="Développement"
+                    emoji="🧪"
+                    subtitle="Outils temporaires pour itérer vite."
+                    right={
+                        <div className="flex items-center gap-2">
+                            <Pill>{devEnabled ? "🧪 DEV ON" : "🧪 DEV OFF"}</Pill>
+                            <ActionButton variant="solid" onClick={toggleDev}>
+                                {devEnabled ? "✅ Activé" : "⛔ Désactivé"}
+                            </ActionButton>
+                        </div>
+                    }
+                >
+                    <div className="grid gap-2">
+                        {/* Logs */}
+                        <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <div className="rpg-text-sm font-semibold text-white/85">
+                                        🪵 Logs détaillés
+                                    </div>
+                                    <div className="mt-1 rpg-text-sm text-white/60">
+                                        Afficher logs UI + requêtes réseau.
+                                    </div>
+                                    <div className="mt-2 text-xs text-white/50">
+                                        Valeur:{" "}
+                                        <span className="text-white/70">
+                                            {logsVerbose ? "On" : "Off"}
+                                        </span>
+                                    </div>
+                                </div>
+                                <ActionButton
+                                    variant="soft"
+                                    disabled={!devEnabled}
+                                    onClick={() => setLogsVerbose(!logsVerbose)}
+                                >
+                                    {logsVerbose ? "🟢 On" : "⚫ Off"}
+                                </ActionButton>
+                            </div>
+                        </div>
+
+                        {/* Latence API */}
+                        <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <div className="rpg-text-sm font-semibold text-white/85">
+                                        🦖 Simuler latence API
+                                    </div>
+                                    <div className="mt-1 rpg-text-sm text-white/60">
+                                        Pour tester loaders, états vides, et transitions.
+                                    </div>
+                                    <div className="mt-2 text-xs text-white/50">
+                                        Valeur:{" "}
+                                        <span className="text-white/70">
+                                            {apiLatencyMs === 0 ? "Off" : `${apiLatencyMs}ms`}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <ActionButton
+                                        variant="soft"
+                                        disabled={!devEnabled}
+                                        onClick={() =>
+                                            setApiLatencyMs(apiLatencyMs === 0 ? 250 : 0)
+                                        }
+                                    >
+                                        {apiLatencyMs === 0 ? "⚫ Off" : "⚡ On"}
+                                    </ActionButton>
+
+                                    <ActionButton
+                                        variant="soft"
+                                        disabled={!devEnabled}
+                                        onClick={() => setApiLatencyMs(250)}
+                                    >
+                                        250
+                                    </ActionButton>
+
+                                    <ActionButton
+                                        variant="soft"
+                                        disabled={!devEnabled}
+                                        onClick={() => setApiLatencyMs(750)}
+                                    >
+                                        750
+                                    </ActionButton>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Overlays */}
+                        <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <div className="rpg-text-sm font-semibold text-white/85">
+                                        🧷 Overlays DEV
+                                    </div>
+                                    <div className="mt-1 rpg-text-sm text-white/60">
+                                        Afficher ids, room_code, états, etc.
+                                    </div>
+                                    <div className="mt-2 text-xs text-white/50">
+                                        Valeur:{" "}
+                                        <span className="text-white/70">
+                                            {overlays ? "On" : "Off"}
+                                        </span>
+                                    </div>
+                                </div>
+                                <ActionButton
+                                    variant="soft"
+                                    disabled={!devEnabled}
+                                    onClick={() => setOverlays(!overlays)}
+                                >
+                                    {overlays ? "🟢 On" : "⚫ Off"}
+                                </ActionButton>
+                            </div>
+                        </div>
+
+                        <div className="mt-2 grid gap-2">
+                            {devActions.map((a) => (
+                                <SettingRow
+                                    key={a.key}
+                                    emoji={a.emoji}
+                                    title={a.title}
+                                    description={a.description}
+                                    value={a.value}
+                                    right={
+                                        <ActionButton variant="soft" onClick={a.action}>
+                                            {a.cta}
+                                        </ActionButton>
+                                    }
+                                />
+                            ))}
+                        </div>
+
+                        {/* Actions DEV */}
+                        <div className="rounded-2xl bg-red-500/10 p-4 ring-1 ring-red-500/20">
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <div className="rpg-text-sm font-semibold text-white/85">
+                                        ☠️ Danger zone
+                                    </div>
+                                    <div className="mt-1 rpg-text-sm text-white/60">
+                                        Actions destructives. Uniquement en DEV.
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-2">
+                                    <ActionButton
+                                        variant="soft"
+                                        disabled={!devEnabled}
+                                        onClick={resetDevSettings}
+                                    >
+                                        🧽 Reset DEV settings
+                                    </ActionButton>
+
+                                    <ActionButton
+                                        variant="solid"
+                                        disabled={!devEnabled || resetting}
+                                        onClick={() => void resetGame()}
+                                    >
+                                        {resetting ? "⏳ Reset…" : "💥 Reset (DEV)"}
+                                    </ActionButton>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </Panel>
+            </div>
+        </RpgShell>
+    );
+}

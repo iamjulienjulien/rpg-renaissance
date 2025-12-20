@@ -9,7 +9,7 @@ function extractCode(req: Request) {
 }
 
 export async function GET(req: Request) {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
     const code = extractCode(req);
 
     if (!code) return NextResponse.json({ error: "Missing adventure code" }, { status: 400 });

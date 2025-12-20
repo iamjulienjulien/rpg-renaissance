@@ -13,7 +13,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Invalid reset token" }, { status: 401 });
     }
 
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
 
     const { error } = await supabase.rpc("reset_game");
 

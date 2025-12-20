@@ -214,13 +214,13 @@ export default function RoomsSelector(props: { adventureId: string; onChanged?: 
 
     return (
         <Panel
-            title="Pièces du foyer"
+            title="Carte du foyer"
             emoji="🏠"
-            subtitle="Active des pièces de base, ou ajoute tes pièces personnalisées."
-            right={<ActionButton onClick={() => void reload()}>🔄 Recharger</ActionButton>}
+            subtitle="Choisis les pièces qui comptent. Les quêtes s’y accrocheront.."
+            // right={<ActionButton onClick={() => void reload()}>🔄 Recharger</ActionButton>}
         >
             {loading ? (
-                <div className="rounded-2xl bg-black/30 p-4 text-sm text-white/60 ring-1 ring-white/10">
+                <div className="rounded-2xl bg-black/30 p-4 rpg-text-sm text-white/60 ring-1 ring-white/10">
                     ⏳ Chargement des pièces…
                 </div>
             ) : (
@@ -228,7 +228,7 @@ export default function RoomsSelector(props: { adventureId: string; onChanged?: 
                     {/* Templates */}
                     <div className="rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
                         <div className="flex items-center justify-between gap-3">
-                            <div className="text-sm font-semibold text-white/85">
+                            <div className="rpg-text-sm font-semibold text-white/85">
                                 🧱 Pièces de base (bibliothèque)
                             </div>
                             <Pill>{templates.length} modèles</Pill>
@@ -277,7 +277,7 @@ export default function RoomsSelector(props: { adventureId: string; onChanged?: 
                     {/* Custom */}
                     <div className="rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
                         <div className="flex items-center justify-between gap-3">
-                            <div className="text-sm font-semibold text-white/85">
+                            <div className="rpg-text-sm font-semibold text-white/85">
                                 ✨ Pièces personnalisées (cette aventure)
                             </div>
                             <Pill>{customRooms.length} pièces</Pill>
@@ -288,12 +288,12 @@ export default function RoomsSelector(props: { adventureId: string; onChanged?: 
                                 value={customTitle}
                                 onChange={(e) => setCustomTitle(e.target.value)}
                                 placeholder="Ex: Chambre de Louise, Cellier, Balcon…"
-                                className="h-11 w-full rounded-2xl bg-black/30 px-4 text-sm text-white/85 ring-1 ring-white/10 outline-none placeholder:text-white/35 focus:ring-white/20"
+                                className="h-11 w-full rounded-2xl bg-black/30 px-4 rpg-text-sm text-white/85 ring-1 ring-white/10 outline-none placeholder:text-white/35 focus:ring-white/20"
                             />
                             <button
                                 onClick={() => void addCustomRoom()}
                                 className={cn(
-                                    "h-11 shrink-0 rounded-2xl bg-white/5 px-4 text-sm text-white/85 ring-1 ring-white/10 transition hover:bg-white/10",
+                                    "h-11 shrink-0 rounded-2xl bg-white/5 px-4 rpg-text-sm text-white/85 ring-1 ring-white/10 transition hover:bg-white/10",
                                     (!customTitle.trim() || busyCode === slugify(customTitle)) &&
                                         "opacity-60 pointer-events-none"
                                 )}
@@ -319,7 +319,7 @@ export default function RoomsSelector(props: { adventureId: string; onChanged?: 
                                                 )}
                                             >
                                                 <div className="min-w-0">
-                                                    <div className="truncate text-sm text-white/85">
+                                                    <div className="truncate rpg-text-sm text-white/85">
                                                         🧩 {r.title}
                                                     </div>
                                                     <div className="truncate text-xs text-white/45">
@@ -341,7 +341,7 @@ export default function RoomsSelector(props: { adventureId: string; onChanged?: 
                                     })}
                             </div>
                         ) : (
-                            <div className="mt-3 rounded-2xl bg-black/30 p-4 text-sm text-white/60 ring-1 ring-white/10">
+                            <div className="mt-3 rounded-2xl bg-black/30 p-4 rpg-text-sm text-white/60 ring-1 ring-white/10">
                                 Aucune pièce personnalisée. Ajoute-en une si ton foyer a des zones
                                 uniques 🗝️
                             </div>

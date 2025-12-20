@@ -31,7 +31,7 @@ export default function CommandPalette() {
 
             <div className="absolute left-1/2 top-24 w-[min(720px,calc(100vw-32px))] -translate-x-1/2 rounded-3xl bg-black/70 p-4 ring-1 ring-white/15 backdrop-blur-xl">
                 <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm text-white/80">
+                    <div className="rpg-text-sm text-white/80">
                         ⌘K Command Palette
                         <span className="ml-2 text-xs text-white/50">Esc pour fermer</span>
                     </div>
@@ -53,7 +53,7 @@ export default function CommandPalette() {
                             key={it.href}
                             onClick={() => go(it.href)}
                             className={cn(
-                                "w-full rounded-2xl bg-white/5 px-4 py-3 text-left text-sm text-white/80 ring-1 ring-white/10",
+                                "w-full rounded-2xl bg-white/5 px-4 py-3 text-left rpg-text-sm text-white/80 ring-1 ring-white/10",
                                 "hover:bg-white/10 hover:ring-white/15 transition"
                             )}
                         >

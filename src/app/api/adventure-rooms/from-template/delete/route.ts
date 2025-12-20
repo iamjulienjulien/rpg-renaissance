@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
+import { getActiveSessionOrThrow } from "@/lib/sessions/getActiveSession";
 
 export async function DELETE(req: Request) {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
     const url = new URL(req.url);
 
     const adventureId = url.searchParams.get("adventureId") ?? "";
@@ -12,7 +13,10 @@ export async function DELETE(req: Request) {
         return NextResponse.json({ error: "Missing adventureId or templateCode" }, { status: 400 });
     }
 
-    // Trouver le template id
+    // ✅ session active (multi-partie)
+    const session = await getActiveSessionOrThrow();
+
+    // 1) Trouver le template id
     const { data: tpl, error: tplErr } = await supabase
         .from("room_templates")
         .select("id")
@@ -22,14 +26,15 @@ export async function DELETE(req: Request) {
     if (tplErr) return NextResponse.json({ error: tplErr.message }, { status: 500 });
     if (!tpl) return NextResponse.json({ error: "Template not found" }, { status: 404 });
 
-    // Supprimer la room active correspondante
-    const { error: delErr } = await supabase
+    // 2) Supprimer la room active correspondante (scopée session)
+    const { error: delErr, count } = await supabase
         .from("adventure_rooms")
-        .delete()
+        .delete({ count: "exact" })
         .eq("adventure_id", adventureId)
-        .eq("template_id", tpl.id);
+        .eq("template_id", tpl.id)
+        .eq("session_id", session.id); // ✅ important
 
     if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, deleted: count ?? 0 });
 }

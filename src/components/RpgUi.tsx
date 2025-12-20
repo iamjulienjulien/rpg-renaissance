@@ -28,12 +28,14 @@ export function Panel({
                         {emoji ? `${emoji} ` : ""}
                         {title.toUpperCase()}
                     </div>
-                    {subtitle ? <div className="mt-2 text-sm text-white/60">{subtitle}</div> : null}
+                    {subtitle ? (
+                        <div className="mt-2 rpg-text-sm text-white/60">{subtitle}</div>
+                    ) : null}
                 </div>
                 {right ? <div className="shrink-0">{right}</div> : null}
             </div>
 
-            <div className="mt-4">{children}</div>
+            <div className={subtitle ? "mt-4" : "mt-2"}>{children}</div>
         </div>
     );
 }
@@ -74,7 +76,7 @@ function useUiAction(action?: UiAction) {
 export function ActionButton(props: {
     children: React.ReactNode;
     onClick?: () => void;
-    variant?: "soft" | "solid";
+    variant?: "soft" | "solid" | "master";
     disabled?: boolean;
 
     /**
@@ -91,18 +93,52 @@ export function ActionButton(props: {
 }) {
     const disabled = !!props.disabled;
 
-    // ✅ Si onClick est fourni, il gagne.
-    // ✅ Sinon, si action est fourni, on utilise le store.
     const storeAction = useUiAction(props.action);
     const onClick = props.onClick ?? storeAction;
 
+    // 🌈 Variante MASTER (inspirée de MasterCard)
+    if (props.variant === "master") {
+        return (
+            <button
+                type="button"
+                onClick={disabled ? undefined : onClick}
+                disabled={disabled}
+                className={cn(
+                    "rounded-[20px] p-[1.5px]",
+                    "bg-gradient-to-br from-cyan-400 via-fuchsia-500 to-emerald-400",
+                    "transition hover:brightness-110 active:brightness-95",
+                    disabled && "opacity-60 pointer-events-none"
+                )}
+            >
+                <span
+                    className={cn(
+                        "inline-flex w-full items-center gap-2 rounded-[18px]",
+                        "px-4 py-2 rpg-text-sm font-semibold",
+                        "bg-black/90 backdrop-blur",
+                        "text-white/90 ring-1 ring-white/10",
+                        "hover:bg-black/85"
+                    )}
+                >
+                    <span>{props.children}</span>
+
+                    {props.hint ? (
+                        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/80 ring-1 ring-white/15">
+                            {props.hint}
+                        </span>
+                    ) : null}
+                </span>
+            </button>
+        );
+    }
+
+    // ✅ Variants existants (inchangés)
     return (
         <button
             type="button"
             onClick={disabled ? undefined : onClick}
             disabled={disabled}
             className={cn(
-                "inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm ring-1 transition",
+                "inline-flex items-center gap-2 rounded-2xl px-4 py-2 rpg-text-sm ring-1 transition",
                 props.variant === "solid"
                     ? "bg-white/10 text-white ring-white/15 hover:bg-white/15"
                     : "bg-white/5 text-white/80 ring-white/10 hover:bg-white/10",
@@ -110,6 +146,7 @@ export function ActionButton(props: {
             )}
         >
             <span>{props.children}</span>
+
             {props.hint ? (
                 <span className="rounded-full bg-black/30 px-2 py-0.5 text-[11px] text-white/60 ring-1 ring-white/10">
                     {props.hint}
