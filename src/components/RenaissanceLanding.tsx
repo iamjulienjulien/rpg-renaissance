@@ -55,6 +55,8 @@ export default function RenaissanceLanding() {
     const loading = useGameStore((s) => s.chapterLoading);
     const bootstrap = useGameStore((s) => s.bootstrap);
 
+    const activeCharacter = useGameStore((s) => s.profile?.character ?? null);
+
     const menu = useMemo(() => {
         return [
             {
@@ -157,7 +159,84 @@ export default function RenaissanceLanding() {
 
                 {/* ✅ Status banner (sans raccourcis) */}
                 <div className="mt-8">
-                    <Panel
+                    {hasRun && (
+                        <>
+                            <Panel>
+                                <div className="flex justify-between gap-4">
+                                    <div className="flex-1">
+                                        <div className="text-[11px] tracking-[0.18em] text-white/55">
+                                            🧭 AVENTURE
+                                        </div>
+                                        <div className="mt-2 rpg-text-sm text-white/80">
+                                            🏠 Réalignement du foyer
+                                        </div>
+                                        <div className="mt-1 grid gap-1">
+                                            <div className="rpg-text-sm text-white/60">
+                                                📖 {getCurrentChapterName()}
+                                            </div>
+                                            <div className="rpg-text-sm text-white/40">
+                                                🎯 Quête : {getCurrentQuestsName()}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 text-center">
+                                        <ActionButton
+                                            onClick={() => onNavigate("/adventure")}
+                                            variant="solid"
+                                        >
+                                            ▶️ Reprendre l'aventure
+                                        </ActionButton>
+                                        <div className="mt-4 text-center">
+                                            <RenownScoreboard />
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 text-right">
+                                        <div className="text-[11px] tracking-[0.18em] text-white/55">
+                                            🧙‍♀️ PERSONNAGE
+                                        </div>
+
+                                        <div className="mt-2 inline-flex max-w-[320px] items-center gap-3 rounded-2xl bg-black/25 text-right">
+                                            {/* 🧾 Infos */}
+                                            <div className="min-w-0 text-left">
+                                                <div className="truncate text- font-semibold text-white/80">
+                                                    {activeCharacter?.name ?? "Aucun personnage"}
+                                                </div>
+
+                                                <div className="mt-0.5 truncate textx] text-white/60 text-right">
+                                                    {activeCharacter
+                                                        ? `${activeCharacter.emoji ?? "🧙"} ${activeCharacter.archetype ?? "Aventure"}`
+                                                        : "Choisis un avatar pour colorer le ton"}
+                                                </div>
+
+                                                {/* {activeCharacter?.motto ? (
+                                                    <div className="mt-1 truncate text-[11px] text-white/40">
+                                                        “{activeCharacter.motto}”
+                                                    </div>
+                                                ) : null} */}
+                                            </div>
+
+                                            {/* 🖼️ Avatar */}
+                                            <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10">
+                                                {activeCharacter?.code ? (
+                                                    <img
+                                                        src={`/assets/images/characters/${activeCharacter.code}.png`}
+                                                        alt={activeCharacter.name ?? "Personnage"}
+                                                        className="h-full w-full object-cover"
+                                                        draggable={false}
+                                                    />
+                                                ) : (
+                                                    <span className="text-xl">
+                                                        {activeCharacter?.emoji ?? "🧙"}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Panel>
+                        </>
+                    )}
+                    {/* <Panel
                         title={hasRun ? "Aventure détectée" : "Aucune aventure en cours"}
                         emoji={hasRun ? "🧭" : "🕯️"}
                         subtitle={
@@ -192,19 +271,7 @@ export default function RenaissanceLanding() {
                         ) : hasRun ? (
                             <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                    {/* <div className="text-xs tracking-[0.22em] text-white/55">
-                                            🧭 AVENTURE DÉTECTÉE
-                                        </div> */}
-
-                                    {/* <div className="text-lg font-semibold text-white/90">
-                                        {adventureEmojiFromCode(
-                                            (chapter as any)?.adventure_code ?? null
-                                        )}
-                                        &nbsp;
-                                        {adventureNameFromCode(
-                                            (chapter as any)?.adventure_code ?? null
-                                        )}
-                                    </div> */}
+                            
 
                                     <div className="mt-1 grid gap-1">
                                         <div className="rpg-text-sm text-white/60">
@@ -217,7 +284,7 @@ export default function RenaissanceLanding() {
                                 </div>
                             </div>
                         ) : null}
-                    </Panel>
+                    </Panel> */}
                 </div>
 
                 {/* ✅ Main menu (sans "Reprendre") */}

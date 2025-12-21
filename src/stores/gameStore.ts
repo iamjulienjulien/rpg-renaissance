@@ -232,7 +232,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const session = (json?.session ?? null) as GameSession | null;
 
         const sessionId = session?.id ?? null;
-        console.log("sessionId", sessionId);
+        // console.log("sessionId", sessionId);
 
         try {
             // ✅ 1) Ce qui ne dépend de rien (en parallèle)

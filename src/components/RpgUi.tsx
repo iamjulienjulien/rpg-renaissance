@@ -14,7 +14,7 @@ export function Panel({
     right,
     children,
 }: {
-    title: string;
+    title?: string;
     subtitle?: string;
     emoji?: string;
     right?: React.ReactNode;
@@ -22,20 +22,22 @@ export function Panel({
 }) {
     return (
         <div className="rounded-2xl bg-black/25 p-5 ring-1 ring-white/10">
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                    <div className="text-[11px] tracking-[0.18em] text-white/55">
-                        {emoji ? `${emoji} ` : ""}
-                        {title.toUpperCase()}
+            {title && (
+                <div className="flex items-start justify-between gap-3">
+                    <div>
+                        <div className="text-[11px] tracking-[0.18em] text-white/55">
+                            {emoji ? `${emoji} ` : ""}
+                            {title ? title.toUpperCase() : ""}
+                        </div>
+                        {subtitle ? (
+                            <div className="mt-2 rpg-text-sm text-white/60">{subtitle}</div>
+                        ) : null}
                     </div>
-                    {subtitle ? (
-                        <div className="mt-2 rpg-text-sm text-white/60">{subtitle}</div>
-                    ) : null}
+                    {right ? <div className="shrink-0">{right}</div> : null}
                 </div>
-                {right ? <div className="shrink-0">{right}</div> : null}
-            </div>
+            )}
 
-            <div className={subtitle ? "mt-4" : "mt-2"}>{children}</div>
+            <div className={!title ? "" : subtitle ? "mt-4" : "mt-2"}>{children}</div>
         </div>
     );
 }
