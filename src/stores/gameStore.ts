@@ -106,6 +106,20 @@ export type RenownGainEvent = {
     reason?: string;
 };
 
+export type Encouragement = {
+    title: string;
+    message: string;
+    createdAt: number;
+    meta?: {
+        model?: string;
+        tone?: string;
+        style?: string;
+        verbosity?: string;
+        character_name?: string | null;
+        character_emoji?: string | null;
+    };
+};
+
 /* ============================================================================
 🏪 FONCTIONS
 ============================================================================ */
@@ -204,6 +218,21 @@ type GameStore = {
 
     lastRenownGain: RenownGainEvent | null;
     clearLastRenownGain: () => void;
+
+    encouragementByChapterQuestId: Record<string, Encouragement | undefined>;
+    encouragementLoading: boolean;
+
+    askEncouragement: (
+        chapterQuestId: string,
+        input: {
+            quest_title: string;
+            room_code?: string | null;
+            difficulty?: number | null;
+            mission_md?: string | null;
+        }
+    ) => Promise<Encouragement | null>;
+
+    clearEncouragement: (chapterQuestId: string) => void;
 };
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -673,6 +702,61 @@ export const useGameStore = create<GameStore>((set, get) => ({
             return null;
         } finally {
             set({ renownLoading: false });
+        }
+    },
+
+    encouragementByChapterQuestId: {},
+    encouragementLoading: false,
+
+    clearEncouragement: (chapterQuestId) =>
+        set((s) => {
+            const next = { ...s.encouragementByChapterQuestId };
+            delete next[chapterQuestId];
+            return { encouragementByChapterQuestId: next };
+        }),
+
+    askEncouragement: async (chapterQuestId, input) => {
+        try {
+            set({ encouragementLoading: true });
+
+            const res = await fetch("/api/encouragement", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(input),
+            });
+
+            const json = await res.json().catch(() => null);
+
+            if (!res.ok) {
+                const msg = json?.error ?? "Impossible de générer un encouragement";
+                useToastStore.getState().error("Maître du jeu", msg);
+                return null;
+            }
+
+            const e = json?.encouragement;
+            if (!e?.message) return null;
+
+            const encouragement: Encouragement = {
+                title: e.title ?? "Encouragement",
+                message: e.message,
+                createdAt: Date.now(),
+                meta: json?.meta ?? undefined,
+            };
+
+            set((s) => ({
+                encouragementByChapterQuestId: {
+                    ...s.encouragementByChapterQuestId,
+                    [chapterQuestId]: encouragement,
+                },
+            }));
+
+            return encouragement;
+        } catch (err) {
+            console.error(err);
+            useToastStore.getState().error("Maître du jeu", "Erreur réseau");
+            return null;
+        } finally {
+            set({ encouragementLoading: false });
         }
     },
 }));

@@ -1,0 +1,184 @@
+// src/lib/encouragement/generateEncouragement.ts
+import { supabaseServer } from "@/lib/supabase/server";
+import { openai } from "@/lib/openai";
+
+type CharacterStyle = {
+    name: string;
+    emoji: string | null;
+    archetype: string | null;
+    vibe: string | null;
+    motto: string | null;
+    ai_style?: {
+        tone?: string;
+        style?: string;
+        verbosity?: string;
+    } | null;
+};
+
+type PlayerContext = {
+    display_name: string | null;
+    character: CharacterStyle | null;
+};
+
+export type EncouragementContext = {
+    quest_title: string;
+    room_code?: string | null;
+    difficulty?: number | null;
+    mission_md?: string | null;
+};
+
+function safeTrim(x: unknown): string {
+    return typeof x === "string" ? x.trim() : "";
+}
+
+async function loadPlayerContextByUserId(userId: string): Promise<PlayerContext> {
+    const supabase = await supabaseServer();
+
+    const { data, error } = await supabase
+        .from("player_profiles")
+        .select(
+            `
+            user_id,
+            display_name,
+            character_id,
+            characters:character_id (
+                name,
+                emoji,
+                archetype,
+                vibe,
+                motto,
+                ai_style
+            )
+        `
+        )
+        .eq("user_id", userId)
+        .maybeSingle();
+
+    if (error) {
+        console.error("loadPlayerContextByUserId error:", error.message);
+        return { display_name: null, character: null };
+    }
+
+    const display_name = safeTrim((data as any)?.display_name) || null;
+    const c = (data as any)?.characters ?? null;
+
+    if (!c) return { display_name, character: null };
+
+    return {
+        display_name,
+        character: {
+            name: c.name ?? "Maître du Jeu",
+            emoji: c.emoji ?? null,
+            archetype: c.archetype ?? null,
+            vibe: c.vibe ?? null,
+            motto: c.motto ?? null,
+            ai_style: c.ai_style ?? null,
+        },
+    };
+}
+
+function difficultyLabel(d?: number | null) {
+    if (d == null) return "Standard";
+    if (d <= 1) return "Facile";
+    if (d === 2) return "Standard";
+    return "Difficile";
+}
+
+/**
+ * ✅ Encouragement IA (non stocké en BDD).
+ * Ton/style reflètent le personnage actif.
+ */
+export async function generateEncouragementForQuest(input: EncouragementContext) {
+    const supabase = await supabaseServer();
+
+    const { data: authData, error: authErr } = await supabase.auth.getUser();
+    if (authErr) throw new Error(authErr.message);
+
+    const userId = authData?.user?.id ?? "";
+    if (!userId) throw new Error("Not authenticated");
+
+    const player = await loadPlayerContextByUserId(userId);
+    const playerName = player.display_name;
+    const character = player.character;
+
+    const tone = character?.ai_style?.tone ?? "neutre";
+    const style = character?.ai_style?.style ?? "motivant";
+    const verbosity = character?.ai_style?.verbosity ?? "normal";
+
+    const model = "gpt-4.1";
+
+    const systemText = [
+        `Tu es le Maître du Jeu de Renaissance.`,
+        `Tu écris un ENCOURAGEMENT court et impactant pour une quête EN COURS.`,
+        `Objectif: rebooster, recentrer, donner un mini prochain pas. Pas de blabla meta.`,
+        `Style: RPG moderne, concret, chaleureux (selon le ton). Emojis sobres.`,
+        character
+            ? `Voix actuelle: ${character.emoji ?? "🧙"} ${character.name}. Tone=${tone}, style=${style}, verbosity=${verbosity}.`
+            : `Voix actuelle: neutre.`,
+        playerName
+            ? `Le joueur s'appelle "${playerName}". Utilise son nom 0 à 1 fois maximum.`
+            : `Le joueur n'a pas de nom affiché. N'invente pas de prénom.`,
+        character?.motto
+            ? `Serment du personnage (à refléter sans le citer mot pour mot): ${character.motto}`
+            : null,
+        `Contraintes: 3 à 7 lignes max. Termine par une micro-consigne (un seul pas).`,
+        `Interdit: disclaimer, "en tant qu'IA", explications techniques.`,
+        `La sortie doit respecter le schéma JSON demandé.`,
+    ]
+        .filter(Boolean)
+        .join("\n");
+
+    const context = {
+        quest_title: input.quest_title,
+        room_code: input.room_code ?? null,
+        difficulty: difficultyLabel(input.difficulty),
+        mission_hint: safeTrim(input.mission_md ?? "").slice(0, 800) || null,
+    };
+
+    const response = await openai.responses.create({
+        model,
+        input: [
+            { role: "system", content: [{ type: "input_text", text: systemText }] },
+            {
+                role: "user",
+                content: [
+                    {
+                        type: "input_text",
+                        text:
+                            `Contexte quête:\n${JSON.stringify(context, null, 2)}\n\n` +
+                            `Génère:\n- title (court, 2 à 5 mots)\n- message (encouragement)\n`,
+                    },
+                ],
+            },
+        ],
+        text: {
+            format: {
+                type: "json_schema",
+                name: "quest_encouragement_v1",
+                schema: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                        title: { type: "string" },
+                        message: { type: "string" },
+                    },
+                    required: ["title", "message"],
+                },
+            },
+        },
+    });
+
+    const encouragement = JSON.parse(response.output_text);
+
+    return {
+        encouragement,
+        meta: {
+            model,
+            tone,
+            style,
+            verbosity,
+            character_name: character?.name ?? null,
+            character_emoji: character?.emoji ?? null,
+        },
+    };
+}

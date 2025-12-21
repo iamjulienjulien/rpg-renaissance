@@ -61,3 +61,45 @@ export function getCurrentQuestsName(): string {
 
     return names.length > 0 ? names.join(", ") : "Quêtes en cours";
 }
+
+export function getCurrentCharacterName(): string {
+    const { profile, selectedId, characters } = useGameStore.getState();
+
+    // ✅ priorité: perso déjà hydraté dans le profil
+    if (profile?.character?.name) return profile.character.name;
+
+    // ✅ fallback: selectedId + liste characters
+    if (selectedId) {
+        const c = characters.find((x) => x.id === selectedId);
+        if (c?.name) return c.name;
+    }
+
+    // ✅ fallback: profile sans join (au cas où)
+    if (profile?.character_id) {
+        const c = characters.find((x) => x.id === profile.character_id);
+        if (c?.name) return c.name;
+    }
+
+    return "Aucun personnage";
+}
+
+export function getCurrentCharacterEmoji(): string {
+    const { profile, selectedId, characters } = useGameStore.getState();
+
+    // ✅ priorité: perso déjà hydraté dans le profil
+    if (profile?.character?.emoji) return profile.character.emoji;
+
+    // ✅ fallback: selectedId + liste characters
+    if (selectedId) {
+        const c = characters.find((x) => x.id === selectedId);
+        if (c?.emoji) return c.emoji;
+    }
+
+    // ✅ fallback: profile sans join (au cas où)
+    if (profile?.character_id) {
+        const c = characters.find((x) => x.id === profile.character_id);
+        if (c?.emoji) return c.emoji;
+    }
+
+    return "🧙";
+}

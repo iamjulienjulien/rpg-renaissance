@@ -10,6 +10,7 @@ type MasterCardProps = {
     title?: string;
     emoji?: string;
     badgeText?: string; // ex: "Maître du jeu"
+    badgeEmoji?: string;
     rightSlot?: React.ReactNode;
     children: React.ReactNode;
     className?: string;
@@ -19,6 +20,7 @@ export default function MasterCard({
     title = "Ordre de mission",
     emoji = "🎯",
     badgeText = "Maître du jeu",
+    badgeEmoji = "🧙",
     rightSlot,
     children,
     className,
@@ -47,7 +49,7 @@ export default function MasterCard({
 
                                 {badgeText ? (
                                     <span className="rounded-full bg-white/10 px-2 py-1 text-[11px] text-white/80 ring-1 ring-white/15">
-                                        🧙 {badgeText}
+                                        {badgeEmoji} {badgeText}
                                     </span>
                                 ) : null}
                             </div>

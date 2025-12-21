@@ -8,6 +8,9 @@ import { DifficultyPill } from "@/helpers/difficulty";
 import ReactMarkdown from "react-markdown";
 import MasterCard from "@/components/ui/MasterCard";
 import { useGameStore } from "@/stores/gameStore";
+import { getCurrentCharacterEmoji, getCurrentCharacterName } from "@/helpers/adventure";
+import { AnimatePresence, motion } from "framer-motion";
+import { createPortal } from "react-dom";
 
 type Quest = {
     id: string;
@@ -42,6 +45,19 @@ export default function QuestClient() {
     // ✅ actions centralisées store (toast + journal + renown)
     const startQuest = useGameStore((s) => s.startQuest);
     const finishQuest = useGameStore((s) => s.finishQuest);
+    const bootstrap = useGameStore((s) => s.bootstrap);
+
+    const [mounted, setMounted] = useState(false);
+    const [encOpen, setEncOpen] = useState(false);
+
+    useEffect(() => setMounted(true), []);
+
+    const askEncouragement = useGameStore((s) => s.askEncouragement);
+    const clearEncouragement = useGameStore((s) => s.clearEncouragement);
+    const encouragementLoading = useGameStore((s) => s.encouragementLoading);
+    const encouragementById = useGameStore((s) => s.encouragementByChapterQuestId);
+
+    const encouragement = chapterQuestId ? encouragementById[chapterQuestId] : undefined;
 
     const load = async () => {
         if (!chapterQuestId) return;
@@ -65,6 +81,11 @@ export default function QuestClient() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        void bootstrap();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         void load();
@@ -102,6 +123,8 @@ export default function QuestClient() {
                 difficulty: quest.difficulty ?? null,
             } as any);
 
+            clearEncouragement(chapterQuestId);
+
             if (cq) {
                 setChapterQuest(cq);
                 router.push("/quests");
@@ -109,6 +132,23 @@ export default function QuestClient() {
         } finally {
             setBusy(false);
         }
+    };
+
+    const onEncourage = async () => {
+        if (!chapterQuestId || !quest) return;
+
+        // On ouvre la modal tout de suite (style “invocation du MJ”)
+        setEncOpen(true);
+
+        // Si déjà en cache store, on ne regen pas forcément
+        if (encouragement?.message) return;
+
+        await askEncouragement(chapterQuestId, {
+            quest_title: quest.title,
+            room_code: quest.room_code ?? null,
+            difficulty: quest.difficulty ?? null,
+            mission_md: missionMd ?? null,
+        });
     };
 
     if (!chapterQuestId) {
@@ -133,7 +173,7 @@ export default function QuestClient() {
                 <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
                     {/* LEFT */}
                     <div className="flex flex-col gap-5">
-                        <Panel title="Quête" emoji="🎯">
+                        <Panel title="Quête" emoji="🔖">
                             <div className="flex flex-col gap-3">
                                 <div className="text-white/90 font-semibold">{quest.title}</div>
 
@@ -153,7 +193,12 @@ export default function QuestClient() {
                             </div>
                         </Panel>
 
-                        <MasterCard title="Ordre de mission" emoji="🎯">
+                        <MasterCard
+                            title="Ordre de mission"
+                            emoji="📖"
+                            badgeText={getCurrentCharacterName()}
+                            badgeEmoji={getCurrentCharacterEmoji()}
+                        >
                             {missionMd ? (
                                 <div
                                     className="prose prose-invert max-w-none rpg-text-sm
@@ -189,7 +234,7 @@ export default function QuestClient() {
                     </div>
 
                     {/* RIGHT */}
-                    <Panel title="Actions" emoji="⚔️" subtitle="Décide de la suite.">
+                    <Panel title="Actions" emoji="⚔️">
                         <div className="flex flex-col gap-3">
                             {chapterQuest.status === "todo" && (
                                 <>
@@ -213,6 +258,14 @@ export default function QuestClient() {
                                         ✅ Terminer la quête
                                     </ActionButton>
 
+                                    <ActionButton
+                                        variant="master"
+                                        onClick={onEncourage}
+                                        disabled={busy}
+                                    >
+                                        ✨ Demander un encouragement
+                                    </ActionButton>
+
                                     <ActionButton onClick={() => router.push("/quests")}>
                                         ↩️ Retour au chapitre
                                     </ActionButton>
@@ -231,6 +284,79 @@ export default function QuestClient() {
                     </Panel>
                 </div>
             )}
+            {mounted
+                ? createPortal(
+                      <AnimatePresence>
+                          {encOpen ? (
+                              <motion.div
+                                  className="fixed inset-0 z-[120] grid place-items-center bg-black/55 backdrop-blur-[3px] p-4"
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  onMouseDown={() => setEncOpen(false)}
+                              >
+                                  <motion.div
+                                      className="w-full max-w-lg rounded-[28px] bg-white/5 p-5 ring-1 ring-white/15 backdrop-blur-md"
+                                      initial={{ y: 16, scale: 0.98, opacity: 0 }}
+                                      animate={{ y: 0, scale: 1, opacity: 1 }}
+                                      exit={{ y: 10, scale: 0.98, opacity: 0 }}
+                                      transition={{ duration: 0.22 }}
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                  >
+                                      <div className="flex items-start justify-between gap-3">
+                                          <div>
+                                              <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
+                                                  🎭 Maître du jeu
+                                              </div>
+                                              <div className="mt-2 text-lg text-white/90">
+                                                  {getCurrentCharacterEmoji()}{" "}
+                                                  <span className="font-semibold">
+                                                      {getCurrentCharacterName()}
+                                                  </span>
+                                              </div>
+                                          </div>
+
+                                          <ActionButton onClick={() => setEncOpen(false)}>
+                                              ✖
+                                          </ActionButton>
+                                      </div>
+
+                                      <MasterCard
+                                          className="mt-4 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10"
+                                          title="Encouragement"
+                                          emoji="💪"
+                                          badgeEmoji={getCurrentCharacterEmoji()}
+                                          badgeText={getCurrentCharacterName()}
+                                      >
+                                          <div className="text-sm text-white/80 font-semibold">
+                                              {encouragementLoading && !encouragement?.message
+                                                  ? "🕯️ Le maître du jeu réfléchit…"
+                                                  : (encouragement?.title ?? "Encouragement")}
+                                          </div>
+
+                                          <div className="mt-3 whitespace-pre-line rpg-text-sm text-white/70">
+                                              {encouragementLoading && !encouragement?.message
+                                                  ? "✨ ...\n✨ ...\n✨ ..."
+                                                  : (encouragement?.message ??
+                                                    "Aucun message pour l’instant.")}
+                                          </div>
+                                      </MasterCard>
+
+                                      <div className="mt-5 flex justify-end">
+                                          <ActionButton
+                                              variant="solid"
+                                              onClick={() => setEncOpen(false)}
+                                          >
+                                              🔥 Reprendre
+                                          </ActionButton>
+                                      </div>
+                                  </motion.div>
+                              </motion.div>
+                          ) : null}
+                      </AnimatePresence>,
+                      document.body
+                  )
+                : null}
         </RpgShell>
     );
 }
