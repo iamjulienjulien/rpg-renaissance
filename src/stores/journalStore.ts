@@ -7,6 +7,7 @@ export type JournalKind =
     | "quests_seeded"
     | "chapter_created"
     | "chapter_started"
+    | "quest_started"
     | "quest_done"
     | "quest_reopened"
     | "note";

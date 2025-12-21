@@ -28,6 +28,8 @@ function kindBadge(kind: string) {
         return { label: "📘 Chapitre", tone: "bg-white/10 text-white ring-white/15" };
     if (kind === "chapter_started")
         return { label: "✨ Chapitre", tone: "bg-white/10 text-white ring-white/15" };
+    if (kind === "quest_started")
+        return { label: "✨ Quête", tone: "bg-white/10 text-white ring-white/15" };
     if (kind === "quest_done")
         return {
             label: "✅ Quête",

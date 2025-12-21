@@ -31,11 +31,13 @@ export default function RpgShell({
     subtitle,
     children,
     rightSlot,
+    returnButton = true,
 }: {
     title: string;
     subtitle?: string;
     children: React.ReactNode;
     rightSlot?: React.ReactNode;
+    returnButton?: boolean;
 }) {
     return (
         <div className="min-h-dvh text-white">
@@ -59,15 +61,17 @@ export default function RpgShell({
                 <main className="relative mx-auto max-w-6xl px-6 py-10">
                     {/* Top bar */}
                     <header className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            <Link
-                                href="/"
-                                className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-xs text-white/80 ring-1 ring-white/10 transition hover:bg-white/10"
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                                Retour
-                            </Link>
-                        </div>
+                        {returnButton && (
+                            <div className="flex items-center gap-3">
+                                <Link
+                                    href="/"
+                                    className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-xs text-white/80 ring-1 ring-white/10 transition hover:bg-white/10"
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                    Retour
+                                </Link>
+                            </div>
+                        )}
 
                         <div className="flex items-center gap-2">{rightSlot}</div>
                     </header>
@@ -75,16 +79,23 @@ export default function RpgShell({
                     {/* Brand + Title (more like Home) */}
                     <section className="mt-10">
                         <div className="flex flex-col items-center text-center">
-                            <img
-                                src="/assets/images/logo-renaissance_cropped.png"
-                                alt="Renaissance"
-                                className="h-20 w-auto select-none opacity-95"
-                                draggable={false}
-                            />
-
-                            {/* <div className="mt-3 text-xs tracking-[0.22em] text-white/55">
-                                🜁 RENAISSANCE
-                            </div> */}
+                            <Link
+                                href="/"
+                                aria-label="Retour à l’accueil"
+                                className="group inline-flex"
+                            >
+                                <img
+                                    src="/assets/images/logo-renaissance_cropped.png"
+                                    alt="Renaissance"
+                                    className="
+                    h-20 w-auto select-none opacity-95
+                    transition
+                    group-hover:opacity-100
+                    group-hover:scale-[1.03]
+                "
+                                    draggable={false}
+                                />
+                            </Link>
 
                             <h1 className="mt-2 text-4xl font-semibold text-white/95 sm:text-5xl">
                                 <span className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent fondamento-regular">

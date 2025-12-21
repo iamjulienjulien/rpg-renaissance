@@ -3,9 +3,20 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ActionButton, Panel, Pill } from "@/components/RpgUi";
 
+// UI
+import { ActionButton, Panel, Pill } from "@/components/RpgUi";
+import RenownScoreboard from "@/components/adventure/RenownScoreboard";
+
+// Stores
 import { useGameStore } from "@/stores/gameStore";
+
+// Helpers
+import {
+    getCurrentAdventureName,
+    getCurrentChapterName,
+    getCurrentQuestsName,
+} from "@/helpers/adventure";
 
 type Chapter = {
     id: string;
@@ -42,7 +53,7 @@ export default function RenaissanceLanding() {
 
     const chapter = useGameStore((s) => s.chapter);
     const loading = useGameStore((s) => s.chapterLoading);
-    const loadLatest = useGameStore((s) => s.loadLatestChapter);
+    const bootstrap = useGameStore((s) => s.bootstrap);
 
     const menu = useMemo(() => {
         return [
@@ -98,7 +109,7 @@ export default function RenaissanceLanding() {
     }, []);
 
     useEffect(() => {
-        void loadLatest();
+        void bootstrap();
     }, []);
 
     const onNavigate = (href: string) => {
@@ -153,17 +164,20 @@ export default function RenaissanceLanding() {
                             hasRun
                                 ? adventureEmojiFromCode((chapter as any)?.adventure_code ?? null) +
                                   " " +
-                                  adventureNameFromCode((chapter as any)?.adventure_code ?? null)
+                                  getCurrentAdventureName()
                                 : "Tu es au seuil du jeu. Clique sur ✨ Nouvelle aventure et choisis 🏠 Réalignement du foyer"
                         }
                         right={
                             hasRun ? (
-                                <ActionButton
-                                    onClick={() => onNavigate("/adventure")}
-                                    variant="solid"
-                                >
-                                    ▶️ Reprendre l'aventure
-                                </ActionButton>
+                                <div>
+                                    <ActionButton
+                                        onClick={() => onNavigate("/adventure")}
+                                        variant="solid"
+                                    >
+                                        ▶️ Reprendre l'aventure
+                                    </ActionButton>
+                                    <RenownScoreboard />
+                                </div>
                             ) : (
                                 <ActionButton onClick={() => onNavigate("/new")} variant="solid">
                                     ✨ Nouvelle aventure
@@ -194,10 +208,10 @@ export default function RenaissanceLanding() {
 
                                     <div className="mt-1 grid gap-1">
                                         <div className="rpg-text-sm text-white/60">
-                                            📖 Chapitre en cours : {chapter.title}
+                                            📖 Chapitre en cours : {getCurrentChapterName()}
                                         </div>
                                         <div className="rpg-text-sm text-white/60">
-                                            🎯 Quête en cours :
+                                            🎯 Quête en cours : {getCurrentQuestsName()}
                                         </div>
                                     </div>
                                 </div>

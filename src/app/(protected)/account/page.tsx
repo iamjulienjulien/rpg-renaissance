@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import RpgShell from "@/components/RpgShell";
 import { Panel, Pill, ActionButton } from "@/components/RpgUi";
 import { usePlayerStore } from "@/stores/playerStore";
-import { useCharacterStore } from "@/stores/characterStore";
+import { useGameStore } from "@/stores/gameStore";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -14,12 +14,12 @@ export default function AccountPage() {
     const { user, profile, session, loading, saving, error, bootstrap, updateDisplayName, logout } =
         usePlayerStore();
 
-    const charsBootstrap = useCharacterStore((s) => s.bootstrap);
-    const characters = useCharacterStore((s) => s.characters);
-    const selectedId = useCharacterStore((s) => s.selectedId);
-    const activateCharacter = useCharacterStore((s) => s.activateCharacter);
-    const charSaving = useCharacterStore((s) => s.saving);
-    const charError = useCharacterStore((s) => s.error);
+    const charsBootstrap = useGameStore((s) => s.bootstrap);
+    const characters = useGameStore((s) => s.characters);
+    const selectedId = useGameStore((s) => s.selectedId);
+    const activateCharacter = useGameStore((s) => s.activateCharacter);
+    const charSaving = useGameStore((s) => s.saving);
+    const charError = useGameStore((s) => s.error);
 
     const [nameDraft, setNameDraft] = useState("");
 

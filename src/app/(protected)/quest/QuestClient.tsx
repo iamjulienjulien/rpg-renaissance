@@ -4,8 +4,10 @@ import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
+import { DifficultyPill } from "@/helpers/difficulty";
 import ReactMarkdown from "react-markdown";
 import MasterCard from "@/components/ui/MasterCard";
+import { useGameStore } from "@/stores/gameStore";
 
 type Quest = {
     id: string;
@@ -14,6 +16,7 @@ type Quest = {
     brief: string | null;
     status: "todo" | "doing" | "done";
     room_code: string | null;
+    difficulty?: number | null;
 };
 
 type ChapterQuest = {
@@ -36,6 +39,10 @@ export default function QuestClient() {
     const [quest, setQuest] = useState<Quest | null>(null);
     const [busy, setBusy] = useState(false);
 
+    // ✅ actions centralisées store (toast + journal + renown)
+    const startQuest = useGameStore((s) => s.startQuest);
+    const finishQuest = useGameStore((s) => s.finishQuest);
+
     const load = async () => {
         if (!chapterQuestId) return;
 
@@ -54,9 +61,6 @@ export default function QuestClient() {
             setChapterQuest(json.chapterQuest);
             setQuest(json.quest);
             setMissionMd(json.mission_md ?? json.mission?.mission_md ?? null);
-            console.log("chapterQuest", json.chapterQuest);
-            console.log("quest", json.quest);
-            console.log("mission", json.mission?.mission_md ?? null);
         } finally {
             setLoading(false);
         }
@@ -67,25 +71,39 @@ export default function QuestClient() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [chapterQuestId]);
 
-    const updateStatus = async (status: "doing" | "done" | "todo") => {
-        if (!chapterQuest) return;
+    // ✅ wrappers: délègue au store, garde le state local à jour
+    const onStart = async () => {
+        if (!chapterQuestId || !quest) return;
 
         setBusy(true);
         try {
-            const res = await fetch(`/api/chapter-quests/${chapterQuest.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status }),
-            });
+            const cq = await startQuest(chapterQuestId, {
+                id: quest.id,
+                title: quest.title,
+                room_code: quest.room_code,
+                difficulty: quest.difficulty ?? null,
+            } as any);
 
-            const json = await res.json();
-            if (!res.ok) {
-                console.error(json?.error ?? "Update failed");
-                return;
-            }
+            if (cq) setChapterQuest(cq);
+        } finally {
+            setBusy(false);
+        }
+    };
 
-            setChapterQuest(json.chapterQuest);
-            if (status === "done") {
+    const onFinish = async () => {
+        if (!chapterQuestId || !quest) return;
+
+        setBusy(true);
+        try {
+            const cq = await finishQuest(chapterQuestId, {
+                id: quest.id,
+                title: quest.title,
+                room_code: quest.room_code,
+                difficulty: quest.difficulty ?? null,
+            } as any);
+
+            if (cq) {
+                setChapterQuest(cq);
                 router.push("/quests");
             }
         } finally {
@@ -106,18 +124,7 @@ export default function QuestClient() {
     }
 
     return (
-        <RpgShell
-            title="Quête"
-            rightSlot={
-                <div className="flex items-center gap-2">
-                    {quest?.room_code ? (
-                        <Pill>🚪 {quest.room_code}</Pill>
-                    ) : (
-                        <Pill>🗺️ sans pièce</Pill>
-                    )}
-                </div>
-            }
-        >
+        <RpgShell title="Quête" returnButton={false}>
             {loading || !quest || !chapterQuest ? (
                 <div className="rounded-2xl bg-black/30 p-4 rpg-text-sm text-white/60 ring-1 ring-white/10">
                     ⏳ Chargement de la quête…
@@ -127,17 +134,34 @@ export default function QuestClient() {
                     {/* LEFT */}
                     <div className="flex flex-col gap-5">
                         <Panel title="Quête" emoji="🎯">
-                            <div className="text-white/90 font-semibold">{quest.title}</div>
+                            <div className="flex flex-col gap-3">
+                                <div className="text-white/90 font-semibold">{quest.title}</div>
+
+                                <div className="flex flex-wrap gap-2">
+                                    {quest.room_code ? (
+                                        <Pill>🚪 {quest.room_code}</Pill>
+                                    ) : (
+                                        <Pill>🗺️ sans pièce</Pill>
+                                    )}
+
+                                    {quest.difficulty ? (
+                                        <DifficultyPill difficulty={quest.difficulty} />
+                                    ) : (
+                                        <Pill>🎚️ —</Pill>
+                                    )}
+                                </div>
+                            </div>
                         </Panel>
+
                         <MasterCard title="Ordre de mission" emoji="🎯">
                             {missionMd ? (
                                 <div
                                     className="prose prose-invert max-w-none rpg-text-sm
-    prose-p:my-4
-    prose-ul:my-4
-    prose-li:my-1
-    prose-strong:text-white
-"
+                                        prose-p:my-4
+                                        prose-ul:my-4
+                                        prose-li:my-1
+                                        prose-strong:text-white
+                                    "
                                 >
                                     <ReactMarkdown
                                         components={{
@@ -169,11 +193,7 @@ export default function QuestClient() {
                         <div className="flex flex-col gap-3">
                             {chapterQuest.status === "todo" && (
                                 <>
-                                    <ActionButton
-                                        variant="solid"
-                                        onClick={() => updateStatus("doing")}
-                                        disabled={busy}
-                                    >
+                                    <ActionButton variant="solid" onClick={onStart} disabled={busy}>
                                         ▶️ Démarrer la quête
                                     </ActionButton>
 
@@ -187,17 +207,10 @@ export default function QuestClient() {
                                 <>
                                     <ActionButton
                                         variant="solid"
-                                        onClick={() => updateStatus("done")}
+                                        onClick={onFinish}
                                         disabled={busy}
                                     >
                                         ✅ Terminer la quête
-                                    </ActionButton>
-
-                                    <ActionButton
-                                        onClick={() => updateStatus("todo")}
-                                        disabled={busy}
-                                    >
-                                        🏳️ Abandonner
                                     </ActionButton>
 
                                     <ActionButton onClick={() => router.push("/quests")}>

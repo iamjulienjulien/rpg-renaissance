@@ -30,18 +30,28 @@ export async function GET(req: Request) {
     const id = url.searchParams.get("id");
     const chapterId = url.searchParams.get("chapterId");
 
+    // ✅ NEW: filtre status optionnel
+    const status = url.searchParams.get("status");
+
+    if (status && !["todo", "doing", "done"].includes(status)) {
+        return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
+
     if (!id && !chapterId) {
         return NextResponse.json({ error: "Missing id or chapterId" }, { status: 400 });
     }
 
     // ✅ 1) Item par ID (scopé session)
     if (id) {
-        const { data, error } = await supabase
+        let q = supabase
             .from("chapter_quests")
             .select(baseSelect)
             .eq("id", id)
-            .eq("session_id", session.id)
-            .maybeSingle();
+            .eq("session_id", session.id);
+
+        if (status) q = q.eq("status", status);
+
+        const { data, error } = await q.maybeSingle();
 
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
         if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -49,13 +59,17 @@ export async function GET(req: Request) {
         return NextResponse.json({ item: data });
     }
 
-    // ✅ 2) Liste par chapter (scopée session)
-    const { data, error } = await supabase
+    // ✅ 2) Liste par chapter (scopée session) + filtre status si fourni
+    let q = supabase
         .from("chapter_quests")
         .select(baseSelect)
         .eq("chapter_id", chapterId!)
         .eq("session_id", session.id)
         .order("created_at", { ascending: false });
+
+    if (status) q = q.eq("status", status);
+
+    const { data, error } = await q;
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
