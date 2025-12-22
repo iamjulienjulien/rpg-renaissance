@@ -93,7 +93,7 @@ export default function ChapterClient() {
                 return;
             }
 
-            router.push("/quests");
+            router.push("/adventure");
         } finally {
             setStarting(false);
         }

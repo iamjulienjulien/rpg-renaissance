@@ -127,7 +127,7 @@ export default function QuestClient() {
 
             if (cq) {
                 setChapterQuest(cq);
-                router.push("/quests");
+                router.push("/adventure");
             }
         } finally {
             setBusy(false);
@@ -155,7 +155,7 @@ export default function QuestClient() {
         return (
             <RpgShell title="Quête">
                 <Panel title="Erreur" emoji="⚠️" subtitle="Paramètre manquant.">
-                    <ActionButton variant="solid" onClick={() => router.push("/quests")}>
+                    <ActionButton variant="solid" onClick={() => router.push("/adventure")}>
                         ↩️ Retour aux quêtes
                     </ActionButton>
                 </Panel>
@@ -242,8 +242,8 @@ export default function QuestClient() {
                                         ▶️ Démarrer la quête
                                     </ActionButton>
 
-                                    <ActionButton onClick={() => router.push("/quests")}>
-                                        ↩️ Retour au chapitre
+                                    <ActionButton onClick={() => router.push("/adventure")}>
+                                        ↩️ Retour
                                     </ActionButton>
                                 </>
                             )}
@@ -266,8 +266,8 @@ export default function QuestClient() {
                                         ✨ Demander un encouragement
                                     </ActionButton>
 
-                                    <ActionButton onClick={() => router.push("/quests")}>
-                                        ↩️ Retour au chapitre
+                                    <ActionButton onClick={() => router.push("/adventure")}>
+                                        ↩️ Retour
                                     </ActionButton>
                                 </>
                             )}
@@ -275,9 +275,9 @@ export default function QuestClient() {
                             {chapterQuest.status === "done" && (
                                 <ActionButton
                                     variant="solid"
-                                    onClick={() => router.push("/quests")}
+                                    onClick={() => router.push("/adventure")}
                                 >
-                                    ↩️ Retour au chapitre
+                                    ↩️ Retour
                                 </ActionButton>
                             )}
                         </div>
