@@ -119,6 +119,7 @@ export default function AdventurePage() {
     const assignQuestToCurrentChapter = useGameStore((s) => s.assignQuestToCurrentChapter);
     const setStoreChapter = useGameStore((s) => s.setChapter);
     const [assigningId, setAssigningId] = useState<string | null>(null);
+    const [chapterPulse, setChapterPulse] = useState(false);
 
     // ✅ Renown modal (depuis store)
     const lastRenownGain = useGameStore((s) => s.lastRenownGain);
@@ -280,6 +281,9 @@ export default function AdventurePage() {
         try {
             const ok = await assignQuestToCurrentChapter(q.id);
             if (ok) {
+                setChapterPulse(true);
+                window.setTimeout(() => setChapterPulse(false), 650);
+
                 await loadAll("refresh"); // refresh UI (backlog -> chapter)
             }
         } finally {
@@ -368,110 +372,119 @@ export default function AdventurePage() {
                     </Panel>
 
                     {/* 2) CHAPITRE */}
-                    <Panel
-                        title="Chapitre"
-                        emoji="📚"
-                        subtitle="Quêtes jouées du chapitre, classées par pièces."
-                        right={<Pill>📜 {chapterItems.length} quêtes</Pill>}
+                    <div
+                        className={cn(
+                            "transition-transform",
+                            chapterPulse ? "scale-[1.01]" : "scale-100"
+                        )}
                     >
-                        <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                <div className="text-white/90 font-semibold">
-                                    ⚡ {chapter.title}
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    <Pill>
-                                        {paceEmoji(chapter.pace)} {chapter.pace}
-                                    </Pill>
-                                    <Pill>📍 {chapter.status}</Pill>
-                                </div>
-                            </div>
-                            <div className="mt-2 rpg-rpg-text-sm text-white/60">
-                                Choisis une quête et ouvre sa page pour la jouer.
-                            </div>
-                        </div>
-
-                        <div className="mt-4 space-y-3">
-                            {chapterItems.length === 0 ? (
-                                <div className="rounded-2xl bg-black/30 p-4 rpg-rpg-text-sm text-white/60 ring-1 ring-white/10">
-                                    Aucune quête dans ce chapitre. Va en préparation pour en
-                                    sélectionner.
-                                </div>
-                            ) : (
-                                chapterGrouped.map(([roomTitle, arr]) => (
-                                    <div
-                                        key={roomTitle}
-                                        className="rounded-2xl bg-black/25 ring-1 ring-white/10"
-                                    >
-                                        <div className="flex items-center justify-between gap-2 px-4 py-3">
-                                            <div className="text-white/90 font-semibold">
-                                                🚪 {roomTitle}
-                                            </div>
-                                            <Pill>{arr.length} quêtes</Pill>
-                                        </div>
-
-                                        <div className="space-y-2 px-3 pb-3">
-                                            {arr.map(({ cq, q }) => {
-                                                const st = statusPill(cq.status);
-
-                                                return (
-                                                    <div
-                                                        key={cq.id}
-                                                        className="flex flex-col gap-3 rounded-2xl bg-black/30 p-4 ring-1 ring-white/10 sm:flex-row sm:items-center sm:justify-between"
-                                                    >
-                                                        <div className="min-w-0">
-                                                            <div className="truncate text-white/90 font-semibold">
-                                                                {q?.title ?? "Quête"}
-                                                            </div>
-
-                                                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                                                                <span
-                                                                    className={cn(
-                                                                        "rounded-full px-3 py-1 text-xs ring-1",
-                                                                        st.tone
-                                                                    )}
-                                                                >
-                                                                    {st.label}
-                                                                </span>
-
-                                                                <Pill>
-                                                                    {diffPill(q?.difficulty ?? 2)}
-                                                                </Pill>
-
-                                                                <Pill>
-                                                                    ⏱️{" "}
-                                                                    {q?.estimate_min
-                                                                        ? `${q.estimate_min} min`
-                                                                        : "?"}
-                                                                </Pill>
-
-                                                                <Pill>
-                                                                    🧾 id: {cq.id.slice(0, 8)}…
-                                                                </Pill>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="flex items-center gap-2">
-                                                            <ActionButton
-                                                                variant="solid"
-                                                                onClick={() =>
-                                                                    router.push(
-                                                                        `/quest?cq=${encodeURIComponent(cq.id)}`
-                                                                    )
-                                                                }
-                                                            >
-                                                                👁️ Voir
-                                                            </ActionButton>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                        <Panel
+                            title="Chapitre"
+                            emoji="📚"
+                            subtitle="Quêtes jouées du chapitre, classées par pièces."
+                            right={<Pill>📜 {chapterItems.length} quêtes</Pill>}
+                        >
+                            <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="text-white/90 font-semibold">
+                                        ⚡ {chapter.title}
                                     </div>
-                                ))
-                            )}
-                        </div>
-                    </Panel>
+                                    <div className="flex flex-wrap gap-2">
+                                        <Pill>
+                                            {paceEmoji(chapter.pace)} {chapter.pace}
+                                        </Pill>
+                                        <Pill>📍 {chapter.status}</Pill>
+                                    </div>
+                                </div>
+                                <div className="mt-2 rpg-rpg-text-sm text-white/60">
+                                    Choisis une quête et ouvre sa page pour la jouer.
+                                </div>
+                            </div>
+
+                            <div className="mt-4 space-y-3">
+                                {chapterItems.length === 0 ? (
+                                    <div className="rounded-2xl bg-black/30 p-4 rpg-rpg-text-sm text-white/60 ring-1 ring-white/10">
+                                        Aucune quête dans ce chapitre. Va en préparation pour en
+                                        sélectionner.
+                                    </div>
+                                ) : (
+                                    chapterGrouped.map(([roomTitle, arr]) => (
+                                        <div
+                                            key={roomTitle}
+                                            className="rounded-2xl bg-black/25 ring-1 ring-white/10"
+                                        >
+                                            <div className="flex items-center justify-between gap-2 px-4 py-3">
+                                                <div className="text-white/90 font-semibold">
+                                                    🚪 {roomTitle}
+                                                </div>
+                                                <Pill>{arr.length} quêtes</Pill>
+                                            </div>
+
+                                            <div className="space-y-2 px-3 pb-3">
+                                                {arr.map(({ cq, q }) => {
+                                                    const st = statusPill(cq.status);
+
+                                                    return (
+                                                        <div
+                                                            key={cq.id}
+                                                            className="flex flex-col gap-3 rounded-2xl bg-black/30 p-4 ring-1 ring-white/10 sm:flex-row sm:items-center sm:justify-between"
+                                                        >
+                                                            <div className="min-w-0">
+                                                                <div className="truncate text-white/90 font-semibold">
+                                                                    {q?.title ?? "Quête"}
+                                                                </div>
+
+                                                                <div className="mt-2 flex flex-wrap items-center gap-2">
+                                                                    <span
+                                                                        className={cn(
+                                                                            "rounded-full px-3 py-1 text-xs ring-1",
+                                                                            st.tone
+                                                                        )}
+                                                                    >
+                                                                        {st.label}
+                                                                    </span>
+
+                                                                    <Pill>
+                                                                        {diffPill(
+                                                                            q?.difficulty ?? 2
+                                                                        )}
+                                                                    </Pill>
+
+                                                                    <Pill>
+                                                                        ⏱️{" "}
+                                                                        {q?.estimate_min
+                                                                            ? `${q.estimate_min} min`
+                                                                            : "?"}
+                                                                    </Pill>
+
+                                                                    <Pill>
+                                                                        🧾 id: {cq.id.slice(0, 8)}…
+                                                                    </Pill>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex items-center gap-2">
+                                                                <ActionButton
+                                                                    variant="solid"
+                                                                    onClick={() =>
+                                                                        router.push(
+                                                                            `/quest?cq=${encodeURIComponent(cq.id)}`
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    👁️ Voir
+                                                                </ActionButton>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </Panel>
+                    </div>
 
                     {/* 3) BACKLOG */}
                     <Panel

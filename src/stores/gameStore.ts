@@ -150,7 +150,7 @@ function logQuestEvent(input: {
         kind: input.journalKind,
         title: input.journalTitle,
         content: input.journalContent,
-        quest_id: input.questId ?? null,
+        adventure_quest_id: input.questId ?? null,
     });
 }
 

@@ -1,16 +1,20 @@
 "use client";
 
+// React
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
 import { DifficultyPill } from "@/helpers/difficulty";
 import ReactMarkdown from "react-markdown";
 import MasterCard from "@/components/ui/MasterCard";
-import { useGameStore } from "@/stores/gameStore";
 import { getCurrentCharacterEmoji, getCurrentCharacterName } from "@/helpers/adventure";
 import { AnimatePresence, motion } from "framer-motion";
-import { createPortal } from "react-dom";
+
+// Stores
+import { useGameStore } from "@/stores/gameStore";
+import { useJournalStore } from "@/stores/journalStore";
 
 type Quest = {
     id: string;
@@ -41,6 +45,10 @@ export default function QuestClient() {
     const [missionMd, setMissionMd] = useState<string | null>(null);
     const [quest, setQuest] = useState<Quest | null>(null);
     const [busy, setBusy] = useState(false);
+
+    const journalEntries = useJournalStore((s) => s.entries);
+    const journalLoading = useJournalStore((s) => s.loading);
+    const loadJournal = useJournalStore((s) => s.load);
 
     // ✅ actions centralisées store (toast + journal + renown)
     const startQuest = useGameStore((s) => s.startQuest);
@@ -91,6 +99,21 @@ export default function QuestClient() {
         void load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [chapterQuestId]);
+
+    useEffect(() => {
+        // On charge une fois (entries sont côté store)
+        void loadJournal(120);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const questJournal = React.useMemo(() => {
+        if (!quest?.id) return [];
+
+        return (journalEntries ?? [])
+            .filter((e) => e.adventure_quest_id === quest.id)
+            .slice()
+            .sort((a, b) => (a.created_at < b.created_at ? 1 : -1)); // newest first
+    }, [journalEntries, quest?.id]);
 
     // ✅ wrappers: délègue au store, garde le state local à jour
     const onStart = async () => {
@@ -150,6 +173,17 @@ export default function QuestClient() {
             mission_md: missionMd ?? null,
         });
     };
+
+    function formatTime(iso: string) {
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return "";
+        return d.toLocaleString("fr-FR", {
+            day: "2-digit",
+            month: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    }
 
     if (!chapterQuestId) {
         return (
@@ -234,54 +268,107 @@ export default function QuestClient() {
                     </div>
 
                     {/* RIGHT */}
-                    <Panel title="Actions" emoji="⚔️">
-                        <div className="flex flex-col gap-3">
-                            {chapterQuest.status === "todo" && (
-                                <>
-                                    <ActionButton variant="solid" onClick={onStart} disabled={busy}>
-                                        ▶️ Démarrer la quête
-                                    </ActionButton>
+                    <div className="flex flex-col gap-4">
+                        <Panel title="Actions" emoji="⚔️">
+                            <div className="flex flex-col gap-3">
+                                {chapterQuest.status === "todo" && (
+                                    <>
+                                        <ActionButton
+                                            variant="solid"
+                                            onClick={onStart}
+                                            disabled={busy}
+                                        >
+                                            ▶️ Démarrer la quête
+                                        </ActionButton>
 
-                                    <ActionButton onClick={() => router.push("/adventure")}>
-                                        ↩️ Retour
-                                    </ActionButton>
-                                </>
-                            )}
+                                        <ActionButton onClick={() => router.push("/adventure")}>
+                                            ↩️ Retour
+                                        </ActionButton>
+                                    </>
+                                )}
 
-                            {chapterQuest.status === "doing" && (
-                                <>
+                                {chapterQuest.status === "doing" && (
+                                    <>
+                                        <ActionButton
+                                            variant="solid"
+                                            onClick={onFinish}
+                                            disabled={busy}
+                                        >
+                                            ✅ Terminer la quête
+                                        </ActionButton>
+
+                                        <ActionButton
+                                            variant="master"
+                                            onClick={onEncourage}
+                                            disabled={busy}
+                                        >
+                                            ✨ Demander un encouragement
+                                        </ActionButton>
+
+                                        <ActionButton onClick={() => router.push("/adventure")}>
+                                            ↩️ Retour
+                                        </ActionButton>
+                                    </>
+                                )}
+
+                                {chapterQuest.status === "done" && (
                                     <ActionButton
                                         variant="solid"
-                                        onClick={onFinish}
-                                        disabled={busy}
+                                        onClick={() => router.push("/adventure")}
                                     >
-                                        ✅ Terminer la quête
-                                    </ActionButton>
-
-                                    <ActionButton
-                                        variant="master"
-                                        onClick={onEncourage}
-                                        disabled={busy}
-                                    >
-                                        ✨ Demander un encouragement
-                                    </ActionButton>
-
-                                    <ActionButton onClick={() => router.push("/adventure")}>
                                         ↩️ Retour
                                     </ActionButton>
-                                </>
-                            )}
+                                )}
+                            </div>
+                        </Panel>
+                        <Panel
+                            title="Journal de quête"
+                            emoji="📓"
+                            subtitle="Les dernières traces laissées pendant cette quête."
+                            right={<Pill>{journalLoading ? "⏳" : `${questJournal.length}`}</Pill>}
+                        >
+                            {journalLoading ? (
+                                <div className="rounded-2xl bg-black/30 p-4 rpg-text-sm text-white/60 ring-1 ring-white/10">
+                                    ⏳ Chargement du journal…
+                                </div>
+                            ) : questJournal.length === 0 ? (
+                                <div className="rounded-2xl bg-black/30 p-4 rpg-text-sm text-white/60 ring-1 ring-white/10">
+                                    Aucune entrée pour cette quête (encore). Lance-la et écris
+                                    l’histoire ✍️
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {questJournal.map((e) => (
+                                        <div
+                                            key={e.id}
+                                            className="rounded-2xl bg-black/25 p-4 ring-1 ring-white/10"
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <div className="truncate text-sm font-semibold text-white/90">
+                                                        {e.title}
+                                                    </div>
+                                                    {e.content ? (
+                                                        <div className="mt-1 whitespace-pre-line rpg-text-sm text-white/70">
+                                                            {e.content}
+                                                        </div>
+                                                    ) : null}
+                                                </div>
 
-                            {chapterQuest.status === "done" && (
-                                <ActionButton
-                                    variant="solid"
-                                    onClick={() => router.push("/adventure")}
-                                >
-                                    ↩️ Retour
-                                </ActionButton>
+                                                <div className="shrink-0 text-[11px] text-white/45">
+                                                    {formatTime(e.created_at)}
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-2 flex flex-wrap gap-2">
+                                                <Pill>🏷️ {e.kind}</Pill>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             )}
-                        </div>
-                    </Panel>
+                        </Panel>
+                    </div>
                 </div>
             )}
             {mounted
