@@ -8,6 +8,7 @@ import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
 import { useGameStore } from "@/stores/gameStore";
 import { ViewportPortal } from "@/components/ViewportPortal";
+import MasterCard from "@/components/ui/MasterCard";
 
 type Chapter = {
     id: string;
@@ -125,6 +126,13 @@ export default function AdventurePage() {
     const lastRenownGain = useGameStore((s) => s.lastRenownGain);
     const clearLastRenownGain = useGameStore((s) => s.clearLastRenownGain);
     const [showGain, setShowGain] = useState(false);
+
+    const congratsById = useGameStore((s) => s.congratsByChapterQuestId);
+    const congratsLoadingById = useGameStore((s) => s.congratsLoadingById);
+
+    const cqId = lastRenownGain?.chapterQuestId;
+    const congrats = cqId ? congratsById[cqId] : undefined;
+    const congratsLoading = cqId ? !!congratsLoadingById[cqId] : false;
 
     useEffect(() => {
         if (!lastRenownGain) return;
@@ -625,7 +633,22 @@ export default function AdventurePage() {
                                 transition={{ duration: 0.22 }}
                                 onMouseDown={(e) => e.stopPropagation()}
                             >
-                                <div className="flex items-start justify-between gap-3">
+                                <MasterCard title="Félicitations" emoji="🎉">
+                                    <div>
+                                        <div className="mt-2 text-sm text-white/85 font-semibold">
+                                            {congratsLoading && !congrats?.title
+                                                ? "🕯️ Le MJ forge tes lauriers…"
+                                                : (congrats?.title ?? "Bravo")}
+                                        </div>
+
+                                        <div className="mt-2 whitespace-pre-line rpg-rpg-text-sm text-white/70">
+                                            {congratsLoading && !congrats?.message
+                                                ? "✨ ...\n✨ ...\n✨ ..."
+                                                : (congrats?.message ?? "Victoire enregistrée.")}
+                                        </div>
+                                    </div>
+                                </MasterCard>
+                                <div className="mt-4 flex items-start justify-between gap-3">
                                     <div>
                                         <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
                                             🏆 Renommée gagnée

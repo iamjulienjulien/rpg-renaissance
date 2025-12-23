@@ -85,12 +85,14 @@ export type QuestLite = {
     title: string;
     room_code?: string | null;
     difficulty?: number | null;
+    mission_md?: string | null; // ✅ NEW
 };
 
 /** ⭐ Renommée */
 export type Renown = { value: number; level: number };
 
 export type RenownGainEvent = {
+    chapterQuestId: string; // ✅ NEW
     delta: number;
     before: Renown | null;
     after: Renown;
@@ -100,6 +102,20 @@ export type RenownGainEvent = {
 
 /** 💬 Encouragement MJ (cache store, non BDD) */
 export type Encouragement = {
+    title: string;
+    message: string;
+    createdAt: number;
+    meta?: {
+        model?: string;
+        tone?: string;
+        style?: string;
+        verbosity?: string;
+        character_name?: string | null;
+        character_emoji?: string | null;
+    };
+};
+
+export type Congratulations = {
     title: string;
     message: string;
     createdAt: number;
@@ -207,7 +223,7 @@ type GameStore = {
     /* ---------------------------- ⭐ RENOMMÉE ---------------------------- */
     renown: Renown | null;
     renownLoading: boolean;
-    addRenown: (amount: number, reason?: string) => Promise<Renown | null>;
+    addRenown: (amount: number, reason?: string, chapterQuestId?: string) => Promise<Renown | null>;
     lastRenownGain: RenownGainEvent | null;
     clearLastRenownGain: () => void;
 
@@ -227,6 +243,21 @@ type GameStore = {
     ) => Promise<Encouragement | null>;
 
     clearEncouragement: (chapterQuestId: string) => void;
+
+    congratsByChapterQuestId: Record<string, Congratulations | undefined>;
+    congratsLoadingById: Record<string, boolean | undefined>;
+
+    prefetchCongrats: (
+        chapterQuestId: string,
+        input: {
+            quest_title: string;
+            room_code?: string | null;
+            difficulty?: number | null;
+            mission_md?: string | null;
+        }
+    ) => Promise<Congratulations | null>;
+
+    clearCongrats: (chapterQuestId: string) => void;
 };
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -524,6 +555,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 questId: quest?.id ?? null,
             });
 
+            // ✅ Pré-génère les félicitations dès le début (non bloquant)
+            void get().prefetchCongrats(chapterQuestId, {
+                quest_title: quest?.title ?? "Quête",
+                room_code: quest?.room_code ?? null,
+                difficulty: quest?.difficulty ?? null,
+                mission_md: quest?.mission_md ?? null,
+            });
+
             return cq;
         } catch (e) {
             console.error(e);
@@ -578,7 +617,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             });
 
             const delta = renownDeltaForDifficulty(quest?.difficulty ?? null);
-            void get().addRenown(delta, line ? `Quête: ${line}` : "Quête terminée");
+            void get().addRenown(delta, line ? `Quête: ${line}` : "Quête terminée", chapterQuestId);
 
             return cq;
         } catch (e) {
@@ -662,7 +701,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     lastRenownGain: null,
     clearLastRenownGain: () => set({ lastRenownGain: null }),
 
-    addRenown: async (amount, reason) => {
+    addRenown: async (amount, reason, chapterQuestId) => {
         const sessionId = useSessionStore.getState().activeSessionId;
         if (!sessionId) return null;
 
@@ -691,6 +730,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             set({
                 renown: after,
                 lastRenownGain: {
+                    chapterQuestId: chapterQuestId ?? "unknown",
                     delta: amount,
                     before,
                     after,
@@ -765,6 +805,71 @@ export const useGameStore = create<GameStore>((set, get) => ({
             return null;
         } finally {
             set({ encouragementLoading: false });
+        }
+    },
+
+    congratsByChapterQuestId: {},
+    congratsLoadingById: {},
+
+    clearCongrats: (chapterQuestId) =>
+        set((s) => {
+            const next = { ...s.congratsByChapterQuestId };
+            delete next[chapterQuestId];
+            return { congratsByChapterQuestId: next };
+        }),
+
+    prefetchCongrats: async (chapterQuestId, input) => {
+        // déjà présent -> ne regen pas
+        const existing = get().congratsByChapterQuestId[chapterQuestId];
+        if (existing?.message) return existing;
+
+        set((s) => ({
+            congratsLoadingById: { ...s.congratsLoadingById, [chapterQuestId]: true },
+        }));
+
+        try {
+            const res = await fetch("/api/congrats", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    chapter_quest_id: chapterQuestId,
+                    quest_title: input.quest_title,
+                    room_code: input.room_code ?? null,
+                    difficulty: input.difficulty ?? null,
+                    mission_md: input.mission_md ?? null,
+                }),
+            });
+
+            const json = await res.json().catch(() => null);
+            if (!res.ok) {
+                // pas bloquant
+                return null;
+            }
+
+            const c = json?.congrats;
+            if (!c?.message) return null;
+
+            const congrats: Congratulations = {
+                title: c.title ?? "Félicitations",
+                message: c.message,
+                createdAt: Date.now(),
+                meta: json?.meta ?? undefined,
+            };
+
+            set((s) => ({
+                congratsByChapterQuestId: {
+                    ...s.congratsByChapterQuestId,
+                    [chapterQuestId]: congrats,
+                },
+            }));
+
+            return congrats;
+        } catch {
+            return null;
+        } finally {
+            set((s) => ({
+                congratsLoadingById: { ...s.congratsLoadingById, [chapterQuestId]: false },
+            }));
         }
     },
 }));

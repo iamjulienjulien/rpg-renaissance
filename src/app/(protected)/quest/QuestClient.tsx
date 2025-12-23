@@ -126,6 +126,7 @@ export default function QuestClient() {
                 title: quest.title,
                 room_code: quest.room_code,
                 difficulty: quest.difficulty ?? null,
+                mission_md: missionMd ?? null, // ✅ NEW
             } as any);
 
             if (cq) setChapterQuest(cq);
