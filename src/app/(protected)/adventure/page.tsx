@@ -16,7 +16,6 @@ type Chapter = {
     pace: "calme" | "standard" | "intense";
     status: "draft" | "active" | "done";
     created_at: string;
-    // best-effort (si ton endpoint /api/chapters fait la jointure)
     adventure_code?: string | null;
 };
 
@@ -116,6 +115,11 @@ export default function AdventurePage() {
     const [newQuestRoomCode, setNewQuestRoomCode] = useState<string>("");
     const [creating, setCreating] = useState(false);
 
+    // ✅ Affecter une quête au chapitre courant (store)
+    const assignQuestToCurrentChapter = useGameStore((s) => s.assignQuestToCurrentChapter);
+    const setStoreChapter = useGameStore((s) => s.setChapter);
+    const [assigningId, setAssigningId] = useState<string | null>(null);
+
     // ✅ Renown modal (depuis store)
     const lastRenownGain = useGameStore((s) => s.lastRenownGain);
     const clearLastRenownGain = useGameStore((s) => s.clearLastRenownGain);
@@ -148,6 +152,8 @@ export default function AdventurePage() {
             const ch = (chJson.chapter ?? null) as Chapter | null;
 
             setChapter(ch);
+            // 🔁 Sync store (le store sert de “source d’action” pour affecter)
+            setStoreChapter(ch);
 
             if (!ch?.id || !ch.adventure_id) {
                 setAdventure(null);
@@ -227,7 +233,6 @@ export default function AdventurePage() {
     }, [allAdventureQuests, chapterQuestIds]);
 
     const goPrepare = () => {
-        // pour l’instant, home_realignment a sa page dédiée
         const code = adventure?.code ?? chapter?.adventure_code ?? null;
         if (code === "home_realignment") {
             router.push("/adventure/home-realignment");
@@ -256,7 +261,7 @@ export default function AdventurePage() {
                 }),
             });
 
-            const json = await res.json();
+            const json = await res.json().catch(() => null);
             if (!res.ok) {
                 console.error(json?.error ?? "Create quest failed");
                 return;
@@ -266,6 +271,19 @@ export default function AdventurePage() {
             setNewQuestTitle("");
         } finally {
             setCreating(false);
+        }
+    };
+
+    const onAssignToChapter = async (q: AdventureQuest) => {
+        if (assigningId) return;
+        setAssigningId(q.id);
+        try {
+            const ok = await assignQuestToCurrentChapter(q.id);
+            if (ok) {
+                await loadAll("refresh"); // refresh UI (backlog -> chapter)
+            }
+        } finally {
+            setAssigningId(null);
         }
     };
 
@@ -349,7 +367,7 @@ export default function AdventurePage() {
                         </div>
                     </Panel>
 
-                    {/* 2) CHAPITRE + QUETES DU CHAPITRE */}
+                    {/* 2) CHAPITRE */}
                     <Panel
                         title="Chapitre"
                         emoji="📚"
@@ -554,8 +572,14 @@ export default function AdventurePage() {
                                         </div>
 
                                         <div className="flex items-center gap-2">
-                                            <ActionButton onClick={goPrepare}>
-                                                🛠️ Affecter
+                                            <ActionButton
+                                                variant="solid"
+                                                disabled={assigningId === q.id}
+                                                onClick={() => void onAssignToChapter(q)}
+                                            >
+                                                {assigningId === q.id
+                                                    ? "⏳ Affectation…"
+                                                    : "➕ Affecter à ce chapitre"}
                                             </ActionButton>
                                         </div>
                                     </div>
@@ -566,7 +590,7 @@ export default function AdventurePage() {
                 </div>
             )}
 
-            {/* ✅ MODAL RENOWN GAIN (transférée depuis /quests) */}
+            {/* ✅ MODAL RENOWN GAIN */}
             <AnimatePresence>
                 {showGain && lastRenownGain ? (
                     <ViewportPortal>

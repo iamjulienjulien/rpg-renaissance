@@ -5,7 +5,7 @@ import { useJournalStore } from "@/stores/journalStore";
 import { useSessionStore, type GameSession } from "@/stores/sessionStore";
 
 /* ============================================================================
-🧱 TYPES
+🧱 TYPES (données métier)
 ============================================================================ */
 
 /** 🧭 Aventure (carte globale) */
@@ -16,7 +16,7 @@ export type Adventure = {
     type?: string | null;
 };
 
-/** 📌 Quête “source” (adventure_quests) */
+/** 📌 Quête “source” (table: adventure_quests) */
 export type AdventureQuest = {
     id: string;
     title: string;
@@ -26,7 +26,7 @@ export type AdventureQuest = {
     estimate_min: number | null;
 };
 
-/** 🧩 Quête du chapitre enrichie (join adventure_quests) */
+/** 🧩 Quête du chapitre enrichie (table: chapter_quests + join adventure_quests) */
 export type ChapterQuestFull = {
     id: string;
     chapter_id: string;
@@ -38,7 +38,7 @@ export type ChapterQuestFull = {
     room_title?: string | null;
 };
 
-/** 🗺️ Chapitre (session/adventure) */
+/** 🗺️ Chapitre */
 export type Chapter = {
     id: string;
     adventure_id: string | null;
@@ -71,7 +71,7 @@ export type Character = {
     sort?: number;
 };
 
-/** 👤 Profil (player_profiles + personnage lié) */
+/** 👤 Profil joueur (player_profiles + personnage lié) */
 export type Profile = {
     user_id: string;
     display_name: string | null;
@@ -79,15 +79,7 @@ export type Profile = {
     character: Character | null;
 } | null;
 
-/** 🎯 Quête dans un chapitre */
-export type ChapterQuest = {
-    id: string;
-    quest_id: string;
-    chapter_id: string;
-    status: "todo" | "doing" | "done";
-};
-
-/** 🧩 Infos minimales sur une quête (utile pour toast/journal) */
+/** 🎯 Quête “lite” (utile toast/journal) */
 export type QuestLite = {
     id: string;
     title: string;
@@ -95,7 +87,7 @@ export type QuestLite = {
     difficulty?: number | null;
 };
 
-/** ⭐ Renommée (ex: progression globale) */
+/** ⭐ Renommée */
 export type Renown = { value: number; level: number };
 
 export type RenownGainEvent = {
@@ -106,6 +98,7 @@ export type RenownGainEvent = {
     reason?: string;
 };
 
+/** 💬 Encouragement MJ (cache store, non BDD) */
 export type Encouragement = {
     title: string;
     message: string;
@@ -121,10 +114,14 @@ export type Encouragement = {
 };
 
 /* ============================================================================
-🏪 FONCTIONS
+🧰 HELPERS (logiques locales, sans état)
 ============================================================================ */
 
-/** 🔧 Construit un contenu journal lisible (optionnellement avec la pièce) */
+function safeJson(res: Response) {
+    return res.json().catch(() => null);
+}
+
+/** 🔧 Contenu journal lisible (optionnellement avec la pièce) */
 function questLine(quest?: QuestLite | null) {
     if (!quest?.title) return null;
     return `${quest.title}${quest.room_code ? ` (🚪 ${quest.room_code})` : ""}`;
@@ -143,14 +140,12 @@ function logQuestEvent(input: {
     const toast = useToastStore.getState();
     const journal = useJournalStore.getState();
 
-    // 🍞 Toast
     toast.push({
         tone: input.tone,
         title: input.toastTitle,
         message: input.toastMessage,
     });
 
-    // 📓 Journal (async fire-and-forget)
     void journal.create({
         kind: input.journalKind,
         title: input.journalTitle,
@@ -160,7 +155,6 @@ function logQuestEvent(input: {
 }
 
 function renownDeltaForDifficulty(d?: number | null) {
-    // ajuste comme tu veux 🧪
     if (d == null) return 10;
     if (d <= 1) return 10; // 🟢
     if (d === 2) return 20; // 🟡
@@ -168,7 +162,7 @@ function renownDeltaForDifficulty(d?: number | null) {
 }
 
 /* ============================================================================
-🏪 STORE
+🏪 STORE (état + actions)
 ============================================================================ */
 
 type GameStore = {
@@ -188,37 +182,36 @@ type GameStore = {
     profile: Profile;
 
     // états UI
-    loading: boolean; // bootstrap/refresh
-    saving: boolean; // activation personnage
-    characterLoading: boolean; // compat (si tu l’utilises)
+    loading: boolean;
+    saving: boolean;
+    characterLoading: boolean;
     error: string | null;
 
-    // sélection (utile pour UI)
+    // sélection UI
     selectedId: string | null;
     getSelected: () => Character | null;
 
-    // actions (ex characterStore)
+    // actions
     bootstrap: () => Promise<void>;
     refreshProfile: () => Promise<void>;
     activateCharacter: (characterId: string) => Promise<void>;
-
-    // compat (ex gameStore)
     loadActiveCharacter: () => Promise<void>;
-    // setCharacter: (character: Character | null) => void;
 
     /* ---------------------------- ⚔️ QUESTS ----------------------------- */
-    startQuest: (chapterQuestId: string, quest?: QuestLite | null) => Promise<ChapterQuest | null>;
-    finishQuest: (chapterQuestId: string, quest?: QuestLite | null) => Promise<ChapterQuest | null>;
+    startQuest: (chapterQuestId: string, quest?: QuestLite | null) => Promise<any | null>;
+    finishQuest: (chapterQuestId: string, quest?: QuestLite | null) => Promise<any | null>;
+
+    // ✅ NEW: Affecter une quête (adventure_quests) au chapitre courant (crée chapter_quests)
+    assignQuestToCurrentChapter: (adventureQuestId: string) => Promise<boolean>;
 
     /* ---------------------------- ⭐ RENOMMÉE ---------------------------- */
     renown: Renown | null;
     renownLoading: boolean;
-
     addRenown: (amount: number, reason?: string) => Promise<Renown | null>;
-
     lastRenownGain: RenownGainEvent | null;
     clearLastRenownGain: () => void;
 
+    /* -------------------------- 💬 ENCOURAGEMENT ------------------------- */
     encouragementByChapterQuestId: Record<string, Encouragement | undefined>;
     encouragementLoading: boolean;
 
@@ -236,151 +229,13 @@ type GameStore = {
 };
 
 export const useGameStore = create<GameStore>((set, get) => ({
+    /* =========================================================================
+    🎮 SNAPSHOT JEU
+    ========================================================================= */
+
     currentAdventure: null,
     currentChapter: null,
     currentQuests: [],
-
-    /** 🚀 Bootstrap: charge l’essentiel du jeu (persos + profil + chapitre + renommée) */
-    /** 🚀 Bootstrap: charge l’essentiel du jeu (persos + profil + chapitre + aventure + quêtes + renommée) */
-    bootstrap: async () => {
-        set({
-            loading: true,
-            characterLoading: true,
-            renownLoading: true,
-            error: null,
-        });
-
-        const res = await fetch("/api/session/active", { cache: "no-store" });
-        const json = await res.json().catch(() => null);
-
-        if (!res.ok) {
-            set({ error: json?.error ?? "Failed to load active session" });
-            return;
-        }
-
-        const session = (json?.session ?? null) as GameSession | null;
-
-        const sessionId = session?.id ?? null;
-        // console.log("sessionId", sessionId);
-
-        try {
-            // ✅ 1) Ce qui ne dépend de rien (en parallèle)
-            const [charsRes, profRes, chapterRes, renownRes] = await Promise.allSettled([
-                fetch("/api/characters", { cache: "no-store" }),
-                fetch("/api/profile/character", { cache: "no-store" }),
-                fetch("/api/chapters?latest=1", { cache: "no-store" }),
-                fetch("/api/renown?session_id=" + sessionId, { cache: "no-store" }), // GET côté API renown
-            ]);
-
-            // --- 🧙 Characters (critique)
-            if (charsRes.status !== "fulfilled") throw new Error("Failed to load characters");
-            const charsJson = await charsRes.value.json().catch(() => null);
-            if (!charsRes.value.ok)
-                throw new Error(charsJson?.error ?? "Failed to load characters");
-            const characters = (charsJson?.characters ?? []) as Character[];
-
-            // --- 👤 Profile (optionnel)
-            let profile: Profile = null;
-            let selectedId: string | null = null;
-
-            if (profRes.status === "fulfilled") {
-                const profJson = await profRes.value.json().catch(() => null);
-                if (profRes.value.ok) {
-                    profile = (profJson?.profile ?? null) as Profile;
-                    selectedId = (profile?.character_id ?? null) as string | null;
-                }
-            }
-
-            // --- 🗺️ Chapter (optionnel)
-            let chapter: Chapter | null = null;
-            if (chapterRes.status === "fulfilled") {
-                const chapterJson = await chapterRes.value.json().catch(() => null);
-                if (chapterRes.value.ok) chapter = (chapterJson?.chapter ?? null) as Chapter | null;
-            }
-
-            // --- ⭐ Renown (optionnel)
-            let renown: Renown | null = null;
-            if (renownRes.status === "fulfilled") {
-                const renownJson = await renownRes.value.json().catch(() => null);
-                if (renownRes.value.ok) renown = (renownJson?.renown ?? null) as Renown | null;
-            }
-
-            // ✅ 2) Ce qui dépend du chapitre (en parallèle, best-effort)
-            let currentAdventure: Adventure | null = null;
-            let currentQuests: ChapterQuestFull[] = [];
-
-            if (chapter?.id) {
-                const [advRes, questsRes] = await Promise.allSettled([
-                    chapter.adventure_id
-                        ? fetch(`/api/adventures?id=${encodeURIComponent(chapter.adventure_id)}`, {
-                              cache: "no-store",
-                          })
-                        : Promise.resolve(null as any),
-                    fetch(
-                        `/api/chapter-quests?status=doing&chapterId=${encodeURIComponent(chapter.id)}`,
-                        {
-                            cache: "no-store",
-                        }
-                    ),
-                ]);
-
-                // Aventure
-                if (advRes.status === "fulfilled" && advRes.value) {
-                    const advJson = await advRes.value.json().catch(() => null);
-                    if (advRes.value.ok) {
-                        currentAdventure = (advJson?.adventure ?? null) as Adventure | null;
-                    }
-                }
-
-                // Quêtes
-                if (questsRes.status === "fulfilled") {
-                    const qJson = await questsRes.value.json().catch(() => null);
-                    if (questsRes.value.ok) {
-                        currentQuests = (qJson?.items ?? []) as ChapterQuestFull[];
-                    }
-                }
-            }
-
-            console.log("currentAdventure", currentAdventure);
-            console.log("currentChapter", chapter);
-            console.log("currentQuests", currentQuests);
-
-            // ✅ 3) Commit snapshot
-            set({
-                characters,
-                profile,
-                selectedId,
-
-                chapter,
-                renown,
-
-                currentChapter: chapter,
-                currentAdventure,
-                currentQuests,
-            });
-        } catch (e) {
-            set({
-                characters: [],
-                profile: null,
-                selectedId: null,
-
-                chapter: null,
-                renown: null,
-
-                currentChapter: null,
-                currentAdventure: null,
-                currentQuests: [],
-
-                error: e instanceof Error ? e.message : "Bootstrap failed",
-            });
-        } finally {
-            set({
-                loading: false,
-                characterLoading: false,
-                renownLoading: false,
-            });
-        }
-    },
 
     /* =========================================================================
     🗺️ CHAPTER
@@ -389,15 +244,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     chapter: null,
     chapterLoading: false,
 
-    /** ✍️ Set chapter en local */
     setChapter: (chapter) => set({ chapter }),
 
-    /** 🧭 Charge le dernier chapitre actif (API) */
     loadLatestChapter: async () => {
         set({ chapterLoading: true });
         try {
             const res = await fetch("/api/chapters?latest=1", { cache: "no-store" });
-            const json = await res.json().catch(() => null);
+            const json = await safeJson(res);
 
             if (!res.ok) {
                 console.error("loadLatestChapter failed:", json?.error ?? res.statusText);
@@ -416,7 +269,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     /* =========================================================================
     🧙 CHARACTERS / 👤 PROFILE
-    (fusion de l’ancien characterStore)
     ========================================================================= */
 
     characters: [],
@@ -429,19 +281,140 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     selectedId: null,
 
-    /** 🎯 Récupère le perso sélectionné (ou le perso du profil si rien) */
     getSelected: () => {
         const { selectedId, characters, profile } = get();
         if (!selectedId) return profile?.character ?? null;
         return characters.find((c) => c.id === selectedId) ?? profile?.character ?? null;
     },
 
-    /** 🔄 Recharge uniquement le profil (perso actif + display_name) */
+    bootstrap: async () => {
+        set({
+            loading: true,
+            characterLoading: true,
+            renownLoading: true,
+            error: null,
+        });
+
+        const res = await fetch("/api/session/active", { cache: "no-store" });
+        const json = await safeJson(res);
+
+        if (!res.ok) {
+            set({ error: json?.error ?? "Failed to load active session" });
+            return;
+        }
+
+        const session = (json?.session ?? null) as GameSession | null;
+        const sessionId = session?.id ?? null;
+
+        try {
+            const [charsRes, profRes, chapterRes, renownRes] = await Promise.allSettled([
+                fetch("/api/characters", { cache: "no-store" }),
+                fetch("/api/profile/character", { cache: "no-store" }),
+                fetch("/api/chapters?latest=1", { cache: "no-store" }),
+                fetch("/api/renown?session_id=" + sessionId, { cache: "no-store" }),
+            ]);
+
+            // Characters (critique)
+            if (charsRes.status !== "fulfilled") throw new Error("Failed to load characters");
+            const charsJson = await safeJson(charsRes.value);
+            if (!charsRes.value.ok)
+                throw new Error(charsJson?.error ?? "Failed to load characters");
+            const characters = (charsJson?.characters ?? []) as Character[];
+
+            // Profile (optionnel)
+            let profile: Profile = null;
+            let selectedId: string | null = null;
+
+            if (profRes.status === "fulfilled") {
+                const profJson = await safeJson(profRes.value);
+                if (profRes.value.ok) {
+                    profile = (profJson?.profile ?? null) as Profile;
+                    selectedId = (profile?.character_id ?? null) as string | null;
+                }
+            }
+
+            // Chapter (optionnel)
+            let chapter: Chapter | null = null;
+            if (chapterRes.status === "fulfilled") {
+                const chapterJson = await safeJson(chapterRes.value);
+                if (chapterRes.value.ok) chapter = (chapterJson?.chapter ?? null) as Chapter | null;
+            }
+
+            // Renown (optionnel)
+            let renown: Renown | null = null;
+            if (renownRes.status === "fulfilled") {
+                const renownJson = await safeJson(renownRes.value);
+                if (renownRes.value.ok) renown = (renownJson?.renown ?? null) as Renown | null;
+            }
+
+            // Dépend du chapitre (best-effort)
+            let currentAdventure: Adventure | null = null;
+            let currentQuests: ChapterQuestFull[] = [];
+
+            if (chapter?.id) {
+                const [advRes, questsRes] = await Promise.allSettled([
+                    chapter.adventure_id
+                        ? fetch(`/api/adventures?id=${encodeURIComponent(chapter.adventure_id)}`, {
+                              cache: "no-store",
+                          })
+                        : Promise.resolve(null as any),
+                    fetch(
+                        `/api/chapter-quests?status=doing&chapterId=${encodeURIComponent(chapter.id)}`,
+                        {
+                            cache: "no-store",
+                        }
+                    ),
+                ]);
+
+                if (advRes.status === "fulfilled" && advRes.value) {
+                    const advJson = await safeJson(advRes.value);
+                    if (advRes.value.ok)
+                        currentAdventure = (advJson?.adventure ?? null) as Adventure | null;
+                }
+
+                if (questsRes.status === "fulfilled") {
+                    const qJson = await safeJson(questsRes.value);
+                    if (questsRes.value.ok)
+                        currentQuests = (qJson?.items ?? []) as ChapterQuestFull[];
+                }
+            }
+
+            set({
+                characters,
+                profile,
+                selectedId,
+                chapter,
+                renown,
+                currentChapter: chapter,
+                currentAdventure,
+                currentQuests,
+            });
+        } catch (e) {
+            set({
+                characters: [],
+                profile: null,
+                selectedId: null,
+                chapter: null,
+                renown: null,
+                currentChapter: null,
+                currentAdventure: null,
+                currentQuests: [],
+                error: e instanceof Error ? e.message : "Bootstrap failed",
+            });
+        } finally {
+            set({
+                loading: false,
+                characterLoading: false,
+                renownLoading: false,
+            });
+        }
+    },
+
     refreshProfile: async () => {
         set({ loading: true, characterLoading: true, error: null });
         try {
             const res = await fetch("/api/profile/character", { cache: "no-store" });
-            const json = await res.json().catch(() => null);
+            const json = await safeJson(res);
 
             if (!res.ok) throw new Error(json?.error ?? "Failed to load profile");
 
@@ -462,7 +435,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
     },
 
-    /** ✅ Active un personnage (persisté en BDD via /api/profile/character) */
     activateCharacter: async (characterId: string) => {
         if (!characterId) return;
 
@@ -474,13 +446,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 body: JSON.stringify({ characterId }),
             });
 
-            const json = await res.json().catch(() => null);
+            const json = await safeJson(res);
             if (!res.ok) throw new Error(json?.error ?? "Save failed");
 
             const profile = (json?.profile ?? null) as Profile;
             const selected = get().characters.find((c) => c.id === characterId) ?? null;
 
-            // ⚡ Mise à jour locale rapide (UX instant)
             set({
                 selectedId: characterId,
                 profile: profile
@@ -493,7 +464,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
                       },
             });
 
-            // 🍞 Toast “nice”
             useToastStore
                 .getState()
                 .success(
@@ -508,34 +478,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
     },
 
-    /* -------------------------------------------------------------------------
-    🧩 Compat API (ancien gameStore)
-    ------------------------------------------------------------------------- */
-
-    /** 🧲 Alias: garde l’ancienne signature */
     loadActiveCharacter: async () => {
         await get().refreshProfile();
     },
 
-    /** 🧷 Permet d’injecter un perso dans le profil (rare, mais compat) */
-    // setCharacter: (character) => {
-    //     set((s) => ({
-    //         profile: s.profile
-    //             ? { ...s.profile, character, character_id: character?.id ?? s.profile.character_id }
-    //             : {
-    //                   user_id: "me",
-    //                   display_name: null,
-    //                   character_id: character?.id ?? null,
-    //                   character: character ?? null,
-    //               },
-    //     }));
-    // },
+    /* =========================================================================
+    ⚔️ QUESTS (start/finish + journal + renown)
+    ========================================================================= */
 
-    /* ============================================================================
-⚔️ QUESTS ACTIONS (toast + journal)
-============================================================================ */
-
-    // ✅ NEW: démarre une quête (status=doing) + toast + journal
     startQuest: async (chapterQuestId, quest) => {
         try {
             const res = await fetch(`/api/chapter-quests/${chapterQuestId}`, {
@@ -544,7 +494,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 body: JSON.stringify({ status: "doing" }),
             });
 
-            const json = await res.json().catch(() => null);
+            const json = await safeJson(res);
 
             if (!res.ok) {
                 const msg = json?.error ?? "Impossible de démarrer la quête";
@@ -560,8 +510,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 return null;
             }
 
-            const cq = (json?.chapterQuest ?? null) as ChapterQuest | null;
-
+            const cq = json?.chapterQuest ?? null;
             const line = questLine(quest);
 
             logQuestEvent({
@@ -590,7 +539,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
     },
 
-    // ✅ NEW: termine une quête (status=done) + toast + journal
     finishQuest: async (chapterQuestId, quest) => {
         try {
             const res = await fetch(`/api/chapter-quests/${chapterQuestId}`, {
@@ -599,7 +547,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 body: JSON.stringify({ status: "done" }),
             });
 
-            const json = await res.json().catch(() => null);
+            const json = await safeJson(res);
 
             if (!res.ok) {
                 const msg = json?.error ?? "Impossible de terminer la quête";
@@ -615,7 +563,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 return null;
             }
 
-            const cq = (json?.chapterQuest ?? null) as ChapterQuest | null;
+            const cq = json?.chapterQuest ?? null;
             const line = questLine(quest);
 
             logQuestEvent({
@@ -628,7 +576,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 questId: quest?.id ?? null,
             });
 
-            // ✅ Renown (non-bloquant)
             const delta = renownDeltaForDifficulty(quest?.difficulty ?? null);
             void get().addRenown(delta, line ? `Quête: ${line}` : "Quête terminée");
 
@@ -649,8 +596,64 @@ export const useGameStore = create<GameStore>((set, get) => ({
     },
 
     /* =========================================================================
+    ✅ NEW: AFFECTATION (backlog -> chapter)
+    ========================================================================= */
+
+    assignQuestToCurrentChapter: async (adventureQuestId: string) => {
+        const toast = useToastStore.getState();
+        const journal = useJournalStore.getState();
+
+        // 1) Trouver un chapitre “courant”
+        let chapterId = get().chapter?.id ?? get().currentChapter?.id ?? null;
+
+        if (!chapterId) {
+            await get().loadLatestChapter();
+            chapterId = get().chapter?.id ?? null;
+        }
+
+        if (!chapterId) {
+            toast.error("Affectation impossible", "Aucun chapitre actif.");
+            return false;
+        }
+
+        // 2) Appeler l’API qui crée les chapter_quests
+        try {
+            const res = await fetch("/api/chapter-quests", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    chapter_id: chapterId,
+                    adventure_quest_ids: [adventureQuestId],
+                }),
+            });
+
+            const json = await safeJson(res);
+
+            if (!res.ok) {
+                toast.error("Affectation impossible", json?.error ?? "Erreur serveur");
+                return false;
+            }
+
+            toast.success("Quête affectée", "Ajoutée au chapitre courant.");
+
+            void journal.create({
+                kind: "note",
+                title: "➕ Quête affectée au chapitre",
+                content: `Une quête du backlog a été ajoutée au chapitre en cours.`,
+                quest_id: adventureQuestId,
+            });
+
+            return true;
+        } catch (e) {
+            console.error(e);
+            toast.error("Affectation impossible", "Erreur réseau");
+            return false;
+        }
+    },
+
+    /* =========================================================================
     🏆 RENOWN / LEVEL
-    ======================================================================== */
+    ========================================================================= */
 
     renown: null,
     renownLoading: false,
@@ -673,7 +676,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 body: JSON.stringify({ session_id: sessionId, amount }),
             });
 
-            const json = await res.json().catch(() => null);
+            const json = await safeJson(res);
 
             if (!res.ok) {
                 const msg = json?.error ?? "Impossible d’ajouter de la renommée";
@@ -705,6 +708,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
     },
 
+    /* =========================================================================
+    💬 ENCOURAGEMENT (MJ)
+    ========================================================================= */
+
     encouragementByChapterQuestId: {},
     encouragementLoading: false,
 
@@ -725,7 +732,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 body: JSON.stringify(input),
             });
 
-            const json = await res.json().catch(() => null);
+            const json = await safeJson(res);
 
             if (!res.ok) {
                 const msg = json?.error ?? "Impossible de générer un encouragement";
