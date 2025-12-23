@@ -1,11 +1,17 @@
 "use client";
 
+// React
 import React, { useMemo, useState } from "react";
+
+// Components
 import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
+
+// Stores
 import { useToastStore } from "@/stores/toastStore";
 import { useDevStore } from "@/stores/devStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { usePlayerStore } from "@/stores/playerStore";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -92,6 +98,8 @@ export default function SettingsPage() {
 
     const [resetting, setResetting] = useState(false);
 
+    const logout = usePlayerStore((s) => s.logout);
+
     const toastSuccess = useToastStore((s) => s.success);
     const toastError = useToastStore((s) => s.error);
     const toastInfo = useToastStore((s) => s.info);
@@ -110,9 +118,7 @@ export default function SettingsPage() {
         try {
             const res = await fetch("/api/dev/reset", {
                 method: "POST",
-                headers: {
-                    "x-dev-reset-token": token,
-                },
+                headers: { "x-dev-reset-token": token },
             });
 
             const json = await res.json().catch(() => null);
@@ -122,8 +128,11 @@ export default function SettingsPage() {
                 return;
             }
 
-            toastSuccess("Reset OK ✅", "Tout est remis à zéro.");
-            window.location.href = "/";
+            toastSuccess("Reset OK ✅", "Tout est remis à zéro. Déconnexion…");
+
+            // ✅ Déconnexion (clear session cookie) puis redirige /login
+            await logout();
+            return;
         } catch (e) {
             console.error(e);
             toastError("Reset échoué", "Erreur réseau ou serveur.");
