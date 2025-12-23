@@ -21,6 +21,9 @@ type PlayerContext = {
 };
 
 export type EncouragementContext = {
+    // ✅ déjà ajouté chez toi côté input: on l’utilise ici
+    chapter_quest_id: string;
+
     quest_title: string;
     room_code?: string | null;
     difficulty?: number | null;
@@ -85,6 +88,46 @@ function difficultyLabel(d?: number | null) {
 }
 
 /**
+ * ✅ Charge chapters.context_text à partir d’un chapter_quest_id
+ * (chapter_quests -> chapter_id -> chapters.context_text)
+ */
+async function loadChapterContextTextByChapterQuestId(
+    chapterQuestId: string
+): Promise<string | null> {
+    const supabase = await supabaseServer();
+
+    // 1) chapter_id depuis chapter_quests
+    const { data: cq, error: cqErr } = await supabase
+        .from("chapter_quests")
+        .select("id, chapter_id")
+        .eq("id", chapterQuestId)
+        .maybeSingle();
+
+    if (cqErr) {
+        console.warn("loadChapterContextText: chapter_quests warning:", cqErr.message);
+        return null;
+    }
+
+    const chapterId = (cq as any)?.chapter_id as string | null;
+    if (!chapterId) return null;
+
+    // 2) context_text depuis chapters
+    const { data: ch, error: chErr } = await supabase
+        .from("chapters")
+        .select("context_text")
+        .eq("id", chapterId)
+        .maybeSingle();
+
+    if (chErr) {
+        console.warn("loadChapterContextText: chapters warning:", chErr.message);
+        return null;
+    }
+
+    const ctx = safeTrim((ch as any)?.context_text);
+    return ctx.length ? ctx : null;
+}
+
+/**
  * ✅ Encouragement IA (non stocké en BDD).
  * Ton/style reflètent le personnage actif.
  */
@@ -105,6 +148,11 @@ export async function generateEncouragementForQuest(input: EncouragementContext)
     const style = character?.ai_style?.style ?? "motivant";
     const verbosity = character?.ai_style?.verbosity ?? "normal";
 
+    // ✅ Contexte “aventure” (texte joueur)
+    const chapterContextText = input.chapter_quest_id
+        ? await loadChapterContextTextByChapterQuestId(input.chapter_quest_id)
+        : null;
+
     const model = "gpt-4.1";
 
     const systemText = [
@@ -118,6 +166,9 @@ export async function generateEncouragementForQuest(input: EncouragementContext)
         playerName
             ? `Le joueur s'appelle "${playerName}". Utilise son nom 0 à 1 fois maximum.`
             : `Le joueur n'a pas de nom affiché. N'invente pas de prénom.`,
+        chapterContextText
+            ? `Contexte de l'aventure (fourni par le joueur, à prendre en compte dans l'encouragement: contraintes, motivation, foyer, priorités):\n${chapterContextText}`
+            : `Contexte de l'aventure: (aucun fourni).`,
         character?.motto
             ? `Serment du personnage (à refléter sans le citer mot pour mot): ${character.motto}`
             : null,
@@ -133,6 +184,8 @@ export async function generateEncouragementForQuest(input: EncouragementContext)
         room_code: input.room_code ?? null,
         difficulty: difficultyLabel(input.difficulty),
         mission_hint: safeTrim(input.mission_md ?? "").slice(0, 800) || null,
+        // ✅ contexte chapitre aussi dans le JSON côté user (redondant, mais utile)
+        chapter_context: chapterContextText ?? "",
     };
 
     const response = await openai.responses.create({

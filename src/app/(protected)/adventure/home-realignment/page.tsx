@@ -42,6 +42,37 @@ export default function HomeRealignmentSetupPage() {
 
     const createJournal = useJournalStore((s) => s.create);
 
+    const [contextText, setContextText] = useState("");
+    const [contextLoading, setContextLoading] = useState(false);
+    const [contextSaving, setContextSaving] = useState(false);
+
+    useEffect(() => {
+        const run = async () => {
+            setContextLoading(true);
+            try {
+                const res = await fetch("/api/chapters/context", { cache: "no-store" });
+                const json = await res.json().catch(() => null);
+                if (res.ok) setContextText((json?.context_text ?? "") as string);
+            } finally {
+                setContextLoading(false);
+            }
+        };
+        void run();
+    }, []);
+
+    const saveContext = async () => {
+        setContextSaving(true);
+        try {
+            await fetch("/api/chapters/context", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ context_text: contextText }),
+            });
+        } finally {
+            setContextSaving(false);
+        }
+    };
+
     const loadAll = async () => {
         setLoading(true);
         try {
@@ -442,6 +473,45 @@ export default function HomeRealignmentSetupPage() {
                         <div className="mt-3 text-xs text-white/55">
                             (DEV) On filtre déjà les doublons par pièce. On améliorera ensuite:
                             génération guidée, variantes, suppression en batch.
+                        </div>
+                    </Panel>
+
+                    <Panel
+                        title="Contexte"
+                        emoji="🧾"
+                        subtitle="Pourquoi cette aventure, qui est concerné, contraintes, objectifs cachés…"
+                        right={<Pill>{contextSaving ? "💾" : "✍️"}</Pill>}
+                    >
+                        <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
+                            {contextLoading ? (
+                                <div className="rpg-text-sm text-white/60">⏳ Chargement…</div>
+                            ) : (
+                                <>
+                                    <textarea
+                                        value={contextText}
+                                        onChange={(e) => setContextText(e.target.value)}
+                                        placeholder={
+                                            "Ex:\n- Je fais cette aventure pour retrouver une maison stable.\n- Foyer: 2 adultes + 1 enfant.\n- Contraintes: 20 min max / jour.\n- Sensible: éviter le bruit le soir.\n"
+                                        }
+                                        className="min-h-[180px] w-full resize-none rounded-2xl bg-black/25 px-4 py-3 rpg-text-sm text-white/90 ring-1 ring-white/10 outline-none placeholder:text-white/35 focus:ring-2 focus:ring-white/25"
+                                    />
+
+                                    <div className="mt-3 flex items-center justify-between gap-2">
+                                        <div className="text-xs text-white/45">
+                                            Ce contexte sera utilisé par le MJ pour les missions et
+                                            encouragements.
+                                        </div>
+
+                                        <ActionButton
+                                            variant="solid"
+                                            disabled={contextSaving}
+                                            onClick={() => void saveContext()}
+                                        >
+                                            {contextSaving ? "⏳ Sauvegarde…" : "💾 Sauvegarder"}
+                                        </ActionButton>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </Panel>
                 </div>

@@ -8,6 +8,15 @@ export async function POST(req: Request) {
     const room_code = typeof body?.room_code === "string" ? body.room_code : null;
     const difficulty = Number.isFinite(Number(body?.difficulty)) ? Number(body.difficulty) : null;
     const mission_md = typeof body?.mission_md === "string" ? body.mission_md : null;
+    const chapter_quest_id =
+        typeof body?.chapter_quest_id === "string" ? body.chapter_quest_id.trim() : "";
+
+    if (!chapter_quest_id || !quest_title) {
+        return NextResponse.json(
+            { error: "Missing chapter_quest_id or quest_title" },
+            { status: 400 }
+        );
+    }
 
     if (!quest_title) {
         return NextResponse.json({ error: "Missing quest_title" }, { status: 400 });
@@ -15,11 +24,19 @@ export async function POST(req: Request) {
 
     try {
         const data = await generateEncouragementForQuest({
+            chapter_quest_id,
             quest_title,
             room_code,
             difficulty,
             mission_md,
         });
+
+        if (!chapter_quest_id || !quest_title) {
+            return NextResponse.json(
+                { error: "Missing chapter_quest_id or quest_title" },
+                { status: 400 }
+            );
+        }
 
         return NextResponse.json(data, { status: 200 });
     } catch (e) {

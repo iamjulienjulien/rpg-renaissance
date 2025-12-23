@@ -218,6 +218,7 @@ type GameStore = {
     askEncouragement: (
         chapterQuestId: string,
         input: {
+            chapter_quest_id: string;
             quest_title: string;
             room_code?: string | null;
             difficulty?: number | null;

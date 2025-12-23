@@ -120,12 +120,13 @@ export async function generateMissionForChapterQuest(
     const userId = authData?.user?.id ?? "";
     if (!userId) throw new Error("Not authenticated");
 
-    // 0) Charger chapter_quest + session_id + quête
+    // 0) Charger chapter_quest + session_id + quête (+ chapter_id pour contexte)
     const { data: cq, error: cqErr } = await supabase
         .from("chapter_quests")
         .select(
             `
             id,
+            chapter_id,
             status,
             session_id,
             adventure_quests!chapter_quests_adventure_quest_id_fkey (
@@ -149,6 +150,23 @@ export async function generateMissionForChapterQuest(
     const sessionId = cq.session_id as string;
     const q = Array.isArray(cq.adventure_quests) ? cq.adventure_quests[0] : cq.adventure_quests;
 
+    // ✅ Contexte “aventure” (texte joueur) depuis chapters.context_text
+    let chapterContextText: string | null = null;
+    if (cq.chapter_id) {
+        const { data: ch, error: chErr } = await supabase
+            .from("chapters")
+            .select("context_text")
+            .eq("id", cq.chapter_id)
+            .maybeSingle();
+
+        if (chErr) {
+            console.warn("load chapters.context_text warning:", chErr.message);
+        } else {
+            const ctx = safeTrim((ch as any)?.context_text);
+            chapterContextText = ctx.length ? ctx : null;
+        }
+    }
+
     const context = {
         title: q.title,
         description: q.description ?? "",
@@ -156,6 +174,8 @@ export async function generateMissionForChapterQuest(
         difficulty: q.difficulty ?? 2,
         estimate_min: q.estimate_min ?? null,
         status: cq.status,
+        // ✅ ajout explicite du contexte chapitre
+        chapter_context: chapterContextText ?? "",
     };
 
     // 1) Cache (scopé session) si pas force
@@ -194,6 +214,9 @@ export async function generateMissionForChapterQuest(
         playerName
             ? `Le joueur s'appelle "${playerName}". Utilise son nom avec parcimonie (0 à 2 fois), plutôt dans l'intro, sans répétition lourde.`
             : `Le joueur n'a pas de nom affiché. N'invente pas de prénom.`,
+        chapterContextText
+            ? `Contexte de l'aventure (fourni par le joueur, à prendre en compte partout: objectifs, étapes, encouragement, contraintes):\n${chapterContextText}`
+            : `Contexte de l'aventure: (aucun fourni).`,
         character?.motto
             ? `Serment du personnage (à refléter sans le citer mot pour mot): ${character.motto}`
             : null,

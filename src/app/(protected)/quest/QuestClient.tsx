@@ -167,6 +167,7 @@ export default function QuestClient() {
         if (encouragement?.message) return;
 
         await askEncouragement(chapterQuestId, {
+            chapter_quest_id: chapterQuestId,
             quest_title: quest.title,
             room_code: quest.room_code ?? null,
             difficulty: quest.difficulty ?? null,
