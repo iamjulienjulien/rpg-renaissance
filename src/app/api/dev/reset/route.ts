@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
-    if (process.env.NODE_ENV === "production") {
+    if (process.env.CURRENT_ENV === "production") {
         return NextResponse.json({ error: "Forbidden in production" }, { status: 403 });
     }
 
