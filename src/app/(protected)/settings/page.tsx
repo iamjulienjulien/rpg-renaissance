@@ -80,7 +80,7 @@ function ThemeSwitchRow() {
                     <ActionButton
                         variant={isClassic ? "solid" : "soft"}
                         onClick={() => setTheme("classic")}
-                        tictle="Classic"
+                        // title="Classic"
                     >
                         📜
                     </ActionButton>
@@ -88,7 +88,7 @@ function ThemeSwitchRow() {
                     <ActionButton
                         variant={isCyber ? "solid" : "soft"}
                         onClick={() => setTheme("cyber-ritual")}
-                        title="Cyber Ritual"
+                        // title="Cyber Ritual"
                     >
                         🟦
                     </ActionButton>
