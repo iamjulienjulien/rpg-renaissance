@@ -45,6 +45,7 @@ type AdventureQuest = {
     id: string;
     adventure_id: string;
     room_code: string | null;
+    status: string | null;
     title: string;
     description: string | null;
     difficulty: number;
@@ -282,8 +283,9 @@ export default function AdventurePage() {
     );
 
     const backlog = useMemo(() => {
+        console.log("allAdventureQuests", allAdventureQuests);
         return allAdventureQuests
-            .filter((q) => !chapterQuestIds.has(q.id))
+            .filter((q) => !chapterQuestIds.has(q.id) && q.status !== "done")
             .slice()
             .sort((a, b) => (a.title ?? "").localeCompare(b.title ?? "", "fr"));
     }, [allAdventureQuests, chapterQuestIds]);

@@ -16,14 +16,44 @@ export async function GET(req: Request) {
 
     const { data, error } = await supabase
         .from("adventure_quests")
-        .select("id,adventure_id,room_code,title,description,difficulty,estimate_min,created_at")
+        .select(
+            `
+            id,
+            adventure_id,
+            room_code,
+            title,
+            description,
+            difficulty,
+            estimate_min,
+            created_at,
+            chapter_quests:chapter_quests!chapter_quests_adventure_quest_id_fkey (
+                status
+            )
+        `
+        )
         .eq("adventure_id", adventureId)
-        .eq("session_id", session.id) // ✅ important (et cohérent avec RLS)
+        .eq("session_id", session.id) // ✅ cohérent avec RLS
+        .eq("chapter_quests.session_id", session.id) // ✅ limite le join à la session active
         .order("created_at", { ascending: false });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    return NextResponse.json({ quests: data ?? [] });
+    const quests = (data ?? []).map((q: any) => {
+        const cq = Array.isArray(q.chapter_quests) ? q.chapter_quests[0] : q.chapter_quests;
+        return {
+            id: q.id,
+            adventure_id: q.adventure_id,
+            room_code: q.room_code,
+            title: q.title,
+            description: q.description,
+            difficulty: q.difficulty,
+            estimate_min: q.estimate_min,
+            created_at: q.created_at,
+            status: cq?.status ?? null, // "todo" | "doing" | "done" | null
+        };
+    });
+
+    return NextResponse.json({ quests });
 }
 
 export async function POST(req: Request) {
