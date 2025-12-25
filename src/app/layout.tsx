@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import ThemeHydrator from "@/components/ThemeHydrator";
 import AppHotkeys from "@/components/AppHotKeys";
 import CommandPalette from "@/components/CommandPalette";
 import Toasts from "@/components/Toasts";
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     return (
         <html lang="fr">
             <body>
+                <ThemeHydrator />
                 <SettingsApplier />
                 <AppHotkeys />
                 <CommandPalette />

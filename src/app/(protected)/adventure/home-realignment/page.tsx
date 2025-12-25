@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
 import RoomsSelector from "@/components/RoomsSelector";
-import { DifficultyPill } from "@/helpers/difficulty";
+import { QuestDifficultyPill } from "@/helpers/questDifficulty";
 import { useJournalStore } from "@/stores/journalStore";
 import { useSessionStore } from "@/stores/sessionStore";
 
@@ -397,7 +397,7 @@ export default function HomeRealignmentSetupPage() {
                                                     ) : (
                                                         <Pill>🗺️ sans pièce</Pill>
                                                     )}
-                                                    <DifficultyPill
+                                                    <QuestDifficultyPill
                                                         difficulty={q.difficulty ?? 2}
                                                     />
                                                 </div>

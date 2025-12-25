@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useUiStore } from "@/stores/uiStore";
+import { useUiSettingsStore } from "@/stores/uiSettingsStore";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -20,19 +21,56 @@ export function Panel({
     right?: React.ReactNode;
     children: React.ReactNode;
 }) {
+    const theme = useUiSettingsStore((s) => s.theme);
+    const cyber = theme === "cyber-ritual";
+
     return (
-        <div className="rounded-2xl bg-black/25 p-5 ring-1 ring-white/10">
+        <div
+            className={cn(
+                // ✅ CLASSIC (inchangé)
+                !cyber && "rounded-2xl bg-black/25 p-5 ring-1 ring-white/10",
+
+                // 🟦 CYBER RITUAL
+                cyber &&
+                    cn(
+                        "rounded-2xl p-5 ring-1",
+                        "bg-black/30 ring-cyan-400/20",
+                        "shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_0_24px_rgba(34,211,238,0.08)]"
+                    )
+            )}
+        >
             {title && (
                 <div className="flex items-start justify-between gap-3">
                     <div>
-                        <div className="text-[11px] tracking-[0.18em] text-white/55">
+                        <div
+                            className={cn(
+                                // ✅ CLASSIC (inchangé)
+                                !cyber && "text-[11px] tracking-[0.18em] text-white/55",
+
+                                // 🟦 CYBER RITUAL
+                                cyber &&
+                                    "text-[11px] tracking-[0.22em] text-cyan-200/75 drop-shadow-[0_0_10px_rgba(34,211,238,0.12)]"
+                            )}
+                        >
                             {emoji ? `${emoji} ` : ""}
                             {title ? title.toUpperCase() : ""}
                         </div>
+
                         {subtitle ? (
-                            <div className="mt-2 rpg-text-sm text-white/60">{subtitle}</div>
+                            <div
+                                className={cn(
+                                    // ✅ CLASSIC (inchangé)
+                                    !cyber && "mt-2 rpg-text-sm text-white/60",
+
+                                    // 🟦 CYBER RITUAL
+                                    cyber && "mt-2 rpg-text-sm text-white/65"
+                                )}
+                            >
+                                {subtitle}
+                            </div>
                         ) : null}
                     </div>
+
                     {right ? <div className="shrink-0">{right}</div> : null}
                 </div>
             )}
@@ -80,51 +118,65 @@ export function ActionButton(props: {
     onClick?: () => void;
     variant?: "soft" | "solid" | "master";
     disabled?: boolean;
+    className?: string;
 
-    /**
-     * Optionnel: branche directement sur le store UI
-     * Exemple: <ActionButton action="togglePalette">⌘K</ActionButton>
-     */
     action?: UiAction;
-
-    /**
-     * Optionnel: petit hint UX (affiché à droite si fourni)
-     * Exemple: hint="⌘K"
-     */
     hint?: string;
 }) {
+    const theme = useUiSettingsStore((s) => s.theme);
+    const cyber = theme === "cyber-ritual";
+
     const disabled = !!props.disabled;
 
     const storeAction = useUiAction(props.action);
     const onClick = props.onClick ?? storeAction;
 
-    // 🌈 Variante MASTER (inspirée de MasterCard)
+    // 🌈 Variante MASTER (classic inchangé, cyber: un peu plus “rituel”)
     if (props.variant === "master") {
         return (
             <button
                 type="button"
                 onClick={disabled ? undefined : onClick}
                 disabled={disabled}
-                className={cn(
-                    "rounded-[20px] p-[1.5px]",
-                    "bg-gradient-to-br from-cyan-400 via-fuchsia-500 to-emerald-400",
-                    "transition hover:brightness-110 active:brightness-95",
-                    disabled && "opacity-60 pointer-events-none"
-                )}
+                className={
+                    (props.className ?? "") +
+                    " " +
+                    cn(
+                        "rounded-[20px] p-[1.5px]",
+                        // ✅ CLASSIC gradient (inchangé)
+                        !cyber && "bg-gradient-to-br from-cyan-400 via-fuchsia-500 to-emerald-400",
+                        // 🟦 CYBER RITUAL gradient (plus “neon circuit”)
+                        cyber && "bg-gradient-to-br from-cyan-300 via-fuchsia-400 to-lime-300",
+                        "transition hover:brightness-110 active:brightness-95",
+                        disabled && "opacity-60 pointer-events-none"
+                    )
+                }
             >
                 <span
                     className={cn(
                         "inline-flex w-full items-center gap-2 rounded-[18px]",
                         "px-4 py-2 rpg-text-sm font-semibold",
-                        "bg-black/90 backdrop-blur",
-                        "text-white/90 ring-1 ring-white/10",
-                        "hover:bg-black/85"
+                        // ✅ CLASSIC (inchangé)
+                        !cyber &&
+                            "bg-black/90 backdrop-blur text-white/90 ring-1 ring-white/10 hover:bg-black/85",
+                        // 🟦 CYBER RITUAL
+                        cyber &&
+                            "bg-black/80 backdrop-blur text-white/90 ring-1 ring-cyan-300/20 hover:bg-black/75"
                     )}
                 >
                     <span>{props.children}</span>
 
                     {props.hint ? (
-                        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/80 ring-1 ring-white/15">
+                        <span
+                            className={cn(
+                                // ✅ CLASSIC (inchangé)
+                                !cyber &&
+                                    "rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/80 ring-1 ring-white/15",
+                                // 🟦 CYBER RITUAL
+                                cyber &&
+                                    "rounded-full bg-cyan-400/10 px-2 py-0.5 text-[11px] text-cyan-100 ring-1 ring-cyan-300/20"
+                            )}
+                        >
                             {props.hint}
                         </span>
                     ) : null}
@@ -133,24 +185,47 @@ export function ActionButton(props: {
         );
     }
 
-    // ✅ Variants existants (inchangés)
+    // ✅ Variants existants (classic inchangé)
     return (
         <button
             type="button"
             onClick={disabled ? undefined : onClick}
             disabled={disabled}
-            className={cn(
-                "inline-flex items-center gap-2 rounded-2xl px-4 py-2 rpg-text-sm ring-1 transition",
-                props.variant === "solid"
-                    ? "bg-white/10 text-white ring-white/15 hover:bg-white/15"
-                    : "bg-white/5 text-white/80 ring-white/10 hover:bg-white/10",
-                disabled && "opacity-60 pointer-events-none"
-            )}
+            className={
+                (props.className ?? "") +
+                " " +
+                cn(
+                    "inline-flex items-center gap-2 rounded-2xl px-4 py-2 rpg-text-sm ring-1 transition",
+
+                    // ✅ CLASSIC (inchangé)
+                    !cyber &&
+                        (props.variant === "solid"
+                            ? "bg-white/10 text-white ring-white/15 hover:bg-white/15"
+                            : "bg-white/5 text-white/80 ring-white/10 hover:bg-white/10"),
+
+                    // 🟦 CYBER RITUAL
+                    cyber &&
+                        (props.variant === "solid"
+                            ? "bg-cyan-400/10 text-white ring-cyan-300/25 hover:bg-cyan-400/15"
+                            : "bg-white/5 text-white/85 ring-cyan-300/15 hover:bg-white/10"),
+
+                    disabled && "opacity-60 pointer-events-none"
+                )
+            }
         >
-            <span>{props.children}</span>
+            <span className="w-full">{props.children}</span>
 
             {props.hint ? (
-                <span className="rounded-full bg-black/30 px-2 py-0.5 text-[11px] text-white/60 ring-1 ring-white/10">
+                <span
+                    className={cn(
+                        // ✅ CLASSIC (inchangé)
+                        !cyber &&
+                            "rounded-full bg-black/30 px-2 py-0.5 text-[11px] text-white/60 ring-1 ring-white/10",
+                        // 🟦 CYBER RITUAL
+                        cyber &&
+                            "rounded-full bg-cyan-400/10 px-2 py-0.5 text-[11px] text-cyan-100/80 ring-1 ring-cyan-300/20"
+                    )}
+                >
                     {props.hint}
                 </span>
             ) : null}
@@ -160,9 +235,6 @@ export function ActionButton(props: {
 
 export function Pill({
     children,
-    /**
-     * Optionnel: rend le pill “cliquable” et peut pointer vers un action store
-     */
     onClick,
     action,
     title,
@@ -172,14 +244,26 @@ export function Pill({
     action?: UiAction;
     title?: string;
 }) {
+    const theme = useUiSettingsStore((s) => s.theme);
+    const cyber = theme === "cyber-ritual";
+
     const disabled = !onClick && !action;
     const storeAction = useUiAction(action);
     const click = onClick ?? storeAction;
 
     const base = "rounded-full px-3 py-1 text-xs ring-1";
-    const tone = disabled
+
+    // ✅ CLASSIC tones (inchangés)
+    const classicTone = disabled
         ? "bg-white/5 text-white/60 ring-white/10"
         : "bg-white/10 text-white ring-white/15 hover:bg-white/15";
+
+    // 🟦 CYBER tones
+    const cyberTone = disabled
+        ? "bg-white/5 text-white/60 ring-cyan-300/10"
+        : "bg-cyan-400/10 text-white ring-cyan-300/20 hover:bg-cyan-400/15";
+
+    const tone = cyber ? cyberTone : classicTone;
 
     if (disabled) {
         return <span className={cn(base, tone)}>{children}</span>;

@@ -26,6 +26,23 @@ export type AdventureQuest = {
     estimate_min: number | null;
 };
 
+type AdventureRoom = {
+    id: string;
+    adventure_id: string;
+    code: string;
+    title: string;
+    sort: number;
+    source: "template" | "custom";
+    template_id: string | null;
+};
+type RoomTemplate = {
+    emoji: string;
+    id: string;
+    code: string;
+    title: string;
+    icon: string | null;
+    sort: number;
+};
 /** 🧩 Quête du chapitre enrichie (table: chapter_quests + join adventure_quests) */
 export type ChapterQuestFull = {
     id: string;
@@ -195,6 +212,8 @@ type GameStore = {
 
     /* --------------------------- 🧙 CHARACTERS --------------------------- */
     characters: Character[];
+    rooms: AdventureRoom[];
+    templates: RoomTemplate[];
     profile: Profile;
 
     // états UI
@@ -269,6 +288,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     currentChapter: null,
     currentQuests: [],
 
+    rooms: [],
+    templates: [],
+
     /* =========================================================================
     🗺️ CHAPTER
     ========================================================================= */
@@ -320,6 +342,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     },
 
     bootstrap: async () => {
+        console.info("⏳ bootstrap Start");
         set({
             loading: true,
             characterLoading: true,
@@ -352,6 +375,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             if (!charsRes.value.ok)
                 throw new Error(charsJson?.error ?? "Failed to load characters");
             const characters = (charsJson?.characters ?? []) as Character[];
+            console.log("💾 Characters loaded", characters);
 
             // Profile (optionnel)
             let profile: Profile = null;
@@ -361,6 +385,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 const profJson = await safeJson(profRes.value);
                 if (profRes.value.ok) {
                     profile = (profJson?.profile ?? null) as Profile;
+                    console.log("💾 Profile loaded", profile);
                     selectedId = (profile?.character_id ?? null) as string | null;
                 }
             }
@@ -370,6 +395,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             if (chapterRes.status === "fulfilled") {
                 const chapterJson = await safeJson(chapterRes.value);
                 if (chapterRes.value.ok) chapter = (chapterJson?.chapter ?? null) as Chapter | null;
+                console.log("💾 Chapter loaded", chapter);
             }
 
             // Renown (optionnel)
@@ -377,14 +403,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
             if (renownRes.status === "fulfilled") {
                 const renownJson = await safeJson(renownRes.value);
                 if (renownRes.value.ok) renown = (renownJson?.renown ?? null) as Renown | null;
+                console.log("💾 Renown loaded", renown);
             }
 
             // Dépend du chapitre (best-effort)
             let currentAdventure: Adventure | null = null;
             let currentQuests: ChapterQuestFull[] = [];
+            let rooms: AdventureRoom[] = [];
+            let templates: RoomTemplate[] = [];
 
             if (chapter?.id) {
-                const [advRes, questsRes] = await Promise.allSettled([
+                const [advRes, questsRes, roomsRes, templatesRes] = await Promise.allSettled([
                     chapter.adventure_id
                         ? fetch(`/api/adventures?id=${encodeURIComponent(chapter.adventure_id)}`, {
                               cache: "no-store",
@@ -396,23 +425,48 @@ export const useGameStore = create<GameStore>((set, get) => ({
                             cache: "no-store",
                         }
                     ),
+                    chapter.adventure_id
+                        ? fetch(
+                              `/api/adventure-rooms?adventureId=${encodeURIComponent(chapter.adventure_id)}`,
+                              {
+                                  cache: "no-store",
+                              }
+                          )
+                        : Promise.resolve(null as any),
+                    fetch("/api/room-templates", { cache: "no-store" }),
                 ]);
 
                 if (advRes.status === "fulfilled" && advRes.value) {
                     const advJson = await safeJson(advRes.value);
                     if (advRes.value.ok)
                         currentAdventure = (advJson?.adventure ?? null) as Adventure | null;
+                    console.log("💾 Ciurrent advenutre loaded", currentAdventure);
                 }
 
                 if (questsRes.status === "fulfilled") {
                     const qJson = await safeJson(questsRes.value);
                     if (questsRes.value.ok)
                         currentQuests = (qJson?.items ?? []) as ChapterQuestFull[];
+                    console.log("💾 Quests loaded", currentQuests);
+                }
+
+                if (roomsRes.status === "fulfilled") {
+                    const roomJson = await safeJson(roomsRes.value);
+                    if (roomsRes.value.ok) rooms = (roomJson?.rooms ?? []) as AdventureRoom[];
+                    console.log("💾 Rooms loaded", rooms);
+                }
+
+                if (templatesRes.status === "fulfilled") {
+                    const roomTemplatesJson = await safeJson(templatesRes.value);
+                    if (templatesRes.value.ok)
+                        templates = (roomTemplatesJson?.templates ?? []) as RoomTemplate[];
+                    console.log("💾 Templates loaded", templates);
                 }
             }
 
             set({
                 characters,
+                rooms,
                 profile,
                 selectedId,
                 chapter,
@@ -420,6 +474,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 currentChapter: chapter,
                 currentAdventure,
                 currentQuests,
+                templates,
             });
         } catch (e) {
             set({
@@ -439,6 +494,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 characterLoading: false,
                 renownLoading: false,
             });
+            console.info("🏁 bootstrap End");
         }
     },
 

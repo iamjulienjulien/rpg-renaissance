@@ -81,7 +81,7 @@ function CharacterCard(props: {
                             </div>
                             <div className="mt-1 text-xs text-white/70 line-clamp-2">{c.vibe}</div>
                         </div>
-                        <div
+                        {/* <div
                             className={cn(
                                 "grid h-9 w-9 place-items-center rounded-2xl ring-1 transition",
                                 "bg-white/5 ring-white/10",
@@ -91,7 +91,7 @@ function CharacterCard(props: {
                             )}
                         >
                             <span className="text-base">⮕</span>
-                        </div>
+                        </div> */}
                     </div>
                 </div>
             </div>

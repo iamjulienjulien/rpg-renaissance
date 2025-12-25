@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
-import { DifficultyPill } from "@/helpers/difficulty";
+import { QuestDifficultyPill } from "@/helpers/questDifficulty";
 import ReactMarkdown from "react-markdown";
 import MasterCard from "@/components/ui/MasterCard";
 import { getCurrentCharacterEmoji, getCurrentCharacterName } from "@/helpers/adventure";
@@ -221,7 +221,7 @@ export default function QuestClient() {
                                     )}
 
                                     {quest.difficulty ? (
-                                        <DifficultyPill difficulty={quest.difficulty} />
+                                        <QuestDifficultyPill difficulty={quest.difficulty} />
                                     ) : (
                                         <Pill>🎚️ —</Pill>
                                     )}

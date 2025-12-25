@@ -1,14 +1,26 @@
 "use client";
 
+// React
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+
+// Lib
 import { AnimatePresence, motion } from "framer-motion";
 
+// Components
 import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
-import { useGameStore } from "@/stores/gameStore";
 import { ViewportPortal } from "@/components/ViewportPortal";
 import MasterCard from "@/components/ui/MasterCard";
+import RoomsSelector from "@/components/RoomsSelector"; // ajuste le chemin si besoin
+
+// Helpers
+import { QuestDifficultyPill } from "@/helpers/questDifficulty";
+import { QuestStatusPill } from "@/helpers/questStatus";
+import { questRoomEmoji, questRoomLabel, QuestRoomPill } from "@/helpers/questRoom";
+
+// Store
+import { useGameStore } from "@/stores/gameStore";
 
 type Chapter = {
     id: string;
@@ -116,6 +128,8 @@ export default function AdventurePage() {
     const [newQuestRoomCode, setNewQuestRoomCode] = useState<string>("");
     const [creating, setCreating] = useState(false);
 
+    const bootstrap = useGameStore((s) => s.bootstrap);
+
     // ✅ Affecter une quête au chapitre courant (store)
     const assignQuestToCurrentChapter = useGameStore((s) => s.assignQuestToCurrentChapter);
     const setStoreChapter = useGameStore((s) => s.setChapter);
@@ -133,6 +147,38 @@ export default function AdventurePage() {
     const cqId = lastRenownGain?.chapterQuestId;
     const congrats = cqId ? congratsById[cqId] : undefined;
     const congratsLoading = cqId ? !!congratsLoadingById[cqId] : false;
+
+    const [roomsOpen, setRoomsOpen] = useState(false);
+    const [roomsDirty, setRoomsDirty] = useState(false);
+    const [roomsSaving, setRoomsSaving] = useState(false);
+
+    // Transition
+    const [transitionOpen, setTransitionOpen] = useState(false);
+    const [transitionBusy, setTransitionBusy] = useState(false);
+
+    const [nextTitle, setNextTitle] = useState("");
+    const [nextPace, setNextPace] = useState<Chapter["pace"]>("standard");
+    const [nextAiContext, setNextAiContext] = useState("");
+
+    const [carryOver, setCarryOver] = useState<ChapterQuest[]>([]);
+    const [selectedBacklogIds, setSelectedBacklogIds] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        if (!transitionOpen) return;
+
+        // quêtes non terminées à reporter
+        const remaining = chapterItems.filter((cq) => cq.status !== "done");
+        setCarryOver(remaining);
+
+        // valeurs par défaut “prochain chapitre”
+        setNextTitle(chapter?.title ? `${chapter.title} (suite)` : "Nouveau chapitre");
+        setNextPace(chapter?.pace ?? "standard");
+        setNextAiContext("");
+
+        // reset sélection backlog
+        setSelectedBacklogIds(new Set());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [transitionOpen]);
 
     useEffect(() => {
         if (!lastRenownGain) return;
@@ -205,6 +251,7 @@ export default function AdventurePage() {
     useEffect(() => {
         void loadAll("initial");
         // eslint-disable-next-line react-hooks/exhaustive-deps
+        void bootstrap();
     }, []);
 
     const chapterGrouped = useMemo(() => {
@@ -310,16 +357,7 @@ export default function AdventurePage() {
         adventureFallbackDescription(adventure?.code ?? chapter?.adventure_code ?? null);
 
     return (
-        <RpgShell
-            title="Aventure"
-            rightSlot={
-                <div className="flex items-center gap-2">
-                    <ActionButton onClick={() => void loadAll("refresh")}>
-                        {refreshing ? "⏳" : "🔄 Sync"}
-                    </ActionButton>
-                </div>
-            }
-        >
+        <RpgShell title="Aventure">
             {loading ? (
                 <div className="rounded-2xl bg-black/30 p-4 rpg-rpg-text-sm text-white/60 ring-1 ring-white/10">
                     ⏳ Chargement…
@@ -349,18 +387,19 @@ export default function AdventurePage() {
                         subtitle="Le contexte général de ta session (lecture seule)."
                         right={
                             <div className="flex items-center gap-2">
-                                <Pill>🗺️ {adventure?.code ?? chapter.adventure_code ?? "?"}</Pill>
-                                <ActionButton onClick={goPrepare}>🛠️ Préparation</ActionButton>
+                                <ActionButton onClick={() => setRoomsOpen(true)}>
+                                    🛠️ Configurer
+                                </ActionButton>
                             </div>
                         }
                     >
                         <div className="rounded-2xl bg-black/30 p-5 ring-1 ring-white/10">
                             <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                    <div className="text-xs tracking-[0.22em] text-white/55">
+                                    {/* <div className="text-xs tracking-[0.22em] text-white/55">
                                         {advEmoji} TYPE D’AVENTURE
-                                    </div>
-                                    <div className="mt-2 text-xl font-semibold text-white/90">
+                                    </div> */}
+                                    <div className="text-xl font-semibold text-white/90">
                                         {advEmoji} {advTitle}
                                     </div>
                                     <div className="mt-2 max-w-3xl rpg-rpg-text-sm text-white/65">
@@ -368,13 +407,13 @@ export default function AdventurePage() {
                                     </div>
                                 </div>
 
-                                <div className="flex flex-wrap gap-2">
+                                {/* <div className="flex flex-wrap gap-2">
                                     <Pill>📘 Chapitre: {chapter.title}</Pill>
                                     <Pill>
                                         {paceEmoji(chapter.pace)} {chapter.pace}
                                     </Pill>
                                     <Pill>📍 {chapter.status}</Pill>
-                                </div>
+                                </div> */}
                             </div>
                         </div>
                     </Panel>
@@ -390,18 +429,19 @@ export default function AdventurePage() {
                             title="Chapitre"
                             emoji="📚"
                             subtitle="Quêtes jouées du chapitre, classées par pièces."
-                            right={<Pill>📜 {chapterItems.length} quêtes</Pill>}
+                            right={
+                                <div className="flex items-center gap-2">
+                                    <ActionButton onClick={goPrepare}>🛠️ Configurer</ActionButton>
+                                </div>
+                            }
                         >
                             <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                     <div className="text-white/90 font-semibold">
-                                        ⚡ {chapter.title}
+                                        📖 {chapter.title}
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                        <Pill>
-                                            {paceEmoji(chapter.pace)} {chapter.pace}
-                                        </Pill>
-                                        <Pill>📍 {chapter.status}</Pill>
+                                        <Pill>📜 {chapterItems.length} quêtes</Pill>
                                     </div>
                                 </div>
                                 <div className="mt-2 rpg-rpg-text-sm text-white/60">
@@ -423,7 +463,8 @@ export default function AdventurePage() {
                                         >
                                             <div className="flex items-center justify-between gap-2 px-4 py-3">
                                                 <div className="text-white/90 font-semibold">
-                                                    🚪 {roomTitle}
+                                                    {questRoomEmoji(roomTitle)}{" "}
+                                                    {questRoomLabel(roomTitle)}
                                                 </div>
                                                 <Pill>{arr.length} quêtes</Pill>
                                             </div>
@@ -443,31 +484,26 @@ export default function AdventurePage() {
                                                                 </div>
 
                                                                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                                                                    <span
-                                                                        className={cn(
-                                                                            "rounded-full px-3 py-1 text-xs ring-1",
-                                                                            st.tone
-                                                                        )}
-                                                                    >
-                                                                        {st.label}
-                                                                    </span>
+                                                                    <QuestStatusPill
+                                                                        status={cq.status}
+                                                                    />
 
-                                                                    <Pill>
-                                                                        {diffPill(
+                                                                    <QuestDifficultyPill
+                                                                        difficulty={
                                                                             q?.difficulty ?? 2
-                                                                        )}
-                                                                    </Pill>
+                                                                        }
+                                                                    />
 
-                                                                    <Pill>
+                                                                    {/* <Pill>
                                                                         ⏱️{" "}
                                                                         {q?.estimate_min
                                                                             ? `${q.estimate_min} min`
                                                                             : "?"}
-                                                                    </Pill>
+                                                                    </Pill> */}
 
-                                                                    <Pill>
+                                                                    {/* <Pill>
                                                                         🧾 id: {cq.id.slice(0, 8)}…
-                                                                    </Pill>
+                                                                    </Pill> */}
                                                                 </div>
                                                             </div>
 
@@ -490,6 +526,16 @@ export default function AdventurePage() {
                                         </div>
                                     ))
                                 )}
+                            </div>
+
+                            <div className="mt-4">
+                                <ActionButton
+                                    variant="solid"
+                                    onClick={() => setTransitionOpen(true)}
+                                    className="w-full text-center"
+                                >
+                                    🏁 Clôturer ce chapitre et préparer le suivant
+                                </ActionButton>
                             </div>
                         </Panel>
                     </div>
@@ -578,17 +624,10 @@ export default function AdventurePage() {
                                                 {q.title}
                                             </div>
                                             <div className="mt-2 flex flex-wrap items-center gap-2">
-                                                <Pill>{diffPill(q.difficulty ?? 2)}</Pill>
-                                                <Pill>
-                                                    ⏱️{" "}
-                                                    {q.estimate_min ? `${q.estimate_min} min` : "?"}
-                                                </Pill>
-                                                <Pill>
-                                                    {q.room_code
-                                                        ? `🚪 ${q.room_code}`
-                                                        : "🗺️ sans pièce"}
-                                                </Pill>
-                                                <Pill>🧾 id: {q.id.slice(0, 8)}…</Pill>
+                                                <QuestDifficultyPill
+                                                    difficulty={q.difficulty ?? 2}
+                                                />
+                                                <QuestRoomPill roomCode={q.room_code} />
                                             </div>
                                         </div>
 
@@ -610,6 +649,119 @@ export default function AdventurePage() {
                     </Panel>
                 </div>
             )}
+
+            <AnimatePresence>
+                {roomsOpen && chapter?.adventure_id ? (
+                    <ViewportPortal>
+                        <motion.div
+                            className="fixed inset-0 z-[130] grid place-items-center bg-black/55 backdrop-blur-[3px] p-4"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onMouseDown={() => {
+                                // click outside = close
+                                void (async () => {
+                                    setRoomsSaving(true);
+                                    try {
+                                        // “save on close” = sync store + refresh UI
+                                        if (roomsDirty) {
+                                            await bootstrap();
+                                        }
+                                    } finally {
+                                        setRoomsSaving(false);
+                                        setRoomsDirty(false);
+                                        setRoomsOpen(false);
+                                    }
+                                })();
+                            }}
+                        >
+                            <motion.div
+                                className="w-full max-w-3xl rounded-[28px] bg-white/5 p-5 ring-1 ring-white/15 backdrop-blur-md"
+                                initial={{ y: 16, scale: 0.98, opacity: 0 }}
+                                animate={{ y: 0, scale: 1, opacity: 1 }}
+                                exit={{ y: 10, scale: 0.98, opacity: 0 }}
+                                transition={{ duration: 0.22 }}
+                                onMouseDown={(e) => e.stopPropagation()}
+                            >
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
+                                            🏠 Configuration
+                                        </div>
+                                        <div className="mt-2 text-lg text-white/90 font-semibold">
+                                            Pièces actives de l’aventure
+                                        </div>
+                                        <div className="mt-1 text-sm text-white/60">
+                                            {roomsDirty
+                                                ? "Modifications en cours. Elles seront synchronisées à la fermeture."
+                                                : "Active/désactive des pièces, ou ajoute des pièces custom."}
+                                        </div>
+                                    </div>
+
+                                    <ActionButton
+                                        onClick={() => {
+                                            void (async () => {
+                                                setRoomsSaving(true);
+                                                try {
+                                                    if (roomsDirty) {
+                                                        await bootstrap();
+                                                    }
+                                                } finally {
+                                                    setRoomsSaving(false);
+                                                    setRoomsDirty(false);
+                                                    setRoomsOpen(false);
+                                                }
+                                            })();
+                                        }}
+                                    >
+                                        {roomsSaving ? "⏳" : "✖"}
+                                    </ActionButton>
+                                </div>
+
+                                <div className="mt-4">
+                                    <RoomsSelector
+                                        adventureId={chapter.adventure_id}
+                                        onChanged={() => setRoomsDirty(true)}
+                                    />
+                                </div>
+
+                                <div className="mt-5 flex justify-end gap-2">
+                                    <ActionButton
+                                        onClick={() => {
+                                            setRoomsDirty(false);
+                                            setRoomsOpen(false);
+                                        }}
+                                    >
+                                        Annuler
+                                    </ActionButton>
+
+                                    <ActionButton
+                                        variant="solid"
+                                        disabled={roomsSaving}
+                                        onClick={() => {
+                                            void (async () => {
+                                                setRoomsSaving(true);
+                                                try {
+                                                    if (roomsDirty) {
+                                                        // await loadRooms?.();
+                                                        await bootstrap();
+                                                    }
+                                                } finally {
+                                                    setRoomsSaving(false);
+                                                    setRoomsDirty(false);
+                                                    setRoomsOpen(false);
+                                                }
+                                            })();
+                                        }}
+                                    >
+                                        {roomsSaving ? "⏳ Synchronisation…" : "✅ Fermer"}
+                                    </ActionButton>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    </ViewportPortal>
+                ) : null}
+            </AnimatePresence>
 
             {/* ✅ MODAL RENOWN GAIN */}
             <AnimatePresence>
@@ -706,6 +858,254 @@ export default function AdventurePage() {
                                         }}
                                     >
                                         ✨ Continuer
+                                    </ActionButton>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    </ViewportPortal>
+                ) : null}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {transitionOpen && chapter?.id && chapter?.adventure_id ? (
+                    <ViewportPortal>
+                        <motion.div
+                            className="fixed inset-0 z-[140] grid place-items-center bg-black/55 backdrop-blur-[3px] p-4"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onMouseDown={() => setTransitionOpen(false)}
+                        >
+                            <motion.div
+                                className="w-full max-w-3xl rounded-[28px] bg-white/5 p-5 ring-1 ring-white/15 backdrop-blur-md"
+                                initial={{ y: 16, scale: 0.98, opacity: 0 }}
+                                animate={{ y: 0, scale: 1, opacity: 1 }}
+                                exit={{ y: 10, scale: 0.98, opacity: 0 }}
+                                transition={{ duration: 0.22 }}
+                                onMouseDown={(e) => e.stopPropagation()}
+                            >
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
+                                            📚 Transition de chapitre
+                                        </div>
+                                        <div className="mt-2 text-lg text-white/90 font-semibold">
+                                            Clôturer “{chapter.title}” et préparer la suite
+                                        </div>
+                                        <div className="mt-1 text-sm text-white/60">
+                                            Les quêtes non terminées seront automatiquement
+                                            reportées.
+                                        </div>
+                                    </div>
+
+                                    <ActionButton onClick={() => setTransitionOpen(false)}>
+                                        ✖
+                                    </ActionButton>
+                                </div>
+
+                                {/* 1) Carry-over */}
+                                <div className="mt-4 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="text-white/85 font-semibold">
+                                            🔁 Quêtes à reporter
+                                        </div>
+                                        <Pill>{carryOver.length}</Pill>
+                                    </div>
+
+                                    {carryOver.length === 0 ? (
+                                        <div className="mt-3 rpg-rpg-text-sm text-white/60">
+                                            Rien à reporter. Chapitre clean ✅
+                                        </div>
+                                    ) : (
+                                        <div className="mt-3 space-y-2">
+                                            {carryOver.map((cq) => {
+                                                const q = normalizeQuest(cq.adventure_quests);
+                                                return (
+                                                    <div
+                                                        key={cq.id}
+                                                        className="rounded-2xl bg-black/30 p-3 ring-1 ring-white/10"
+                                                    >
+                                                        <div className="text-white/85 font-semibold truncate">
+                                                            {q?.title ?? "Quête"}
+                                                        </div>
+                                                        <div className="mt-2 flex flex-wrap gap-2">
+                                                            <QuestStatusPill status={cq.status} />
+                                                            <QuestRoomPill
+                                                                roomCode={
+                                                                    q?.room_code ?? cq.room_code
+                                                                }
+                                                            />
+                                                            <QuestDifficultyPill
+                                                                difficulty={q?.difficulty ?? 2}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 2) Backlog selection */}
+                                <div className="mt-4 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="text-white/85 font-semibold">
+                                            🧺 Ajouter depuis le backlog
+                                        </div>
+                                        <Pill>{backlog.length} dispo</Pill>
+                                    </div>
+
+                                    {backlog.length === 0 ? (
+                                        <div className="mt-3 rpg-rpg-text-sm text-white/60">
+                                            Backlog vide.
+                                        </div>
+                                    ) : (
+                                        <div className="mt-3 space-y-2 max-h-[260px] overflow-auto pr-1">
+                                            {backlog.map((q) => {
+                                                const checked = selectedBacklogIds.has(q.id);
+                                                return (
+                                                    <button
+                                                        key={q.id}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSelectedBacklogIds((prev) => {
+                                                                const next = new Set(prev);
+                                                                if (next.has(q.id))
+                                                                    next.delete(q.id);
+                                                                else next.add(q.id);
+                                                                return next;
+                                                            });
+                                                        }}
+                                                        className={cn(
+                                                            "w-full text-left rounded-2xl p-3 ring-1 transition",
+                                                            checked
+                                                                ? "bg-white/10 text-white ring-white/15"
+                                                                : "bg-black/30 text-white/80 ring-white/10 hover:bg-white/5"
+                                                        )}
+                                                    >
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div className="min-w-0">
+                                                                <div className="font-semibold truncate">
+                                                                    {checked ? "✅ " : "➕ "}
+                                                                    {q.title}
+                                                                </div>
+                                                                <div className="mt-2 flex flex-wrap gap-2">
+                                                                    <QuestRoomPill
+                                                                        roomCode={q.room_code}
+                                                                    />
+                                                                    <QuestDifficultyPill
+                                                                        difficulty={
+                                                                            q.difficulty ?? 2
+                                                                        }
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-xs text-white/50 shrink-0">
+                                                                {q.id.slice(0, 8)}…
+                                                            </div>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 3) Next chapter config */}
+                                <div className="mt-4 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
+                                    <div className="text-white/85 font-semibold">
+                                        🧠 Prochain chapitre
+                                    </div>
+
+                                    <div className="mt-3 grid gap-3 sm:grid-cols-[1.2fr_0.8fr]">
+                                        <input
+                                            value={nextTitle}
+                                            onChange={(e) => setNextTitle(e.target.value)}
+                                            placeholder="Titre du prochain chapitre"
+                                            className="rounded-2xl bg-black/30 px-4 py-3 rpg-rpg-text-sm text-white/90 ring-1 ring-white/10 outline-none placeholder:text-white/40 focus:ring-2 focus:ring-white/25"
+                                        />
+
+                                        <select
+                                            value={nextPace}
+                                            onChange={(e) =>
+                                                setNextPace(e.target.value as Chapter["pace"])
+                                            }
+                                            className="rounded-2xl bg-black/30 px-4 py-3 rpg-rpg-text-sm text-white/90 ring-1 ring-white/10 outline-none focus:ring-2 focus:ring-white/25"
+                                        >
+                                            <option value="calme">🌙 calme</option>
+                                            <option value="standard">⚡ standard</option>
+                                            <option value="intense">🔥 intense</option>
+                                        </select>
+                                    </div>
+
+                                    <textarea
+                                        value={nextAiContext}
+                                        onChange={(e) => setNextAiContext(e.target.value)}
+                                        placeholder="Contexte IA pour ce chapitre (ex: semaine chargée, objectifs du foyer, contraintes, humeur, enfants, deadlines…)"
+                                        className="mt-3 min-h-[120px] w-full rounded-2xl bg-black/30 px-4 py-3 rpg-rpg-text-sm text-white/90 ring-1 ring-white/10 outline-none placeholder:text-white/40 focus:ring-2 focus:ring-white/25"
+                                    />
+                                </div>
+
+                                {/* Actions */}
+                                <div className="mt-5 flex justify-end gap-2">
+                                    <ActionButton onClick={() => setTransitionOpen(false)}>
+                                        Annuler
+                                    </ActionButton>
+
+                                    <ActionButton
+                                        variant="solid"
+                                        disabled={transitionBusy || !nextTitle.trim()}
+                                        onClick={() => {
+                                            void (async () => {
+                                                if (!chapter?.id || !chapter.adventure_id) return;
+
+                                                setTransitionBusy(true);
+                                                try {
+                                                    const res = await fetch(
+                                                        "/api/chapters/transition",
+                                                        {
+                                                            method: "POST",
+                                                            headers: {
+                                                                "Content-Type": "application/json",
+                                                            },
+                                                            body: JSON.stringify({
+                                                                prev_chapter_id: chapter.id,
+                                                                adventure_id: chapter.adventure_id,
+                                                                next: {
+                                                                    title: nextTitle.trim(),
+                                                                    pace: nextPace,
+                                                                    ai_context:
+                                                                        nextAiContext.trim() ||
+                                                                        null,
+                                                                },
+                                                                backlog_adventure_quest_ids:
+                                                                    Array.from(selectedBacklogIds),
+                                                            }),
+                                                        }
+                                                    );
+
+                                                    const json = await res.json().catch(() => null);
+                                                    if (!res.ok) {
+                                                        console.error(
+                                                            json?.error ?? "Transition failed"
+                                                        );
+                                                        return;
+                                                    }
+
+                                                    // Sync UI + store
+                                                    await bootstrap();
+                                                    await loadAll("refresh");
+
+                                                    setTransitionOpen(false);
+                                                } finally {
+                                                    setTransitionBusy(false);
+                                                }
+                                            })();
+                                        }}
+                                    >
+                                        {transitionBusy
+                                            ? "⏳ Transition…"
+                                            : "✅ Lancer le prochain chapitre"}
                                     </ActionButton>
                                 </div>
                             </motion.div>

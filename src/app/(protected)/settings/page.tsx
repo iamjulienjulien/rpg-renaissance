@@ -12,6 +12,7 @@ import { useToastStore } from "@/stores/toastStore";
 import { useDevStore } from "@/stores/devStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { usePlayerStore } from "@/stores/playerStore";
+import { useUiSettingsStore, type UiTheme } from "@/stores/uiSettingsStore";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -58,6 +59,42 @@ function SettingRow(props: {
                 {props.right ? <div className="shrink-0">{props.right}</div> : null}
             </div>
         </div>
+    );
+}
+
+function ThemeSwitchRow() {
+    const theme = useUiSettingsStore((s) => s.theme);
+    const setTheme = useUiSettingsStore((s) => s.setTheme);
+
+    const isClassic = theme === "classic";
+    const isCyber = theme === "cyber-ritual";
+
+    return (
+        <SettingRow
+            emoji={isCyber ? "🟦" : "📜"}
+            title="Skin UI"
+            description="Classic: grimoire feutré. Cyber Ritual: néons et glyphes."
+            value={isCyber ? "Cyber Ritual" : "Classic"}
+            right={
+                <div className="flex items-center gap-2">
+                    <ActionButton
+                        variant={isClassic ? "solid" : "soft"}
+                        onClick={() => setTheme("classic")}
+                        tictle="Classic"
+                    >
+                        📜
+                    </ActionButton>
+
+                    <ActionButton
+                        variant={isCyber ? "solid" : "soft"}
+                        onClick={() => setTheme("cyber-ritual")}
+                        title="Cyber Ritual"
+                    >
+                        🟦
+                    </ActionButton>
+                </div>
+            }
+        />
     );
 }
 
@@ -232,28 +269,7 @@ export default function SettingsPage() {
                 {/* INTERFACE */}
                 <Panel title="Interface" emoji="🖼️" subtitle="Look & feel de Renaissance.">
                     <div className="grid gap-2">
-                        <SettingRow
-                            emoji="🌌"
-                            title="Style"
-                            description="Cinematic: plus de matière. Minimal: plus d’efficacité."
-                            value={uiMode === "cinematic" ? "Cinematic" : "Minimal"}
-                            right={
-                                <div className="flex items-center gap-2">
-                                    <ActionButton
-                                        variant={uiMode === "cinematic" ? "solid" : "soft"}
-                                        onClick={() => setUiMode("cinematic")}
-                                    >
-                                        🌌
-                                    </ActionButton>
-                                    <ActionButton
-                                        variant={uiMode === "minimal" ? "solid" : "soft"}
-                                        onClick={() => setUiMode("minimal")}
-                                    >
-                                        🧾
-                                    </ActionButton>
-                                </div>
-                            }
-                        />
+                        <ThemeSwitchRow />
 
                         <SettingRow
                             emoji="🌀"
