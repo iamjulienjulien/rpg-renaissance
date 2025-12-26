@@ -1,6 +1,7 @@
 import React from "react";
 import { Pill } from "@/components/RpgUi";
 import { useGameStore } from "@/stores/gameStore";
+import { AdventureRoom } from "@/features/adventures/types";
 
 /**
  * 🧱 Room (tel que défini dans gameStore)
@@ -29,7 +30,7 @@ export function questRoomLabel(roomCode: string | null | undefined): string {
     const code = typeof roomCode === "string" ? roomCode.trim() : "";
     if (!code) return "sans pièce";
 
-    const rooms = useGameStore.getState().rooms as Room[] | undefined;
+    const rooms = useGameStore.getState().rooms as AdventureRoom[] | undefined;
     if (!rooms || rooms.length === 0) return code;
 
     const room = rooms.find((r) => r.code === code);
