@@ -253,7 +253,7 @@ type ChapterStoryJson = {
     title: string;
     chapter_title: string;
     recap: string;
-    scenes: string[];
+    paragraphs: string[];
     trophies: string[];
 };
 
@@ -284,7 +284,7 @@ function StoryView() {
         title: string;
         chapter_title: string;
         recap: string;
-        scenes: string[];
+        paragraphs: string[];
         trophies: string[];
     };
 
@@ -387,7 +387,7 @@ function StoryView() {
 
                             const loading = !!loadingById?.[ch.id];
 
-                            const scenes = Array.isArray(s?.scenes) ? s!.scenes : [];
+                            const scenes = Array.isArray(s?.paragraphs) ? s!.paragraphs : [];
                             const trophies = Array.isArray(s?.trophies) ? s!.trophies : [];
 
                             return (
