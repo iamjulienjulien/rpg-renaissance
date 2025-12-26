@@ -120,7 +120,7 @@ export async function generateMissionForChapterQuest(
     const userId = authData?.user?.id ?? "";
     if (!userId) throw new Error("Not authenticated");
 
-    // 0) Charger chapter_quest + session_id + quête (+ chapter_id pour contexte)
+    // 0) Charger chapter_quest + session_id + quête (+ chapter_id)
     const { data: cq, error: cqErr } = await supabase
         .from("chapter_quests")
         .select(
@@ -150,12 +150,15 @@ export async function generateMissionForChapterQuest(
     const sessionId = cq.session_id as string;
     const q = Array.isArray(cq.adventure_quests) ? cq.adventure_quests[0] : cq.adventure_quests;
 
-    // ✅ Contexte “aventure” (texte joueur) depuis chapters.context_text
+    // ✅ Contexte global (aventure) + spécifique (chapitre)
+    let adventureContextText: string | null = null;
     let chapterContextText: string | null = null;
+
     if (cq.chapter_id) {
+        // 1) Charger chapter.context_text + adventure_id
         const { data: ch, error: chErr } = await supabase
             .from("chapters")
-            .select("context_text")
+            .select("context_text, adventure_id")
             .eq("id", cq.chapter_id)
             .maybeSingle();
 
@@ -164,6 +167,24 @@ export async function generateMissionForChapterQuest(
         } else {
             const ctx = safeTrim((ch as any)?.context_text);
             chapterContextText = ctx.length ? ctx : null;
+
+            const adventureId = (ch as any)?.adventure_id as string | null;
+
+            // 2) Charger adventure.context_text
+            if (adventureId) {
+                const { data: adv, error: advErr } = await supabase
+                    .from("adventures")
+                    .select("context_text")
+                    .eq("id", adventureId)
+                    .maybeSingle();
+
+                if (advErr) {
+                    console.warn("load adventures.context_text warning:", advErr.message);
+                } else {
+                    const advCtx = safeTrim((adv as any)?.context_text);
+                    adventureContextText = advCtx.length ? advCtx : null;
+                }
+            }
         }
     }
 
@@ -174,7 +195,9 @@ export async function generateMissionForChapterQuest(
         difficulty: q.difficulty ?? 2,
         estimate_min: q.estimate_min ?? null,
         status: cq.status,
-        // ✅ ajout explicite du contexte chapitre
+
+        // ✅ Hiérarchie de contexte demandée
+        adventure_context: adventureContextText ?? "",
         chapter_context: chapterContextText ?? "",
     };
 
@@ -214,9 +237,18 @@ export async function generateMissionForChapterQuest(
         playerName
             ? `Le joueur s'appelle "${playerName}". Utilise son nom avec parcimonie (0 à 2 fois), plutôt dans l'intro, sans répétition lourde.`
             : `Le joueur n'a pas de nom affiché. N'invente pas de prénom.`,
+
+        // ✅ Contexte global (aventure)
+        adventureContextText
+            ? `CONTEXTE GLOBAL D’AVENTURE (cadre général, priorités, contraintes globales, objectifs long-terme):\n${adventureContextText}`
+            : `CONTEXTE GLOBAL D’AVENTURE: (aucun fourni).`,
+
+        // ✅ Contexte spécifique (chapitre)
         chapterContextText
-            ? `Contexte de l'aventure (fourni par le joueur, à prendre en compte partout: objectifs, étapes, encouragement, contraintes):\n${chapterContextText}`
-            : `Contexte de l'aventure: (aucun fourni).`,
+            ? `CONTEXTE SPÉCIFIQUE DE CE CHAPITRE (focus local, angle du moment; c’est une partie de l’aventure):\n${chapterContextText}`
+            : `CONTEXTE SPÉCIFIQUE DE CE CHAPITRE: (aucun fourni).`,
+
+        `Règle d’or: si les deux contextes existent, respecte le global en premier, puis adapte finement au chapitre.`,
         character?.motto
             ? `Serment du personnage (à refléter sans le citer mot pour mot): ${character.motto}`
             : null,

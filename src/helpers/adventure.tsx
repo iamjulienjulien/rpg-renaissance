@@ -1,3 +1,4 @@
+import { Pill } from "@/components/RpgUi";
 import { useGameStore } from "@/stores/gameStore";
 
 /**
@@ -102,4 +103,19 @@ export function getCurrentCharacterEmoji(): string {
     }
 
     return "🧙";
+}
+
+export function CurrentCharacterPill() {
+    const { currentCharacter } = useGameStore.getState();
+
+    console.log("currentCharacter", currentCharacter);
+
+    if (currentCharacter?.name) {
+        return (
+            <Pill>
+                {currentCharacter?.emoji ?? currentCharacter.emoji + " "}
+                {currentCharacter.name}
+            </Pill>
+        );
+    }
 }

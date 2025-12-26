@@ -12,7 +12,6 @@ import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
 import { ViewportPortal } from "@/components/ViewportPortal";
 import MasterCard from "@/components/ui/MasterCard";
-import RoomsSelector from "@/components/RoomsSelector"; // ajuste le chemin si besoin
 
 // Helpers
 import { QuestDifficultyPill } from "@/helpers/questDifficulty";
@@ -30,6 +29,7 @@ type Chapter = {
     status: "draft" | "active" | "done";
     created_at: string;
     adventure_code?: string | null;
+    context_text?: string | null; // ✅
 };
 
 type Adventure = {
@@ -39,6 +39,7 @@ type Adventure = {
     type?: string | null;
     description?: string | null;
     emoji?: string | null;
+    context_text?: string | null; // ✅
 };
 
 type AdventureQuest = {
@@ -74,20 +75,6 @@ function normalizeQuest(q: ChapterQuest["adventure_quests"]): AdventureQuest | n
     return q;
 }
 
-function statusPill(status: ChapterQuest["status"]) {
-    if (status === "doing")
-        return { label: "🟦 doing", tone: "bg-white/10 text-white ring-white/15" };
-    if (status === "done")
-        return { label: "✅ done", tone: "bg-white/10 text-white ring-white/15" };
-    return { label: "🟥 todo", tone: "bg-white/5 text-white/70 ring-white/10" };
-}
-
-function diffPill(d: number) {
-    if (d <= 1) return "🟢 diff 1";
-    if (d === 2) return "🟡 diff 2";
-    return "🔴 diff 3";
-}
-
 function paceEmoji(pace: Chapter["pace"]) {
     if (pace === "calme") return "🌙";
     if (pace === "intense") return "🔥";
@@ -110,6 +97,10 @@ function adventureFallbackDescription(code?: string | null) {
         return "Remettre le foyer d’aplomb, pièce par pièce. Un RPG du quotidien où chaque geste compte.";
     }
     return "Une aventure en cours. La suite s’écrit avec tes actions.";
+}
+
+async function safeJson(res: Response) {
+    return res.json().catch(() => null);
 }
 
 export default function AdventurePage() {
@@ -149,9 +140,14 @@ export default function AdventurePage() {
     const congrats = cqId ? congratsById[cqId] : undefined;
     const congratsLoading = cqId ? !!congratsLoadingById[cqId] : false;
 
-    const [roomsOpen, setRoomsOpen] = useState(false);
-    const [roomsDirty, setRoomsDirty] = useState(false);
-    const [roomsSaving, setRoomsSaving] = useState(false);
+    // ✅ Modals contexte
+    const [advConfigOpen, setAdvConfigOpen] = useState(false);
+    const [advContextDraft, setAdvContextDraft] = useState("");
+    const [advConfigSaving, setAdvConfigSaving] = useState(false);
+
+    const [chapterConfigOpen, setChapterConfigOpen] = useState(false);
+    const [chapterContextDraft, setChapterContextDraft] = useState("");
+    const [chapterConfigSaving, setChapterConfigSaving] = useState(false);
 
     // Transition
     const [transitionOpen, setTransitionOpen] = useState(false);
@@ -204,11 +200,10 @@ export default function AdventurePage() {
         try {
             // 1) latest chapter
             const chRes = await fetch("/api/chapters?latest=1", { cache: "no-store" });
-            const chJson = await chRes.json();
-            const ch = (chJson.chapter ?? null) as Chapter | null;
+            const chJson = await safeJson(chRes);
+            const ch = (chJson?.chapter ?? null) as Chapter | null;
 
             setChapter(ch);
-            // 🔁 Sync store (le store sert de “source d’action” pour affecter)
             setStoreChapter(ch);
 
             if (!ch?.id || !ch.adventure_id) {
@@ -223,24 +218,24 @@ export default function AdventurePage() {
                 `/api/chapter-quests?chapterId=${encodeURIComponent(ch.id)}`,
                 { cache: "no-store" }
             );
-            const cqJson = await cqRes.json();
-            setChapterItems((cqJson.items ?? []) as ChapterQuest[]);
+            const cqJson = await safeJson(cqRes);
+            setChapterItems((cqJson?.items ?? []) as ChapterQuest[]);
 
             // 3) adventure details (best-effort)
             const advRes = await fetch(
                 `/api/adventures?id=${encodeURIComponent(ch.adventure_id)}`,
                 { cache: "no-store" }
             );
-            const advJson = await advRes.json();
-            setAdventure((advJson.adventure ?? null) as Adventure | null);
+            const advJson = await safeJson(advRes);
+            setAdventure((advJson?.adventure ?? null) as Adventure | null);
 
             // 4) all adventure quests (backlog candidates)
             const aqRes = await fetch(
                 `/api/adventure-quests?adventureId=${encodeURIComponent(ch.adventure_id)}`,
                 { cache: "no-store" }
             );
-            const aqJson = await aqRes.json();
-            setAllAdventureQuests((aqJson.quests ?? []) as AdventureQuest[]);
+            const aqJson = await safeJson(aqRes);
+            setAllAdventureQuests((aqJson?.quests ?? []) as AdventureQuest[]);
         } catch (e) {
             console.error(e);
         } finally {
@@ -283,7 +278,6 @@ export default function AdventurePage() {
     );
 
     const backlog = useMemo(() => {
-        console.log("allAdventureQuests", allAdventureQuests);
         return allAdventureQuests
             .filter((q) => !chapterQuestIds.has(q.id) && q.status !== "done")
             .slice()
@@ -319,7 +313,7 @@ export default function AdventurePage() {
                 }),
             });
 
-            const json = await res.json().catch(() => null);
+            const json = await safeJson(res);
             if (!res.ok) {
                 console.error(json?.error ?? "Create quest failed");
                 return;
@@ -340,11 +334,86 @@ export default function AdventurePage() {
             if (ok) {
                 setChapterPulse(true);
                 window.setTimeout(() => setChapterPulse(false), 650);
-
-                await loadAll("refresh"); // refresh UI (backlog -> chapter)
+                await loadAll("refresh");
             }
         } finally {
             setAssigningId(null);
+        }
+    };
+
+    const openAdventureConfig = () => {
+        setAdvContextDraft((adventure?.context_text ?? "").toString());
+        setAdvConfigOpen(true);
+    };
+
+    const saveAdventureContext = async () => {
+        if (!adventure?.id) return;
+
+        setAdvConfigSaving(true);
+        try {
+            const res = await fetch("/api/adventures", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: adventure.id,
+                    context_text: advContextDraft.trim() || null,
+                }),
+            });
+
+            const json = await safeJson(res);
+            if (!res.ok) {
+                console.error(json?.error ?? "Save adventure context failed");
+                return;
+            }
+
+            setAdventure((prev) =>
+                prev ? { ...prev, context_text: advContextDraft.trim() || null } : prev
+            );
+
+            await bootstrap();
+            await loadAll("refresh");
+
+            setAdvConfigOpen(false);
+        } finally {
+            setAdvConfigSaving(false);
+        }
+    };
+
+    const openChapterConfig = () => {
+        setChapterContextDraft((chapter?.context_text ?? "").toString());
+        setChapterConfigOpen(true);
+    };
+
+    const saveChapterContext = async () => {
+        if (!chapter?.id) return;
+
+        setChapterConfigSaving(true);
+        try {
+            const res = await fetch("/api/chapters", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: chapter.id,
+                    context_text: chapterContextDraft.trim() || null,
+                }),
+            });
+
+            const json = await safeJson(res);
+            if (!res.ok) {
+                console.error(json?.error ?? "Save chapter context failed");
+                return;
+            }
+
+            setChapter((prev) =>
+                prev ? { ...prev, context_text: chapterContextDraft.trim() || null } : prev
+            );
+
+            await bootstrap();
+            await loadAll("refresh");
+
+            setChapterConfigOpen(false);
+        } finally {
+            setChapterConfigSaving(false);
         }
     };
 
@@ -386,10 +455,10 @@ export default function AdventurePage() {
                     <Panel
                         title="Aventure"
                         emoji="🧭"
-                        subtitle="Le contexte général de ta session (lecture seule)."
+                        subtitle="Contexte global (éditable)."
                         right={
                             <div className="flex items-center gap-2">
-                                <ActionButton onClick={() => setRoomsOpen(true)}>
+                                <ActionButton onClick={openAdventureConfig}>
                                     🛠️ Configurer
                                 </ActionButton>
                             </div>
@@ -398,24 +467,32 @@ export default function AdventurePage() {
                         <div className="rounded-2xl bg-black/30 p-5 ring-1 ring-white/10">
                             <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                    {/* <div className="text-xs tracking-[0.22em] text-white/55">
-                                        {advEmoji} TYPE D’AVENTURE
-                                    </div> */}
                                     <div className="text-xl font-semibold text-white/90">
                                         {advEmoji} {advTitle}
                                     </div>
                                     <div className="mt-2 max-w-3xl rpg-rpg-text-sm text-white/65">
                                         {advDesc}
                                     </div>
+
+                                    <div className="mt-4 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
+                                        <div className="text-white/85 font-semibold">
+                                            🧠 Contexte d’aventure
+                                        </div>
+                                        <div className="mt-2 whitespace-pre-line rpg-rpg-text-sm text-white/60">
+                                            {adventure?.context_text?.trim()
+                                                ? adventure.context_text
+                                                : "Aucun contexte défini. Tu peux en ajouter via “Configurer”."}
+                                        </div>
+                                    </div>
                                 </div>
 
-                                {/* <div className="flex flex-wrap gap-2">
+                                <div className="flex flex-wrap gap-2">
                                     <Pill>📘 Chapitre: {chapter.title}</Pill>
                                     <Pill>
                                         {paceEmoji(chapter.pace)} {chapter.pace}
                                     </Pill>
                                     <Pill>📍 {chapter.status}</Pill>
-                                </div> */}
+                                </div>
                             </div>
                         </div>
                     </Panel>
@@ -433,7 +510,9 @@ export default function AdventurePage() {
                             subtitle="Quêtes jouées du chapitre, classées par pièces."
                             right={
                                 <div className="flex items-center gap-2">
-                                    <ActionButton onClick={goPrepare}>🛠️ Configurer</ActionButton>
+                                    <ActionButton onClick={openChapterConfig}>
+                                        🛠️ Configurer
+                                    </ActionButton>
                                 </div>
                             }
                         >
@@ -446,8 +525,20 @@ export default function AdventurePage() {
                                         <Pill>📜 {chapterItems.length} quêtes</Pill>
                                     </div>
                                 </div>
+
                                 <div className="mt-2 rpg-rpg-text-sm text-white/60">
                                     Choisis une quête et ouvre sa page pour la jouer.
+                                </div>
+
+                                <div className="mt-4 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
+                                    <div className="text-white/85 font-semibold">
+                                        🎯 Contexte du chapitre
+                                    </div>
+                                    <div className="mt-2 whitespace-pre-line rpg-rpg-text-sm text-white/60">
+                                        {chapter?.context_text?.trim()
+                                            ? chapter.context_text
+                                            : "Aucun contexte de chapitre. Tu peux en ajouter via “Configurer”."}
+                                    </div>
                                 </div>
                             </div>
 
@@ -472,58 +563,42 @@ export default function AdventurePage() {
                                             </div>
 
                                             <div className="space-y-2 px-3 pb-3">
-                                                {arr.map(({ cq, q }) => {
-                                                    const st = statusPill(cq.status);
-
-                                                    return (
-                                                        <div
-                                                            key={cq.id}
-                                                            className="flex flex-col gap-3 rounded-2xl bg-black/30 p-4 ring-1 ring-white/10 sm:flex-row sm:items-center sm:justify-between"
-                                                        >
-                                                            <div className="min-w-0">
-                                                                <div className="truncate text-white/90 font-semibold">
-                                                                    {q?.title ?? "Quête"}
-                                                                </div>
-
-                                                                <div className="mt-2 flex flex-wrap items-center gap-2">
-                                                                    <QuestStatusPill
-                                                                        status={cq.status}
-                                                                    />
-
-                                                                    <QuestDifficultyPill
-                                                                        difficulty={
-                                                                            q?.difficulty ?? 2
-                                                                        }
-                                                                    />
-
-                                                                    {/* <Pill>
-                                                                        ⏱️{" "}
-                                                                        {q?.estimate_min
-                                                                            ? `${q.estimate_min} min`
-                                                                            : "?"}
-                                                                    </Pill> */}
-
-                                                                    {/* <Pill>
-                                                                        🧾 id: {cq.id.slice(0, 8)}…
-                                                                    </Pill> */}
-                                                                </div>
+                                                {arr.map(({ cq, q }) => (
+                                                    <div
+                                                        key={cq.id}
+                                                        className="flex flex-col gap-3 rounded-2xl bg-black/30 p-4 ring-1 ring-white/10 sm:flex-row sm:items-center sm:justify-between"
+                                                    >
+                                                        <div className="min-w-0">
+                                                            <div className="truncate text-white/90 font-semibold">
+                                                                {q?.title ?? "Quête"}
                                                             </div>
 
-                                                            <div className="flex items-center gap-2">
-                                                                <ActionButton
-                                                                    variant="solid"
-                                                                    onClick={() =>
-                                                                        router.push(
-                                                                            `/quest?cq=${encodeURIComponent(cq.id)}`
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    👁️ Voir
-                                                                </ActionButton>
+                                                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                                                                <QuestStatusPill
+                                                                    status={cq.status}
+                                                                />
+                                                                <QuestDifficultyPill
+                                                                    difficulty={q?.difficulty ?? 2}
+                                                                />
                                                             </div>
                                                         </div>
-                                                    );
-                                                })}
+
+                                                        <div className="flex items-center gap-2">
+                                                            <ActionButton
+                                                                variant="solid"
+                                                                onClick={() =>
+                                                                    router.push(
+                                                                        `/quest?cq=${encodeURIComponent(
+                                                                            cq.id
+                                                                        )}`
+                                                                    )
+                                                                }
+                                                            >
+                                                                👁️ Voir
+                                                            </ActionButton>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
                                     ))
@@ -555,7 +630,7 @@ export default function AdventurePage() {
                         }
                     >
                         <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
-                            <div className="rpg-rpg-rpg-text-sm text-white/70">
+                            <div className="rpg-rpg-text-sm text-white/70">
                                 Ajoute une quête rapidement ici, ou va en préparation pour organiser
                                 par pièces.
                             </div>
@@ -652,33 +727,19 @@ export default function AdventurePage() {
                 </div>
             )}
 
+            {/* ✅ MODAL: CONFIG AVENTURE (context only) */}
             <AnimatePresence>
-                {roomsOpen && chapter?.adventure_id ? (
+                {advConfigOpen && adventure?.id ? (
                     <ViewportPortal>
                         <motion.div
                             className="fixed inset-0 z-[130] grid place-items-center bg-black/55 backdrop-blur-[3px] p-4"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            onMouseDown={() => {
-                                // click outside = close
-                                void (async () => {
-                                    setRoomsSaving(true);
-                                    try {
-                                        // “save on close” = sync store + refresh UI
-                                        if (roomsDirty) {
-                                            await bootstrap();
-                                        }
-                                    } finally {
-                                        setRoomsSaving(false);
-                                        setRoomsDirty(false);
-                                        setRoomsOpen(false);
-                                    }
-                                })();
-                            }}
+                            onMouseDown={() => setAdvConfigOpen(false)}
                         >
                             <motion.div
-                                className="w-full max-w-3xl rounded-[28px] bg-white/5 p-5 ring-1 ring-white/15 backdrop-blur-md"
+                                className="w-full max-w-2xl rounded-[28px] bg-white/5 p-5 ring-1 ring-white/15 backdrop-blur-md"
                                 initial={{ y: 16, scale: 0.98, opacity: 0 }}
                                 animate={{ y: 0, scale: 1, opacity: 1 }}
                                 exit={{ y: 10, scale: 0.98, opacity: 0 }}
@@ -688,75 +749,102 @@ export default function AdventurePage() {
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
                                         <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
-                                            🏠 Configuration
+                                            🧭 Configuration
                                         </div>
                                         <div className="mt-2 text-lg text-white/90 font-semibold">
-                                            Pièces actives de l’aventure
+                                            Contexte de l’aventure
                                         </div>
                                         <div className="mt-1 text-sm text-white/60">
-                                            {roomsDirty
-                                                ? "Modifications en cours. Elles seront synchronisées à la fermeture."
-                                                : "Active/désactive des pièces, ou ajoute des pièces custom."}
+                                            Cadre global, contraintes, ambiance, objectifs
+                                            long-terme.
                                         </div>
                                     </div>
 
-                                    <ActionButton
-                                        onClick={() => {
-                                            void (async () => {
-                                                setRoomsSaving(true);
-                                                try {
-                                                    if (roomsDirty) {
-                                                        await bootstrap();
-                                                    }
-                                                } finally {
-                                                    setRoomsSaving(false);
-                                                    setRoomsDirty(false);
-                                                    setRoomsOpen(false);
-                                                }
-                                            })();
-                                        }}
-                                    >
-                                        {roomsSaving ? "⏳" : "✖"}
+                                    <ActionButton onClick={() => setAdvConfigOpen(false)}>
+                                        ✖
                                     </ActionButton>
                                 </div>
 
-                                <div className="mt-4">
-                                    <RoomsSelector
-                                        adventureId={chapter.adventure_id}
-                                        onChanged={() => setRoomsDirty(true)}
-                                    />
-                                </div>
+                                <textarea
+                                    value={advContextDraft}
+                                    onChange={(e) => setAdvContextDraft(e.target.value)}
+                                    placeholder="Ex: On est en semaine chargée, priorité au salon + cuisine, peu d’énergie, sessions courtes…"
+                                    className="mt-4 min-h-[180px] w-full rounded-2xl bg-black/30 px-4 py-3 rpg-rpg-text-sm text-white/90 ring-1 ring-white/10 outline-none placeholder:text-white/40 focus:ring-2 focus:ring-white/25"
+                                />
 
                                 <div className="mt-5 flex justify-end gap-2">
-                                    <ActionButton
-                                        onClick={() => {
-                                            setRoomsDirty(false);
-                                            setRoomsOpen(false);
-                                        }}
-                                    >
+                                    <ActionButton onClick={() => setAdvConfigOpen(false)}>
                                         Annuler
                                     </ActionButton>
-
                                     <ActionButton
                                         variant="solid"
-                                        disabled={roomsSaving}
-                                        onClick={() => {
-                                            void (async () => {
-                                                setRoomsSaving(true);
-                                                try {
-                                                    if (roomsDirty) {
-                                                        // await loadRooms?.();
-                                                        await bootstrap();
-                                                    }
-                                                } finally {
-                                                    setRoomsSaving(false);
-                                                    setRoomsDirty(false);
-                                                    setRoomsOpen(false);
-                                                }
-                                            })();
-                                        }}
+                                        disabled={advConfigSaving}
+                                        onClick={() => void saveAdventureContext()}
                                     >
-                                        {roomsSaving ? "⏳ Synchronisation…" : "✅ Fermer"}
+                                        {advConfigSaving ? "⏳ Sauvegarde…" : "✅ Sauvegarder"}
+                                    </ActionButton>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    </ViewportPortal>
+                ) : null}
+            </AnimatePresence>
+
+            {/* ✅ MODAL: CONFIG CHAPITRE (context only) */}
+            <AnimatePresence>
+                {chapterConfigOpen && chapter?.id ? (
+                    <ViewportPortal>
+                        <motion.div
+                            className="fixed inset-0 z-[131] grid place-items-center bg-black/55 backdrop-blur-[3px] p-4"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onMouseDown={() => setChapterConfigOpen(false)}
+                        >
+                            <motion.div
+                                className="w-full max-w-2xl rounded-[28px] bg-white/5 p-5 ring-1 ring-white/15 backdrop-blur-md"
+                                initial={{ y: 16, scale: 0.98, opacity: 0 }}
+                                animate={{ y: 0, scale: 1, opacity: 1 }}
+                                exit={{ y: 10, scale: 0.98, opacity: 0 }}
+                                transition={{ duration: 0.22 }}
+                                onMouseDown={(e) => e.stopPropagation()}
+                            >
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
+                                            📚 Configuration
+                                        </div>
+                                        <div className="mt-2 text-lg text-white/90 font-semibold">
+                                            Contexte du chapitre
+                                        </div>
+                                        <div className="mt-1 text-sm text-white/60">
+                                            Focus du moment, cible locale, partie précise de
+                                            l’aventure.
+                                        </div>
+                                    </div>
+
+                                    <ActionButton onClick={() => setChapterConfigOpen(false)}>
+                                        ✖
+                                    </ActionButton>
+                                </div>
+
+                                <textarea
+                                    value={chapterContextDraft}
+                                    onChange={(e) => setChapterContextDraft(e.target.value)}
+                                    placeholder="Ex: Cette semaine on finit le salon: rangement, câbles, poussière. Objectif: ambiance cozy + place au sol pour jouer…"
+                                    className="mt-4 min-h-[180px] w-full rounded-2xl bg-black/30 px-4 py-3 rpg-rpg-text-sm text-white/90 ring-1 ring-white/10 outline-none placeholder:text-white/40 focus:ring-2 focus:ring-white/25"
+                                />
+
+                                <div className="mt-5 flex justify-end gap-2">
+                                    <ActionButton onClick={() => setChapterConfigOpen(false)}>
+                                        Annuler
+                                    </ActionButton>
+                                    <ActionButton
+                                        variant="solid"
+                                        disabled={chapterConfigSaving}
+                                        onClick={() => void saveChapterContext()}
+                                    >
+                                        {chapterConfigSaving ? "⏳ Sauvegarde…" : "✅ Sauvegarder"}
                                     </ActionButton>
                                 </div>
                             </motion.div>
@@ -802,6 +890,7 @@ export default function AdventurePage() {
                                         </div>
                                     </div>
                                 </MasterCard>
+
                                 <div className="mt-4 flex items-start justify-between gap-3">
                                     <div>
                                         <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
@@ -868,6 +957,7 @@ export default function AdventurePage() {
                 ) : null}
             </AnimatePresence>
 
+            {/* (Transition modal inchangée, je te laisse la suite telle quelle) */}
             <AnimatePresence>
                 {transitionOpen && chapter?.id && chapter?.adventure_id ? (
                     <ViewportPortal>
@@ -1086,7 +1176,7 @@ export default function AdventurePage() {
                                                         }
                                                     );
 
-                                                    const json = await res.json().catch(() => null);
+                                                    const json = await safeJson(res);
                                                     if (!res.ok) {
                                                         console.error(
                                                             json?.error ?? "Transition failed"
@@ -1094,10 +1184,8 @@ export default function AdventurePage() {
                                                         return;
                                                     }
 
-                                                    // Sync UI + store
                                                     await bootstrap();
                                                     await loadAll("refresh");
-
                                                     setTransitionOpen(false);
                                                 } finally {
                                                     setTransitionBusy(false);

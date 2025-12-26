@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
 import CommandPalette from "@/components/CommandPalette";
+import { DevEnvPill } from "@/helpers/dev";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -73,7 +74,12 @@ export default function RpgShell({
                             </div>
                         )}
 
-                        <div className="flex items-center gap-2">{rightSlot}</div>
+                        {rightSlot && <div className="flex items-center gap-2">{rightSlot}</div>}
+                        {!rightSlot && (
+                            <div className="flex items-center gap-2">
+                                <DevEnvPill env={process.env.CURRENT_ENV ?? ""} />
+                            </div>
+                        )}
                     </header>
 
                     {/* Brand + Title (more like Home) */}

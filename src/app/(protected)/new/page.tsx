@@ -8,11 +8,8 @@ import { ChevronRight, X, ScrollText } from "lucide-react";
 
 import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
-import { useJournalStore } from "@/stores/journalStore";
 
 import { useGameStore, type Character } from "@/stores/gameStore";
-import { useSessionStore } from "@/stores/sessionStore";
-// import { buildAdventureBriefing } from "@/lib/briefing/generateBriefing";
 import MasterCard from "@/components/ui/MasterCard";
 
 type AdventureCard = {
@@ -76,29 +73,21 @@ function adventureInfoFromCard(a: AdventureCard) {
 export default function NewAdventurePage() {
     const router = useRouter();
 
-    const createJournal = useJournalStore((s) => s.create);
-
-    // Stores
+    // Stores (Game)
     const bootstrap = useGameStore((s) => s.bootstrap);
     const loadingProfile = useGameStore((s) => s.characterLoading);
     const characters = useGameStore((s) => s.characters);
     const profile = useGameStore((s) => s.profile);
 
-    const bootstrapSession = useSessionStore((s) => s.bootstrap);
-    const activeSessionId = useSessionStore((s) => s.activeSessionId);
-    const createAndActivate = useSessionStore((s) => s.createAndActivate);
+    const startAdventure = useGameStore((s) => s.startAdventure);
+    const startingAdventure = useGameStore((s) => s.startingAdventure);
 
     const [mounted, setMounted] = useState(false);
-
     useEffect(() => setMounted(true), []);
 
     useEffect(() => {
         void bootstrap();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    useEffect(() => {
-        void bootstrapSession();
     }, []);
 
     // ✅ Personnage actif (venant de BDD)
@@ -169,21 +158,20 @@ export default function NewAdventurePage() {
     const [rulesOpen, setRulesOpen] = useState(false);
 
     const startSelected = async () => {
-        if (!selected.enabled) return;
+        if (!selected.enabled || startingAdventure) return;
 
-        if (!activeSessionId) {
-            const sid = await createAndActivate("Ma partie");
-            if (!sid) return;
-        }
-
-        void createJournal({
-            session_id: useSessionStore.getState().activeSessionId!,
-            kind: "adventure_created",
-            title: "✨ Une aventure commence",
-            content: `Tu as choisi: ${selected.emoji} ${selected.title}.`,
+        const result = await startAdventure({
+            type_code: selected.code,
+            title: selected.title,
+            journal: {
+                emoji: selected.emoji,
+                content: `Tu as choisi: ${selected.emoji} ${selected.title}.`,
+            },
         });
 
-        router.push("/adventure/home-realignment");
+        if (!result) return;
+
+        router.push(`/start/adventure/${encodeURIComponent(result.instance_code ?? "")}`);
     };
 
     const [briefingLoading, setBriefingLoading] = useState(false);
@@ -261,7 +249,7 @@ export default function NewAdventurePage() {
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [briefingOpen, rulesOpen, selected]);
+    }, [briefingOpen, rulesOpen, selected, startingAdventure]);
 
     const AdventureRow = ({ a, idx }: { a: AdventureCard; idx: number }) => {
         const active = selected.code === a.code;
@@ -362,9 +350,18 @@ export default function NewAdventurePage() {
                 </button>
 
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
-                    <ActionButton onClick={() => setBriefingOpen(true)}>✨ Briefing</ActionButton>
-                    <ActionButton variant="solid" onClick={startSelected} disabled={disabled}>
-                        🗡️ Commencer
+                    <ActionButton
+                        onClick={() => setBriefingOpen(true)}
+                        disabled={startingAdventure}
+                    >
+                        ✨ Briefing
+                    </ActionButton>
+                    <ActionButton
+                        variant="solid"
+                        onClick={startSelected}
+                        disabled={disabled || startingAdventure}
+                    >
+                        {startingAdventure ? "⏳" : "🗡️ Commencer"}
                     </ActionButton>
                 </div>
             </motion.div>
@@ -549,9 +546,9 @@ export default function NewAdventurePage() {
                                               <ActionButton
                                                   variant="solid"
                                                   onClick={startSelected}
-                                                  disabled={!selected.enabled}
+                                                  disabled={!selected.enabled || startingAdventure}
                                               >
-                                                  🗡️ Commencer
+                                                  {startingAdventure ? "⏳" : "🗡️ Commencer"}
                                               </ActionButton>
                                           </div>
                                       </div>

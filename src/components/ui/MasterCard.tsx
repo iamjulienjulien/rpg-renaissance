@@ -1,5 +1,6 @@
 "use client";
 
+import { CurrentCharacterPill } from "@/helpers/adventure";
 import React from "react";
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -19,8 +20,8 @@ type MasterCardProps = {
 export default function MasterCard({
     title = "Ordre de mission",
     emoji = "🎯",
-    badgeText = "Maître du jeu",
-    badgeEmoji = "🧙",
+    badgeText,
+    badgeEmoji,
     rightSlot,
     children,
     className,
@@ -51,7 +52,9 @@ export default function MasterCard({
                                     <span className="rounded-full bg-white/10 px-2 py-1 text-[11px] text-white/80 ring-1 ring-white/15">
                                         {badgeEmoji} {badgeText}
                                     </span>
-                                ) : null}
+                                ) : (
+                                    <CurrentCharacterPill />
+                                )}
                             </div>
                         </div>
 
