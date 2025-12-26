@@ -69,29 +69,62 @@ function ThemeSwitchRow() {
     const theme = useUiSettingsStore((s) => s.theme);
     const setTheme = useUiSettingsStore((s) => s.setTheme);
 
-    const isClassic = theme === "classic";
-    const isCyber = theme === "cyber-ritual";
+    const THEMES = [
+        {
+            key: "classic" as const,
+            label: "Classic",
+            emoji: "📜",
+            description: "Grimoire feutré, parchemins et or patiné. L’ADN originel de Renaissance.",
+        },
+        {
+            key: "cyber-ritual" as const,
+            label: "Cyber Ritual",
+            emoji: "🟦",
+            description:
+                "Néons occultes, glyphes digitaux et rituels synthétiques. Le futur ésotérique.",
+        },
+        {
+            key: "forest-sigil" as const,
+            label: "Forest Sigil",
+            emoji: "🌲",
+            description: "Symboles sylvestres, runes anciennes et souffle de la forêt vivante.",
+        },
+        {
+            key: "ashen-codex" as const,
+            label: "Ashen Codex",
+            emoji: "🔥",
+            description: "Cendres sacrées, pierre noire et savoir gravé dans les ruines du monde.",
+        },
+    ] satisfies Array<{
+        key: string;
+        label: string;
+        emoji: string;
+        description: string;
+    }>;
+
+    const current = THEMES.find((t) => t.key === theme) ?? THEMES[0];
 
     return (
         <SettingRow
-            emoji={isCyber ? "🟦" : "📜"}
+            emoji={current.emoji}
             title="Skin UI"
-            description="Classic: grimoire feutré. Cyber Ritual: néons et glyphes."
-            value={isCyber ? "Cyber Ritual" : "Classic"}
+            description={current.description}
+            value={current.label}
             right={
                 <div className="flex items-center gap-2">
-                    <ActionButton
-                        variant={isClassic ? "solid" : "soft"}
-                        onClick={() => setTheme("classic")}
-                    >
-                        📜
-                    </ActionButton>
-                    <ActionButton
-                        variant={isCyber ? "solid" : "soft"}
-                        onClick={() => setTheme("cyber-ritual")}
-                    >
-                        🟦
-                    </ActionButton>
+                    {THEMES.map((t) => {
+                        const active = theme === t.key;
+                        return (
+                            <ActionButton
+                                key={t.key}
+                                variant={active ? "solid" : "soft"}
+                                onClick={() => setTheme(t.key)}
+                                // title={t.label}
+                            >
+                                {t.emoji}
+                            </ActionButton>
+                        );
+                    })}
                 </div>
             }
         />

@@ -17,6 +17,7 @@ import {
     getCurrentChapterName,
     getCurrentQuestsName,
 } from "@/helpers/adventure";
+import { useThemeLogo } from "@/helpers/getThemeLogo";
 
 type Chapter = {
     id: string;
@@ -56,6 +57,8 @@ export default function RenaissanceLanding() {
     const bootstrap = useGameStore((s) => s.bootstrap);
 
     const activeCharacter = useGameStore((s) => s.profile?.character ?? null);
+
+    const logoSrc = useThemeLogo();
 
     const menu = useMemo(() => {
         return [
@@ -133,10 +136,10 @@ export default function RenaissanceLanding() {
                 <div className="flex flex-col items-center text-center">
                     {/* <div className="text-xs tracking-[0.22em] text-white/55">🜁</div> */}
 
-                    <img src="/assets/images/logo-renaissance_cropped.png" alt="Renaissance" />
+                    <img src={logoSrc} alt="Renaissance" />
 
                     <h1 className="mt-2 text-5xl font-semibold text-white/95 sm:text-6xl">
-                        <span className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent fondamento-regular">
+                        <span className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent font-main-title">
                             Renaissance
                         </span>
                     </h1>

@@ -6,6 +6,7 @@ import { ChevronLeft } from "lucide-react";
 
 import CommandPalette from "@/components/CommandPalette";
 import { DevEnvPill } from "@/helpers/dev";
+import { useThemeLogo } from "@/helpers/getThemeLogo";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -40,6 +41,8 @@ export default function RpgShell({
     rightSlot?: React.ReactNode;
     returnButton?: boolean;
 }) {
+    const logoSrc = useThemeLogo();
+
     return (
         <div className="min-h-dvh text-white">
             <div className="relative isolate min-h-dvh overflow-hidden">
@@ -91,7 +94,7 @@ export default function RpgShell({
                                 className="group inline-flex"
                             >
                                 <img
-                                    src="/assets/images/logo-renaissance_cropped.png"
+                                    src={logoSrc}
                                     alt="Renaissance"
                                     className="
                     h-20 w-auto select-none opacity-95
@@ -104,7 +107,7 @@ export default function RpgShell({
                             </Link>
 
                             <h1 className="mt-2 text-4xl font-semibold text-white/95 sm:text-5xl">
-                                <span className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent fondamento-regular">
+                                <span className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent font-main-title">
                                     {title}
                                 </span>
                             </h1>

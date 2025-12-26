@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Fondamento:ital@0;1&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&family=Cormorant+SC:wght@300;400;500;600;700&family=Fondamento:ital@0;1&family=Orbitron:wght@400..900&display=swap");
 @import "tailwindcss";
 
 :root {
@@ -6,12 +6,12 @@
     --foreground: #171717;
 }
 
-@theme inline {
+/* @theme inline {
     --color-background: var(--background);
     --color-foreground: var(--foreground);
     --font-sans: var(--font-geist-sans);
     --font-mono: var(--font-geist-mono);
-}
+} */
 
 @media (prefers-color-scheme: dark) {
     :root {
@@ -68,6 +68,8 @@ body {
     line-height: var(--rpg-line);
 }
 
+/* Thèmes */
+
 :root {
     /* Theme selector */
     --theme: classic;
@@ -90,6 +92,13 @@ body {
     --ring: 0 0% 100% / 0.18;
 }
 
+/* Default title font (classic) */
+.font-main-title {
+    font-family: "Fondamento", cursive;
+    font-weight: 400;
+    font-style: normal;
+}
+
 /* ✅ CYBER RITUAL */
 :root[data-theme="cyber-ritual"] {
     --theme: cyber-ritual;
@@ -109,14 +118,95 @@ body {
     --ring: 178 100% 52% / 0.28;
 }
 
-body {
-    /* background: hsl(var(--bg)); */
-    /* color: hsl(var(--text)); */
-}
-
 :root[data-theme="cyber-ritual"] body {
     background:
         radial-gradient(1200px 700px at 20% 10%, hsl(var(--accent) / 0.12), transparent 60%),
         radial-gradient(900px 600px at 80% 40%, hsl(var(--accent-2) / 0.1), transparent 55%),
         hsl(var(--bg));
+}
+
+:root[data-theme="cyber-ritual"] .font-main-title {
+    font-family: "Orbitron", sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* ✅ FOREST SIGIL */
+:root[data-theme="forest-sigil"] {
+    --theme: forest-sigil;
+
+    /* Deep moss background, bark panels */
+    --bg: 145 28% 7%;
+    --panel: 150 22% 11%;
+    --panel-2: 150 18% 15%;
+
+    /* Soft ivory text */
+    --text: 140 25% 92%;
+    --muted: 140 10% 70%;
+
+    /* Gentle borders */
+    --border: 140 25% 90% / 0.12;
+
+    /* Accents: moss + sage */
+    --accent: 145 38% 46%; /* moss */
+    --accent-2: 135 28% 64%; /* sage */
+    --glow: 145 38% 46%;
+
+    --shadow: 145 38% 46% / 0.1;
+    --ring: 135 28% 64% / 0.22;
+}
+
+:root[data-theme="forest-sigil"] body {
+    background:
+        radial-gradient(1100px 650px at 18% 12%, hsl(var(--accent) / 0.14), transparent 62%),
+        radial-gradient(900px 520px at 82% 28%, hsl(var(--accent-2) / 0.1), transparent 58%),
+        radial-gradient(900px 540px at 50% 92%, hsl(var(--accent) / 0.08), transparent 60%),
+        hsl(var(--bg));
+}
+
+/* Title font: rune-like but readable (Google Font) */
+:root[data-theme="forest-sigil"] .font-main-title {
+    font-family: "Cormorant SC", serif;
+    letter-spacing: 0.04em;
+    text-transform: none;
+}
+
+/* ============================================================================
+🔥 ASHEN CODEX
+============================================================================ */
+
+:root[data-theme="ashen-codex"] {
+    --theme: ashen-codex;
+
+    /* Core */
+    --bg: 20 15% 5%; /* charbon profond */
+    --panel: 20 12% 9%; /* pierre brûlée */
+    --panel-2: 20 10% 13%; /* cendre dense */
+    --text: 30 20% 92%; /* ivoire chaud */
+    --muted: 25 8% 62%; /* cendre claire */
+    --border: 30 40% 80% / 0.12;
+
+    /* Accent */
+    --accent: 24 90% 55%; /* braise */
+    --accent-2: 0 70% 45%; /* rouge profond */
+    --glow: 24 90% 55%;
+
+    /* FX */
+    --shadow: 0 0 0 / 0.35;
+    --ring: 24 90% 55% / 0.22;
+}
+
+/* 🌑 Background atmosphérique */
+:root[data-theme="ashen-codex"] body {
+    background:
+        radial-gradient(1000px 600px at 15% 15%, hsl(var(--accent) / 0.1), transparent 60%),
+        radial-gradient(900px 700px at 80% 60%, hsl(var(--accent-2) / 0.08), transparent 65%),
+        hsl(var(--bg));
+}
+
+/* 🔥 Titre principal */
+:root[data-theme="ashen-codex"] .font-main-title {
+    font-family: "Cinzel", serif;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
