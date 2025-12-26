@@ -252,7 +252,7 @@ Tab 2: récit MJ (placeholder)
 type ChapterStoryJson = {
     title: string;
     chapter_title: string;
-    recap: string;
+    summary: string;
     paragraphs: string[];
     trophies: string[];
 };
@@ -283,7 +283,7 @@ function StoryView() {
     type ChapterStoryJson = {
         title: string;
         chapter_title: string;
-        recap: string;
+        summary: string;
         paragraphs: string[];
         trophies: string[];
     };
@@ -433,7 +433,7 @@ function StoryView() {
                                                     <div className="mb-2 text-xs tracking-[0.22em] text-white/55 uppercase">
                                                         Récapitulatif
                                                     </div>
-                                                    <DropCapParagraph text={s.recap} />
+                                                    <DropCapParagraph text={s.summary} />
                                                 </div>
 
                                                 <div>
