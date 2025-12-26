@@ -1,12 +1,16 @@
+// src/components/RpgUi.tsx
 "use client";
 
 import React from "react";
 import { useUiStore } from "@/stores/uiStore";
-import { useUiSettingsStore } from "@/stores/uiSettingsStore";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
 }
+
+/* ============================================================================
+🧩 PANEL
+============================================================================ */
 
 export function Panel({
     title,
@@ -21,51 +25,33 @@ export function Panel({
     right?: React.ReactNode;
     children: React.ReactNode;
 }) {
-    const theme = useUiSettingsStore((s) => s.theme);
-    const cyber = theme === "cyber-ritual";
-
     return (
         <div
             className={cn(
-                // ✅ CLASSIC (inchangé)
-                !cyber && "rounded-2xl bg-black/25 p-5 ring-1 ring-white/10",
-
-                // 🟦 CYBER RITUAL
-                cyber &&
-                    cn(
-                        "rounded-2xl p-5 ring-1",
-                        "bg-black/30 ring-cyan-400/20",
-                        "shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_0_24px_rgba(34,211,238,0.08)]"
-                    )
+                "rounded-2xl p-5 ring-1",
+                // ✅ Theme tokens
+                "bg-[hsl(var(--panel)/0.75)] ring-[hsl(var(--ring))]",
+                // ✅ Subtle depth + glow using --shadow/--glow
+                "shadow-[0_0_0_1px_hsl(var(--border)),0_10px_30px_hsl(var(--shadow)),0_0_24px_hsl(var(--glow)/0.08)]",
+                "backdrop-blur-md"
             )}
         >
-            {title && (
+            {title ? (
                 <div className="flex items-start justify-between gap-3">
                     <div>
                         <div
                             className={cn(
-                                // ✅ CLASSIC (inchangé)
-                                !cyber && "text-[11px] tracking-[0.18em] text-white/55",
-
-                                // 🟦 CYBER RITUAL
-                                cyber &&
-                                    "text-[11px] tracking-[0.22em] text-cyan-200/75 drop-shadow-[0_0_10px_rgba(34,211,238,0.12)]"
+                                "text-[11px] tracking-[0.22em]",
+                                "text-[hsl(var(--muted))]",
+                                "drop-shadow-[0_0_10px_hsl(var(--glow)/0.10)]"
                             )}
                         >
                             {emoji ? `${emoji} ` : ""}
-                            {title ? title.toUpperCase() : ""}
+                            {title.toUpperCase()}
                         </div>
 
                         {subtitle ? (
-                            <div
-                                className={cn(
-                                    // ✅ CLASSIC (inchangé)
-                                    !cyber && "mt-2 rpg-text-sm text-white/60",
-
-                                    // 🟦 CYBER RITUAL
-                                    cyber && "mt-2 rpg-text-sm text-white/65"
-                                )}
-                            >
+                            <div className="mt-2 rpg-text-sm text-[hsl(var(--muted))]">
                                 {subtitle}
                             </div>
                         ) : null}
@@ -73,17 +59,17 @@ export function Panel({
 
                     {right ? <div className="shrink-0">{right}</div> : null}
                 </div>
-            )}
+            ) : null}
 
             <div className={!title ? "" : subtitle ? "mt-4" : "mt-2"}>{children}</div>
         </div>
     );
 }
 
-/**
- * Actions globales (store UI)
- * -> tu peux les appeler depuis n'importe quel bouton sans prop onClick.
- */
+/* ============================================================================
+🎛️ UI ACTIONS (store)
+============================================================================ */
+
 type UiAction =
     | "openPalette"
     | "closePalette"
@@ -113,6 +99,10 @@ function useUiAction(action?: UiAction) {
     return undefined;
 }
 
+/* ============================================================================
+🟣 ACTION BUTTON
+============================================================================ */
+
 export function ActionButton(props: {
     children: React.ReactNode;
     onClick?: () => void;
@@ -123,45 +113,34 @@ export function ActionButton(props: {
     action?: UiAction;
     hint?: string;
 }) {
-    const theme = useUiSettingsStore((s) => s.theme);
-    const cyber = theme === "cyber-ritual";
-
     const disabled = !!props.disabled;
 
     const storeAction = useUiAction(props.action);
     const onClick = props.onClick ?? storeAction;
 
-    // 🌈 Variante MASTER (classic inchangé, cyber: un peu plus “rituel”)
+    // 🌈 MASTER: badge premium, mais basé sur les tokens
     if (props.variant === "master") {
         return (
             <button
                 type="button"
                 onClick={disabled ? undefined : onClick}
                 disabled={disabled}
-                className={
-                    (props.className ?? "") +
-                    " " +
-                    cn(
-                        "rounded-[20px] p-[1.5px]",
-                        // ✅ CLASSIC gradient (inchangé)
-                        !cyber && "bg-gradient-to-br from-cyan-400 via-fuchsia-500 to-emerald-400",
-                        // 🟦 CYBER RITUAL gradient (plus “neon circuit”)
-                        cyber && "bg-gradient-to-br from-cyan-300 via-fuchsia-400 to-lime-300",
-                        "transition hover:brightness-110 active:brightness-95",
-                        disabled && "opacity-60 pointer-events-none"
-                    )
-                }
+                className={cn(
+                    props.className ?? "",
+                    "rounded-[20px] p-[1.5px]",
+                    // ✅ token-driven gradient (accent + accent-2)
+                    "bg-[linear-gradient(135deg,hsl(var(--accent)),hsl(var(--accent-2)))]",
+                    "transition hover:brightness-110 active:brightness-95",
+                    disabled && "opacity-60 pointer-events-none"
+                )}
             >
                 <span
                     className={cn(
-                        "inline-flex w-full items-center gap-2 rounded-[18px]",
-                        "px-4 py-2 rpg-text-sm font-semibold",
-                        // ✅ CLASSIC (inchangé)
-                        !cyber &&
-                            "bg-black/90 backdrop-blur text-white/90 ring-1 ring-white/10 hover:bg-black/85",
-                        // 🟦 CYBER RITUAL
-                        cyber &&
-                            "bg-black/80 backdrop-blur text-white/90 ring-1 ring-cyan-300/20 hover:bg-black/75"
+                        "inline-flex w-full items-center gap-2 rounded-[18px] px-4 py-2",
+                        "rpg-text-sm font-semibold",
+                        "bg-[hsl(var(--bg)/0.75)] backdrop-blur",
+                        "text-[hsl(var(--text))] ring-1 ring-[hsl(var(--ring))]",
+                        "hover:bg-[hsl(var(--bg)/0.68)]"
                     )}
                 >
                     <span>{props.children}</span>
@@ -169,12 +148,10 @@ export function ActionButton(props: {
                     {props.hint ? (
                         <span
                             className={cn(
-                                // ✅ CLASSIC (inchangé)
-                                !cyber &&
-                                    "rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/80 ring-1 ring-white/15",
-                                // 🟦 CYBER RITUAL
-                                cyber &&
-                                    "rounded-full bg-cyan-400/10 px-2 py-0.5 text-[11px] text-cyan-100 ring-1 ring-cyan-300/20"
+                                "rounded-full px-2 py-0.5 text-[11px] ring-1",
+                                "bg-[hsl(var(--accent)/0.12)]",
+                                "text-[hsl(var(--text))]",
+                                "ring-[hsl(var(--accent)/0.25)]"
                             )}
                         >
                             {props.hint}
@@ -185,45 +162,33 @@ export function ActionButton(props: {
         );
     }
 
-    // ✅ Variants existants (classic inchangé)
+    const isSolid = props.variant === "solid";
+
     return (
         <button
             type="button"
             onClick={disabled ? undefined : onClick}
             disabled={disabled}
-            className={
-                (props.className ?? "") +
-                " " +
-                cn(
-                    "inline-flex items-center gap-2 rounded-2xl px-4 py-2 rpg-text-sm ring-1 transition",
-
-                    // ✅ CLASSIC (inchangé)
-                    !cyber &&
-                        (props.variant === "solid"
-                            ? "bg-white/10 text-white ring-white/15 hover:bg-white/15"
-                            : "bg-white/5 text-white/80 ring-white/10 hover:bg-white/10"),
-
-                    // 🟦 CYBER RITUAL
-                    cyber &&
-                        (props.variant === "solid"
-                            ? "bg-cyan-400/10 text-white ring-cyan-300/25 hover:bg-cyan-400/15"
-                            : "bg-white/5 text-white/85 ring-cyan-300/15 hover:bg-white/10"),
-
-                    disabled && "opacity-60 pointer-events-none"
-                )
-            }
+            className={cn(
+                props.className ?? "",
+                "inline-flex items-center gap-2 rounded-2xl px-4 py-2 rpg-text-sm ring-1 transition",
+                "text-[hsl(var(--text))]",
+                isSolid
+                    ? "bg-[hsl(var(--accent)/0.12)] ring-[hsl(var(--accent)/0.25)] hover:bg-[hsl(var(--accent)/0.16)]"
+                    : "bg-[hsl(var(--panel-2)/0.55)] ring-[hsl(var(--ring))] hover:bg-[hsl(var(--panel-2)/0.68)]",
+                "shadow-[0_0_0_1px_hsl(var(--border)),0_8px_18px_hsl(var(--shadow))]",
+                disabled && "opacity-60 pointer-events-none"
+            )}
         >
             <span className="w-full">{props.children}</span>
 
             {props.hint ? (
                 <span
                     className={cn(
-                        // ✅ CLASSIC (inchangé)
-                        !cyber &&
-                            "rounded-full bg-black/30 px-2 py-0.5 text-[11px] text-white/60 ring-1 ring-white/10",
-                        // 🟦 CYBER RITUAL
-                        cyber &&
-                            "rounded-full bg-cyan-400/10 px-2 py-0.5 text-[11px] text-cyan-100/80 ring-1 ring-cyan-300/20"
+                        "rounded-full px-2 py-0.5 text-[11px] ring-1",
+                        "bg-[hsl(var(--bg)/0.35)]",
+                        "text-[hsl(var(--muted))]",
+                        "ring-[hsl(var(--border))]"
                     )}
                 >
                     {props.hint}
@@ -232,6 +197,10 @@ export function ActionButton(props: {
         </button>
     );
 }
+
+/* ============================================================================
+💊 PILL
+============================================================================ */
 
 export function Pill({
     children,
@@ -244,29 +213,26 @@ export function Pill({
     action?: UiAction;
     title?: string;
 }) {
-    const theme = useUiSettingsStore((s) => s.theme);
-    const cyber = theme === "cyber-ritual";
-
     const disabled = !onClick && !action;
     const storeAction = useUiAction(action);
     const click = onClick ?? storeAction;
 
-    const base = "rounded-full px-3 py-1 text-xs ring-1";
-
-    // ✅ CLASSIC tones (inchangés)
-    const classicTone = disabled
-        ? "bg-white/5 text-white/60 ring-white/10"
-        : "bg-white/10 text-white ring-white/15 hover:bg-white/15";
-
-    // 🟦 CYBER tones
-    const cyberTone = disabled
-        ? "bg-white/5 text-white/60 ring-cyan-300/10"
-        : "bg-cyan-400/10 text-white ring-cyan-300/20 hover:bg-cyan-400/15";
-
-    const tone = cyber ? cyberTone : classicTone;
+    const base = cn(
+        "rounded-full px-3 py-1 text-xs ring-1 transition",
+        "shadow-[0_0_0_1px_hsl(var(--border)),0_6px_14px_hsl(var(--shadow))]"
+    );
 
     if (disabled) {
-        return <span className={cn(base, tone)}>{children}</span>;
+        return (
+            <span
+                className={cn(
+                    base,
+                    "bg-[hsl(var(--panel-2)/0.45)] text-[hsl(var(--muted))] ring-[hsl(var(--ring))]"
+                )}
+            >
+                {children}
+            </span>
+        );
     }
 
     return (
@@ -274,7 +240,10 @@ export function Pill({
             type="button"
             title={title}
             onClick={click}
-            className={cn(base, tone, "transition")}
+            className={cn(
+                base,
+                "bg-[hsl(var(--panel)/0.65)] text-[hsl(var(--text))] ring-[hsl(var(--ring))] hover:bg-[hsl(var(--panel)/0.78)]"
+            )}
         >
             {children}
         </button>

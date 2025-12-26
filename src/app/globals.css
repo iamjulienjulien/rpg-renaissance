@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&family=Cormorant+SC:wght@300;400;500;600;700&family=Fondamento:ital@0;1&family=Orbitron:wght@400..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400..900&family=Cormorant+SC:wght@300;400;500;600;700&family=Fondamento:ital@0;1&family=Orbitron&display=swap");
 @import "tailwindcss";
 
 :root {
@@ -209,4 +209,46 @@ body {
     font-family: "Cinzel", serif;
     letter-spacing: 0.04em;
     text-transform: uppercase;
+}
+
+/* 🎄 WINTER NOEL CODEX */
+
+:root[data-theme="winter-noel"] {
+    --theme: winter-noel;
+
+    /* Core */
+    --bg: 215 35% 7%; /* nuit hivernale */
+    --panel: 215 30% 11%;
+    --panel-2: 215 26% 15%;
+    --text: 40 30% 96%; /* ivoire chaud */
+    --muted: 30 15% 70%;
+    --border: 45 80% 60% / 0.18;
+
+    /* Accent */
+    --accent: 45 85% 55%; /* or de Noël */
+    --accent-2: 355 70% 50%; /* rouge profond */
+    --glow: 45 85% 55%;
+
+    /* FX */
+    --shadow: 0 0 0 / 0.25;
+    --ring: 45 85% 55% / 0.35;
+}
+
+:root[data-theme="winter-noel"] body {
+    background:
+        radial-gradient(1200px 700px at 20% 15%, hsl(var(--accent) / 0.12), transparent 60%),
+        radial-gradient(900px 600px at 80% 35%, hsl(var(--accent-2) / 0.1), transparent 55%),
+        radial-gradient(
+            600px 400px at 50% 90%,
+            hsl(210 40% 85% / 0.06),
+            /* neige diffuse */ transparent 60%
+        ),
+        hsl(var(--bg));
+}
+
+/* ✨ Titre principal */
+:root[data-theme="winter-noel"] .font-main-title {
+    font-family: "Cinzel Decorative", serif;
+    font-weight: 700;
+    letter-spacing: 0.06em;
 }

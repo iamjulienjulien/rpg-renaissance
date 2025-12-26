@@ -95,6 +95,12 @@ function ThemeSwitchRow() {
             emoji: "🔥",
             description: "Cendres sacrées, pierre noire et savoir gravé dans les ruines du monde.",
         },
+        {
+            key: "winter-noel" as const,
+            label: "Winter Noel",
+            emoji: "🎄",
+            description: "Hiver rituel, or ancien et chaleur feutrée.",
+        },
     ] satisfies Array<{
         key: string;
         label: string;

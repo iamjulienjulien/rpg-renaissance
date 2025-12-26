@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type UiTheme = "classic" | "cyber-ritual" | "forest-sigil" | "ashen-codex";
+export type UiTheme = "classic" | "cyber-ritual" | "forest-sigil" | "ashen-codex" | "winter-noel";
 
 type UiSettingsState = {
     theme: UiTheme;
