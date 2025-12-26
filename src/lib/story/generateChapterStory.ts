@@ -1,5 +1,10 @@
+// src/lib/journal/generateChapterStory.ts
 import { supabaseServer } from "@/lib/supabase/server";
 import { openai } from "@/lib/openai";
+
+/* ============================================================================
+🧠 TYPES
+============================================================================ */
 
 type CharacterStyle = {
     name: string;
@@ -19,9 +24,33 @@ type PlayerContext = {
     character: CharacterStyle | null;
 };
 
+export type ChapterStoryRow = {
+    chapter_id: string;
+    session_id: string;
+    story_json: any;
+    story_md: string;
+    model: string;
+    updated_at: string;
+    created_at?: string;
+};
+
+/* ============================================================================
+🧰 HELPERS
+============================================================================ */
+
 function safeTrim(x: unknown): string {
     return typeof x === "string" ? x.trim() : "";
 }
+
+function verbosityRules(v?: string | null) {
+    if (v === "short") return { maxParagraphs: 3 };
+    if (v === "rich") return { maxParagraphs: 7 };
+    return { maxParagraphs: 5 };
+}
+
+/* ============================================================================
+🔎 DATA LOADERS
+============================================================================ */
 
 async function loadPlayerContextByUserId(userId: string): Promise<PlayerContext> {
     const supabase = await supabaseServer();
@@ -71,26 +100,21 @@ async function loadPlayerContextByUserId(userId: string): Promise<PlayerContext>
     };
 }
 
-function verbosityRules(v?: string | null) {
-    if (v === "short") return { maxParagraphs: 3 };
-    if (v === "rich") return { maxParagraphs: 7 };
-    return { maxParagraphs: 5 };
-}
+/* ============================================================================
+📖 MAIN
+============================================================================ */
 
-export type ChapterStoryRow = {
-    chapter_id: string;
-    session_id: string;
-    story_json: any;
-    story_md: string;
-    model: string;
-    updated_at: string;
-    created_at?: string;
-};
-
+/**
+ * ✅ Récit IA “scellé” pour un chapitre (stocké en BDD)
+ * - Prend en compte 2 contextes:
+ *   - aventure.context_text = contexte global (cadre général)
+ *   - chapters.context_text  = contexte spécifique (focus du chapitre)
+ * - Cache scopé par session_id
+ */
 export async function generateStoryForChapter(chapterId: string, force: boolean = false) {
     const supabase = await supabaseServer();
 
-    // ✅ Auth obligatoire
+    // ✅ Auth obligatoire (login-only)
     const { data: authData, error: authErr } = await supabase.auth.getUser();
     if (authErr) throw new Error(authErr.message);
 
@@ -111,7 +135,10 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
     const sessionId = ch.session_id as string;
     const chapterTitle = safeTrim(ch.title) || "Chapitre";
     const pace = ch.pace ?? "standard";
-    const chapterContextText = safeTrim((ch as any)?.context_text) || "";
+
+    // ✅ Contexte spécifique (chapitre)
+    const chapterContextText = safeTrim((ch as any)?.context_text);
+    const chapterContext = chapterContextText.length ? chapterContextText : null;
 
     // 1) Cache (scopé session) si pas force
     if (!force) {
@@ -125,19 +152,24 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
         if (existing) return { story: existing as ChapterStoryRow, cached: true };
     }
 
-    // 2) Aventure (best-effort)
+    // 2) Aventure (best-effort) + ✅ contexte global (aventure)
     let adventureTitle = "";
     let adventureCode = "";
+    let adventureContext: string | null = null;
+
     if (ch.adventure_id) {
         const { data: adv, error: advErr } = await supabase
             .from("adventures")
-            .select("title, code")
+            .select("title, code, context_text")
             .eq("id", ch.adventure_id)
             .maybeSingle();
 
         if (!advErr && adv) {
             adventureTitle = safeTrim((adv as any)?.title);
             adventureCode = safeTrim((adv as any)?.code);
+
+            const advCtx = safeTrim((adv as any)?.context_text);
+            adventureContext = advCtx.length ? advCtx : null;
         }
     }
 
@@ -202,16 +234,25 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
 
     const systemText = [
         `Tu es le Maître du Jeu de Renaissance.`,
-        `Tu écris un récit de chapitre figé (on le stocke en BDD).`,
+        `Tu écris un récit de chapitre figé (stocké en BDD).`,
         `Style: roman de jeu vidéo, concret, sensoriel, sans blabla meta.`,
         `Interdit: "en tant qu'IA", disclaimers, justification meta.`,
         `Voix: ${character ? `${character.emoji ?? "🧙"} ${character.name}` : "neutre"}. Tone=${tone}, style=${style}, verbosity=${verbosity}.`,
         playerName
             ? `Le joueur s'appelle "${playerName}". Tu peux le citer 0 à 1 fois, jamais plus.`
             : `Le joueur n'a pas de nom affiché. N'invente pas de prénom.`,
-        chapterContextText
-            ? `Contexte du chapitre (champ chapters.context_text):\n${chapterContextText}`
-            : `Contexte du chapitre: (aucun).`,
+
+        // ✅ Contexte global (aventure)
+        adventureContext
+            ? `CONTEXTE GLOBAL D’AVENTURE (cadre général, priorités, contraintes globales, objectifs long-terme):\n${adventureContext}`
+            : `CONTEXTE GLOBAL D’AVENTURE: (aucun fourni).`,
+
+        // ✅ Contexte spécifique (chapitre)
+        chapterContext
+            ? `CONTEXTE SPÉCIFIQUE DE CE CHAPITRE (focus local, angle du moment; c’est une partie de l’aventure):\n${chapterContext}`
+            : `CONTEXTE SPÉCIFIQUE DE CE CHAPITRE: (aucun fourni).`,
+
+        `Règle d’or: si les deux contextes existent, respecte le global en premier, puis adapte finement au chapitre.`,
         character?.motto
             ? `Serment (à refléter sans citer mot pour mot): ${character.motto}`
             : null,
@@ -228,10 +269,12 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
             pace,
             status: ch.status,
             created_at: ch.created_at,
+            chapter_context: chapterContext ?? "",
         },
         adventure: {
             title: adventureTitle || null,
             code: adventureCode || null,
+            adventure_context: adventureContext ?? "",
         },
         quests: {
             done,
@@ -243,10 +286,7 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
     const response = await openai.responses.create({
         model,
         input: [
-            {
-                role: "system",
-                content: [{ type: "input_text", text: systemText }],
-            },
+            { role: "system", content: [{ type: "input_text", text: systemText }] },
             {
                 role: "user",
                 content: [
@@ -272,13 +312,12 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
                     additionalProperties: false,
                     properties: {
                         title: { type: "string" },
-                        chapter_title: { type: "string" },
-                        recap: { type: "string" },
-                        scenes: {
+                        summary: { type: "string" },
+                        paragraphs: {
                             type: "array",
                             items: { type: "string" },
                             minItems: 2,
-                            maxItems: 6,
+                            maxItems: rules.maxParagraphs,
                         },
                         trophies: {
                             type: "array",
@@ -287,7 +326,7 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
                             maxItems: 6,
                         },
                     },
-                    required: ["title", "chapter_title", "recap", "scenes", "trophies"], // ✅ IMPORTANT
+                    required: ["title", "summary", "paragraphs", "trophies"],
                 },
             },
         },
@@ -297,7 +336,7 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
 
     // 6) Markdown final (pour ton MasterCard)
     const mdParts: string[] = [];
-    mdParts.push(`**${storyJson.summary}**`);
+    mdParts.push(`**${String(storyJson.summary ?? "").trim()}**`);
     mdParts.push("");
 
     for (const p of storyJson.paragraphs ?? []) {

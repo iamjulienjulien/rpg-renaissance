@@ -2,6 +2,10 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import { openai } from "@/lib/openai";
 
+/* ============================================================================
+🧠 TYPES
+============================================================================ */
+
 export type MissionCacheRow = {
     chapter_quest_id: string;
     session_id: string;
@@ -29,18 +33,42 @@ type PlayerContext = {
     character: CharacterStyle | null;
 };
 
+/* ============================================================================
+🧰 HELPERS
+============================================================================ */
+
+function safeTrim(x: unknown): string {
+    return typeof x === "string" ? x.trim() : "";
+}
+
 function verbosityRules(v?: string | null) {
     if (v === "short") return { maxIntroLines: 2, stepsMin: 3, stepsMax: 6 };
     if (v === "rich") return { maxIntroLines: 4, stepsMin: 5, stepsMax: 9 };
     return { maxIntroLines: 3, stepsMin: 3, stepsMax: 9 };
 }
 
-function safeTrim(x: unknown): string {
-    return typeof x === "string" ? x.trim() : "";
+function difficultyLabel(d: number) {
+    if (d <= 1) return "Facile";
+    if (d === 2) return "Standard";
+    return "Difficile";
 }
 
+function formatEstimate(estimateMin: number | null): string | null {
+    if (!estimateMin || estimateMin <= 0) return null;
+    if (estimateMin < 60) return `${estimateMin} min`;
+    const h = Math.floor(estimateMin / 60);
+    const m = estimateMin % 60;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}min`;
+}
+
+/* ============================================================================
+🔎 DATA LOADERS
+============================================================================ */
+
 /**
- * ✅ Login-only : récupère display_name + style (characters) via player_profiles(user_id)
+ * ✅ Login-only
+ * Récupère display_name + style du personnage via player_profiles(user_id)
  */
 async function loadPlayerContextByUserId(userId: string): Promise<PlayerContext> {
     const supabase = await supabaseServer();
@@ -77,36 +105,29 @@ async function loadPlayerContextByUserId(userId: string): Promise<PlayerContext>
         return { display_name, character: null };
     }
 
-    const character: CharacterStyle = {
-        name: c.name ?? "Maître du Jeu",
-        emoji: c.emoji ?? null,
-        archetype: c.archetype ?? null,
-        vibe: c.vibe ?? null,
-        motto: c.motto ?? null,
-        ai_style: c.ai_style ?? null,
+    return {
+        display_name,
+        character: {
+            name: c.name ?? "Maître du Jeu",
+            emoji: c.emoji ?? null,
+            archetype: c.archetype ?? null,
+            vibe: c.vibe ?? null,
+            motto: c.motto ?? null,
+            ai_style: c.ai_style ?? null,
+        },
     };
-
-    return { display_name, character };
 }
 
-function difficultyLabel(d: number) {
-    if (d <= 1) return "Facile";
-    if (d === 2) return "Standard";
-    return "Difficile";
-}
-
-function formatEstimate(estimateMin: number | null): string | null {
-    if (!estimateMin || estimateMin <= 0) return null;
-    if (estimateMin < 60) return `${estimateMin} min`;
-    const h = Math.floor(estimateMin / 60);
-    const m = estimateMin % 60;
-    if (m === 0) return `${h}h`;
-    return `${h}h ${m}min`;
-}
+/* ============================================================================
+🗺️ MAIN
+============================================================================ */
 
 /**
- * ✅ Signature clean: plus de deviceId.
- * Style + display_name = auth.user.id -> player_profiles.
+ * ✅ Ordre de mission IA pour une chapter_quest
+ * - Prend en compte 2 contextes:
+ *   - adventures.context_text = contexte global
+ *   - chapters.context_text   = contexte spécifique du chapitre
+ * - Cache scopé par session_id
  */
 export async function generateMissionForChapterQuest(
     chapterQuestId: string,
@@ -117,6 +138,7 @@ export async function generateMissionForChapterQuest(
     // ✅ Auth obligatoire (login-only)
     const { data: authData, error: authErr } = await supabase.auth.getUser();
     if (authErr) throw new Error(authErr.message);
+
     const userId = authData?.user?.id ?? "";
     if (!userId) throw new Error("Not authenticated");
 
@@ -150,58 +172,46 @@ export async function generateMissionForChapterQuest(
     const sessionId = cq.session_id as string;
     const q = Array.isArray(cq.adventure_quests) ? cq.adventure_quests[0] : cq.adventure_quests;
 
-    // ✅ Contexte global (aventure) + spécifique (chapitre)
-    let adventureContextText: string | null = null;
-    let chapterContextText: string | null = null;
+    // 1) Contexte global (aventure) + spécifique (chapitre)
+    let adventureContext: string | null = null;
+    let chapterContext: string | null = null;
 
     if (cq.chapter_id) {
-        // 1) Charger chapter.context_text + adventure_id
-        const { data: ch, error: chErr } = await supabase
+        const { data: ch } = await supabase
             .from("chapters")
             .select("context_text, adventure_id")
             .eq("id", cq.chapter_id)
             .maybeSingle();
 
-        if (chErr) {
-            console.warn("load chapters.context_text warning:", chErr.message);
-        } else {
-            const ctx = safeTrim((ch as any)?.context_text);
-            chapterContextText = ctx.length ? ctx : null;
+        const ctx = safeTrim((ch as any)?.context_text);
+        chapterContext = ctx.length ? ctx : null;
 
-            const adventureId = (ch as any)?.adventure_id as string | null;
+        const adventureId = (ch as any)?.adventure_id as string | null;
 
-            // 2) Charger adventure.context_text
-            if (adventureId) {
-                const { data: adv, error: advErr } = await supabase
-                    .from("adventures")
-                    .select("context_text")
-                    .eq("id", adventureId)
-                    .maybeSingle();
+        if (adventureId) {
+            const { data: adv } = await supabase
+                .from("adventures")
+                .select("context_text")
+                .eq("id", adventureId)
+                .maybeSingle();
 
-                if (advErr) {
-                    console.warn("load adventures.context_text warning:", advErr.message);
-                } else {
-                    const advCtx = safeTrim((adv as any)?.context_text);
-                    adventureContextText = advCtx.length ? advCtx : null;
-                }
-            }
+            const advCtx = safeTrim((adv as any)?.context_text);
+            adventureContext = advCtx.length ? advCtx : null;
         }
     }
 
-    const context = {
+    const questContext = {
         title: q.title,
         description: q.description ?? "",
         room_code: q.room_code ?? "",
         difficulty: q.difficulty ?? 2,
         estimate_min: q.estimate_min ?? null,
         status: cq.status,
-
-        // ✅ Hiérarchie de contexte demandée
-        adventure_context: adventureContextText ?? "",
-        chapter_context: chapterContextText ?? "",
+        adventure_context: adventureContext ?? "",
+        chapter_context: chapterContext ?? "",
     };
 
-    // 1) Cache (scopé session) si pas force
+    // 2) Cache (scopé session) si pas force
     if (!force) {
         const { data: existing } = await supabase
             .from("quest_mission_orders")
@@ -213,9 +223,9 @@ export async function generateMissionForChapterQuest(
         if (existing) return { mission: existing as MissionCacheRow, cached: true };
     }
 
-    // 2) Style personnage + display_name
+    // 3) Style joueur / personnage
     const player = await loadPlayerContextByUserId(userId);
-    const playerName = player.display_name; // peut être null
+    const playerName = player.display_name;
     const character = player.character;
 
     const tone = character?.ai_style?.tone ?? "neutre";
@@ -223,38 +233,32 @@ export async function generateMissionForChapterQuest(
     const verbosity = character?.ai_style?.verbosity ?? "normal";
     const rules = verbosityRules(verbosity);
 
-    // 3) Génération OpenAI
+    // 4) Génération OpenAI
     const model = "gpt-4.1";
 
     const systemText = [
         `Tu es le Maître du Jeu de Renaissance.`,
-        `Tu écris un ordre de mission RPG, concret, actionnable, sans blabla.`,
-        `Le rendu FINAL sera assemblé côté code dans un format fixe. Toi, tu dois fournir les champs demandés.`,
+        `Tu écris un ordre de mission RPG, concret, actionnable.`,
+        `Le rendu FINAL sera assemblé côté code.`,
         `Emojis sobres.`,
         character
-            ? `Voix actuelle: ${character.emoji ?? "🧙"} ${character.name}. Tone=${tone}, style=${style}, verbosity=${verbosity}.`
-            : `Voix actuelle: neutre.`,
+            ? `Voix: ${character.emoji ?? "🧙"} ${character.name}. Tone=${tone}, style=${style}, verbosity=${verbosity}.`
+            : `Voix: neutre.`,
         playerName
-            ? `Le joueur s'appelle "${playerName}". Utilise son nom avec parcimonie (0 à 2 fois), plutôt dans l'intro, sans répétition lourde.`
-            : `Le joueur n'a pas de nom affiché. N'invente pas de prénom.`,
+            ? `Le joueur s'appelle "${playerName}". Utilise son nom 0 à 2 fois max.`
+            : `Le joueur n'a pas de nom affiché.`,
 
-        // ✅ Contexte global (aventure)
-        adventureContextText
-            ? `CONTEXTE GLOBAL D’AVENTURE (cadre général, priorités, contraintes globales, objectifs long-terme):\n${adventureContextText}`
-            : `CONTEXTE GLOBAL D’AVENTURE: (aucun fourni).`,
-
-        // ✅ Contexte spécifique (chapitre)
-        chapterContextText
-            ? `CONTEXTE SPÉCIFIQUE DE CE CHAPITRE (focus local, angle du moment; c’est une partie de l’aventure):\n${chapterContextText}`
-            : `CONTEXTE SPÉCIFIQUE DE CE CHAPITRE: (aucun fourni).`,
-
-        `Règle d’or: si les deux contextes existent, respecte le global en premier, puis adapte finement au chapitre.`,
-        character?.motto
-            ? `Serment du personnage (à refléter sans le citer mot pour mot): ${character.motto}`
-            : null,
-        `Contraintes: intro <= ${rules.maxIntroLines} lignes. Étapes ${rules.stepsMin}-${rules.stepsMax} items.`,
-        `Interdit: justification meta, disclaimer, "en tant qu'IA".`,
-        `Important: "objectives_paragraph" et "success_paragraph" doivent être des paragraphes (pas des listes).`,
+        // ✅ Contextes
+        adventureContext
+            ? `CONTEXTE GLOBAL D’AVENTURE:\n${adventureContext}`
+            : `CONTEXTE GLOBAL D’AVENTURE: (aucun).`,
+        chapterContext
+            ? `CONTEXTE SPÉCIFIQUE DU CHAPITRE:\n${chapterContext}`
+            : `CONTEXTE SPÉCIFIQUE DU CHAPITRE: (aucun).`,
+        `Règle d’or: le contexte global prime, le chapitre affine.`,
+        character?.motto ? `Serment (à refléter sans citer): ${character.motto}` : null,
+        `Contraintes: intro ≤ ${rules.maxIntroLines} lignes. Étapes ${rules.stepsMin}-${rules.stepsMax}.`,
+        `Interdit: meta, disclaimers, "en tant qu'IA".`,
     ]
         .filter(Boolean)
         .join("\n");
@@ -262,23 +266,16 @@ export async function generateMissionForChapterQuest(
     const response = await openai.responses.create({
         model,
         input: [
-            {
-                role: "system",
-                content: [{ type: "input_text", text: systemText }],
-            },
+            { role: "system", content: [{ type: "input_text", text: systemText }] },
             {
                 role: "user",
                 content: [
                     {
                         type: "input_text",
                         text:
-                            `Contexte quête:\n${JSON.stringify(context, null, 2)}\n\n` +
-                            `Génère le contenu en respectant ces sections:\n` +
-                            `- intro (voix du personnage)\n` +
-                            `- objectives_paragraph (1 paragraphe)\n` +
-                            `- steps (liste bullet)\n` +
-                            `- success_paragraph (1 paragraphe)\n` +
-                            `Optionnel: une courte "title" (sobre).\n`,
+                            `Contexte quête:\n${JSON.stringify(questContext, null, 2)}\n\n` +
+                            `Génère:\n` +
+                            `- intro\n- objectives_paragraph\n- steps\n- success_paragraph\n- title (optionnel)\n`,
                     },
                 ],
             },
@@ -320,32 +317,34 @@ export async function generateMissionForChapterQuest(
 
     const missionJson = JSON.parse(response.output_text);
 
-    // 3bis) Vérité terrain depuis la BDD
-    const est = formatEstimate(context.estimate_min);
-    missionJson.estimated_time = est ?? missionJson.estimated_time ?? "Temps estimé: ?";
-    missionJson.difficulty_label = difficultyLabel(context.difficulty);
+    // 5) Ajustements BDD
+    missionJson.estimated_time =
+        formatEstimate(questContext.estimate_min) ??
+        missionJson.estimated_time ??
+        "Temps estimé: ?";
+    missionJson.difficulty_label = difficultyLabel(questContext.difficulty);
 
-    // ✅ Markdown final
-    const md = [
+    // 6) Markdown final
+    const missionMd = [
         `⏱️ ${missionJson.estimated_time}`,
         `💪 ${missionJson.difficulty_label}`,
         ``,
-        `${missionJson.intro}`,
+        missionJson.intro,
         ``,
         `**🎯 Objectifs**`,
         ``,
-        `${missionJson.objectives_paragraph}`,
+        missionJson.objectives_paragraph,
         ``,
         `**🪜 Étapes**`,
         ``,
-        ...(Array.isArray(missionJson.steps) ? missionJson.steps.map((x: string) => `- ${x}`) : []),
+        ...(missionJson.steps ?? []).map((x: string) => `- ${x}`),
         ``,
         `**✅ Réussite**`,
         ``,
-        `${missionJson.success_paragraph}`,
+        missionJson.success_paragraph,
     ].join("\n");
 
-    // 4) Upsert cache (scopé session)
+    // 7) Upsert cache (scopé session)
     const { data: saved, error: saveErr } = await supabase
         .from("quest_mission_orders")
         .upsert(
@@ -353,7 +352,7 @@ export async function generateMissionForChapterQuest(
                 chapter_quest_id: chapterQuestId,
                 session_id: sessionId,
                 mission_json: missionJson,
-                mission_md: md,
+                mission_md: missionMd,
                 model,
             },
             { onConflict: "chapter_quest_id" }
