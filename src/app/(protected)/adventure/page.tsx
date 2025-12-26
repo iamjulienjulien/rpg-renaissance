@@ -120,6 +120,8 @@ export default function AdventurePage() {
 
     const bootstrap = useGameStore((s) => s.bootstrap);
 
+    const rooms = useGameStore((s) => s.rooms);
+
     // ✅ Affecter une quête au chapitre courant (store)
     const assignQuestToCurrentChapter = useGameStore((s) => s.assignQuestToCurrentChapter);
     const setStoreChapter = useGameStore((s) => s.setChapter);
@@ -640,22 +642,11 @@ export default function AdventurePage() {
                                     className="rounded-2xl bg-black/30 px-4 py-3 rpg-rpg-text-sm text-white/80 ring-1 ring-white/10 outline-none"
                                 >
                                     <option value="">🗺️ Toutes pièces</option>
-                                    {Array.from(
-                                        new Set(
-                                            allAdventureQuests
-                                                .map((q) => q.room_code)
-                                                .filter(
-                                                    (x): x is string =>
-                                                        typeof x === "string" && x.length > 0
-                                                )
-                                        )
-                                    )
-                                        .sort((a, b) => a.localeCompare(b, "fr"))
-                                        .map((code) => (
-                                            <option key={code} value={code}>
-                                                🚪 {code}
-                                            </option>
-                                        ))}
+                                    {Array.from(new Set(rooms)).map((room) => (
+                                        <option key={room.code} value={room.code}>
+                                            {room.emoji} {room.title}
+                                        </option>
+                                    ))}
                                 </select>
 
                                 <input
