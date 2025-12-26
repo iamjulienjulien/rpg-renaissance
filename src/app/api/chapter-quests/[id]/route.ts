@@ -126,6 +126,26 @@ export async function DELETE(_req: NextRequest, context: Ctx) {
     const session = await getActiveSessionOrThrow();
     const { id } = await context.params;
 
+    // 1) Vérifier que la quête appartient à la session + récupérer le status
+    const { data: cq, error: cqErr } = await supabase
+        .from("chapter_quests")
+        .select("id,status")
+        .eq("id", id)
+        .eq("session_id", session.id)
+        .maybeSingle();
+
+    if (cqErr) return NextResponse.json({ error: cqErr.message }, { status: 500 });
+    if (!cq) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    // 2) Règle A: autorisé uniquement en todo
+    if (cq.status !== "todo") {
+        return NextResponse.json(
+            { error: `Cannot unassign quest unless status is "todo" (current: ${cq.status})` },
+            { status: 409 }
+        );
+    }
+
+    // 3) Delete
     const { error } = await supabase
         .from("chapter_quests")
         .delete()

@@ -222,6 +222,23 @@ async function apiPost<T>(
     }
 }
 
+async function apiDelete<T>(
+    url: string
+): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
+    try {
+        const res = await fetch(url, { method: "DELETE" });
+        const json = await fetchJson(res);
+
+        if (!res.ok) {
+            return { ok: false, error: json?.error ?? res.statusText ?? "Request failed" };
+        }
+
+        return { ok: true, data: json as T };
+    } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : "Network error" };
+    }
+}
+
 /** 🔧 Contenu journal lisible (optionnellement avec la pièce) */
 function questLine(quest?: QuestLite | null) {
     if (!quest?.title) return null;
@@ -375,6 +392,10 @@ type GameStore = {
     startQuest: (chapterQuestId: string, quest?: QuestLite | null) => Promise<any | null>;
     finishQuest: (chapterQuestId: string, quest?: QuestLite | null) => Promise<any | null>;
     assignQuestToCurrentChapter: (adventureQuestId: string) => Promise<boolean>;
+    unassignQuestFromChapter: (
+        chapterQuestId: string,
+        quest?: QuestLite | null
+    ) => Promise<boolean>;
 
     /* ---------------------------- ⭐ RENOMMÉE ---------------------------- */
     renown: Renown | null;
@@ -1434,6 +1455,69 @@ export const useGameStore = create<GameStore>((set, get) => {
             } catch (e) {
                 console.error(e);
                 toast.error("Affectation impossible", "Erreur réseau");
+                return false;
+            }
+        },
+
+        unassignQuestFromChapter: async (chapterQuestId: string, quest?: QuestLite | null) => {
+            const toast = useToastStore.getState();
+            const journal = useJournalStore.getState();
+
+            const id = (chapterQuestId ?? "").trim();
+            if (!id) return false;
+
+            try {
+                const res = await apiDelete<{ ok: boolean }>(
+                    `/api/chapter-quests/${encodeURIComponent(id)}`
+                );
+
+                if (!res.ok) {
+                    toast.error("Unassign failed", res.error ?? "Server error");
+                    return false;
+                }
+
+                // 🔥 Nettoyer les caches “runtime”
+                set((s) => {
+                    const nextEnc = { ...s.encouragementByChapterQuestId };
+                    delete nextEnc[id];
+
+                    const nextCongrats = { ...s.congratsByChapterQuestId };
+                    delete nextCongrats[id];
+
+                    const nextCongratsLoading = { ...s.congratsLoadingById };
+                    delete nextCongratsLoading[id];
+
+                    return {
+                        encouragementByChapterQuestId: nextEnc,
+                        congratsByChapterQuestId: nextCongrats,
+                        congratsLoadingById: nextCongratsLoading,
+                    };
+                });
+
+                // ✅ Optionnel: retirer du snapshot actuel si présent
+                set((s) => ({
+                    currentQuests: (s.currentQuests ?? []).filter((q) => q.id !== id),
+                }));
+
+                toast.success("Quest unassigned", "Removed from chapter.");
+
+                const line = questLine(quest);
+                void journal.create({
+                    kind: "note",
+                    title: "➖ Quest unassigned",
+                    content: line
+                        ? `Removed from chapter: ${line}.`
+                        : "A quest was removed from the chapter.",
+                    quest_id: quest?.id ?? null,
+                });
+
+                // Best-effort refresh global (si tu veux rester “source of truth”)
+                void get().bootstrap();
+
+                return true;
+            } catch (e) {
+                console.error(e);
+                toast.error("Unassign failed", "Network error");
                 return false;
             }
         },

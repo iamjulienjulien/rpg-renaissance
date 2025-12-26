@@ -128,6 +128,9 @@ export default function AdventurePage() {
     const [assigningId, setAssigningId] = useState<string | null>(null);
     const [chapterPulse, setChapterPulse] = useState(false);
 
+    const unassignQuestFromChapter = useGameStore((s) => s.unassignQuestFromChapter);
+    const [unassigningId, setUnassigningId] = useState<string | null>(null);
+
     // ✅ Renown modal (depuis store)
     const lastRenownGain = useGameStore((s) => s.lastRenownGain);
     const clearLastRenownGain = useGameStore((s) => s.clearLastRenownGain);
@@ -338,6 +341,28 @@ export default function AdventurePage() {
             }
         } finally {
             setAssigningId(null);
+        }
+    };
+
+    const onUnassignFromChapter = async (cq: ChapterQuest, q: AdventureQuest | null) => {
+        if (unassigningId) return;
+        if (cq.status !== "todo") return; // ✅ Règle A
+
+        setUnassigningId(cq.id);
+        try {
+            const ok = await unassignQuestFromChapter(cq.id, {
+                id: cq.adventure_quest_id,
+                title: q?.title ?? "Quest",
+                room_code: q?.room_code ?? cq.room_code ?? null,
+                difficulty: q?.difficulty ?? null,
+                mission_md: null,
+            });
+
+            if (ok) {
+                await loadAll("refresh");
+            }
+        } finally {
+            setUnassigningId(null);
         }
     };
 
@@ -584,6 +609,28 @@ export default function AdventurePage() {
                                                         </div>
 
                                                         <div className="flex items-center gap-2">
+                                                            <ActionButton
+                                                                variant="soft"
+                                                                disabled={
+                                                                    cq.status !== "todo" ||
+                                                                    unassigningId === cq.id
+                                                                }
+                                                                onClick={() =>
+                                                                    void onUnassignFromChapter(
+                                                                        cq,
+                                                                        q
+                                                                    )
+                                                                }
+                                                                hint={
+                                                                    cq.status !== "todo"
+                                                                        ? "Only TODO"
+                                                                        : undefined
+                                                                }
+                                                            >
+                                                                {unassigningId === cq.id
+                                                                    ? "⏳"
+                                                                    : "➖ Retirer"}
+                                                            </ActionButton>
                                                             <ActionButton
                                                                 variant="solid"
                                                                 onClick={() =>
