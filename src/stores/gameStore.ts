@@ -45,6 +45,7 @@ type AdventureRoom = {
     adventure_id: string;
     code: string;
     title: string;
+    emoji: string;
     sort: number;
     source: "template" | "custom";
     template_id: string | null;
