@@ -10,11 +10,11 @@ import { QuestDifficultyPill } from "@/helpers/questDifficulty";
 import ReactMarkdown from "react-markdown";
 import MasterCard from "@/components/ui/MasterCard";
 import { getCurrentCharacterEmoji, getCurrentCharacterName } from "@/helpers/adventure";
-import { AnimatePresence, motion } from "framer-motion";
 
 // Stores
 import { useGameStore } from "@/stores/gameStore";
 import { useJournalStore } from "@/stores/journalStore";
+import { UiAnimatePresence, UiMotionDiv } from "@/components/motion/UiMotion";
 
 type Quest = {
     id: string;
@@ -375,16 +375,16 @@ export default function QuestClient() {
             )}
             {mounted
                 ? createPortal(
-                      <AnimatePresence>
+                      <UiAnimatePresence>
                           {encOpen ? (
-                              <motion.div
+                              <UiMotionDiv
                                   className="fixed inset-0 z-[120] grid place-items-center bg-black/55 backdrop-blur-[3px] p-4"
                                   initial={{ opacity: 0 }}
                                   animate={{ opacity: 1 }}
                                   exit={{ opacity: 0 }}
                                   onMouseDown={() => setEncOpen(false)}
                               >
-                                  <motion.div
+                                  <UiMotionDiv
                                       className="w-full max-w-lg rounded-[28px] bg-white/5 p-5 ring-1 ring-white/15 backdrop-blur-md"
                                       initial={{ y: 16, scale: 0.98, opacity: 0 }}
                                       animate={{ y: 0, scale: 1, opacity: 1 }}
@@ -439,10 +439,10 @@ export default function QuestClient() {
                                               🔥 Reprendre
                                           </ActionButton>
                                       </div>
-                                  </motion.div>
-                              </motion.div>
+                                  </UiMotionDiv>
+                              </UiMotionDiv>
                           ) : null}
-                      </AnimatePresence>,
+                      </UiAnimatePresence>,
                       document.body
                   )
                 : null}

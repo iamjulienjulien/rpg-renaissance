@@ -12,7 +12,8 @@ import { useToastStore } from "@/stores/toastStore";
 import { useDevStore } from "@/stores/devStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { usePlayerStore } from "@/stores/playerStore";
-import { useUiSettingsStore, type UiTheme } from "@/stores/uiSettingsStore";
+import { useUiSettingsStore } from "@/stores/uiSettingsStore";
+import { useUiStore } from "@/stores/uiStore";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -25,6 +26,7 @@ function SettingRow(props: {
     value?: string;
     right?: React.ReactNode;
     tone?: "default" | "danger";
+    faded?: boolean; // ✅ v0.1.1
 }) {
     const tone = props.tone ?? "default";
 
@@ -32,7 +34,8 @@ function SettingRow(props: {
         <div
             className={cn(
                 "rounded-2xl p-4 ring-1",
-                tone === "danger" ? "bg-red-500/10 ring-red-500/20" : "bg-black/30 ring-white/10"
+                tone === "danger" ? "bg-red-500/10 ring-red-500/20" : "bg-black/30 ring-white/10",
+                props.faded ? "opacity-45" : null
             )}
         >
             <div className="flex items-start justify-between gap-4">
@@ -80,15 +83,12 @@ function ThemeSwitchRow() {
                     <ActionButton
                         variant={isClassic ? "solid" : "soft"}
                         onClick={() => setTheme("classic")}
-                        // title="Classic"
                     >
                         📜
                     </ActionButton>
-
                     <ActionButton
                         variant={isCyber ? "solid" : "soft"}
                         onClick={() => setTheme("cyber-ritual")}
-                        // title="Cyber Ritual"
                     >
                         🟦
                     </ActionButton>
@@ -99,26 +99,24 @@ function ThemeSwitchRow() {
 }
 
 export default function SettingsPage() {
-    // UI placeholders (on branchera ensuite à localStorage / DB / profile)
+    // (placeholders)
     const [audioEnabled, setAudioEnabled] = useState(true);
     const [microFeedback, setMicroFeedback] = useState(true);
-    const [uiMode, setUiMode] = useState<"cinematic" | "minimal">("cinematic");
-    // const [textSize, setTextSize] = useState<"sm" | "md" | "lg">("md");
     const [contrast, setContrast] = useState<"balanced" | "high">("balanced");
-    const [reduceMotion, setReduceMotion] = useState(false);
-
-    // Accessibilité (store)
-    const textSize = useSettingsStore((s) => s.textSize);
-    const setTextSize = useSettingsStore((s) => s.setTextSize);
 
     const [aiTone, setAiTone] = useState<"calm" | "coach" | "strict">("calm");
     const [aiVerbosity, setAiVerbosity] = useState<"short" | "normal" | "rich">("normal");
     const [aiAutoBrief, setAiAutoBrief] = useState(true);
 
-    const [devLogs, setDevLogs] = useState(false);
-    const [devLatency, setDevLatency] = useState<"off" | "250" | "750">("off");
-    const [devOverlays, setDevOverlays] = useState(false);
+    // Accessibilité (store)
+    const textSize = useSettingsStore((s) => s.textSize);
+    const setTextSize = useSettingsStore((s) => s.setTextSize);
 
+    // ✅ v0.1.1 reduce animations (uiStore)
+    const reduceAnimations = useUiStore((s) => s.reduceAnimations);
+    const toggleReduceAnimations = useUiStore((s) => s.toggleReduceAnimations);
+
+    // DEV store
     const devEnabled = useDevStore((s) => s.enabled);
     const toggleDev = useDevStore((s) => s.toggleEnabled);
 
@@ -131,7 +129,8 @@ export default function SettingsPage() {
     const apiLatencyMs = useDevStore((s) => s.apiLatencyMs);
     const setApiLatencyMs = useDevStore((s) => s.setApiLatencyMs);
 
-    const resetDevSettings = useDevStore((s) => s.resetDevSettings);
+    // ❌ v0.1.1: supprimé
+    // const resetDevSettings = useDevStore((s) => s.resetDevSettings);
 
     const [resetting, setResetting] = useState(false);
 
@@ -166,8 +165,6 @@ export default function SettingsPage() {
             }
 
             toastSuccess("Reset OK ✅", "Tout est remis à zéro. Déconnexion…");
-
-            // ✅ Déconnexion (clear session cookie) puis redirige /login
             await logout();
             return;
         } catch (e) {
@@ -201,6 +198,9 @@ export default function SettingsPage() {
         ];
     }, []);
 
+    // Panels “à venir” = moins visibles
+    const fadedPanel = "opacity-45";
+
     return (
         <RpgShell
             title="Réglages"
@@ -214,7 +214,110 @@ export default function SettingsPage() {
             }
         >
             <div className="grid gap-4 lg:grid-cols-2">
-                {/* AMBIANCE */}
+                {/* ✅ INTERFACE (bien visible) */}
+                <Panel title="Interface" emoji="🖼️" subtitle="Look & feel de Renaissance.">
+                    <div className="grid gap-2">
+                        <ThemeSwitchRow />
+
+                        <SettingRow
+                            emoji="🌀"
+                            title="Réduire les animations"
+                            description="Désactive les transitions Framer Motion (utile en dev / perf)."
+                            value={reduceAnimations ? "Oui" : "Non"}
+                            right={
+                                <ActionButton variant="soft" onClick={toggleReduceAnimations}>
+                                    {reduceAnimations ? "✅ On" : "🌀 Off"}
+                                </ActionButton>
+                            }
+                        />
+
+                        <SettingRow
+                            emoji="🧼"
+                            title="Nettoyer l’interface"
+                            description="Plus tard: masquer labels DEV, hints, badges."
+                            value="À venir"
+                            right={<Pill>à venir</Pill>}
+                            faded
+                        />
+                    </div>
+                </Panel>
+
+                {/* ✅ ACCESSIBILITÉ (bien visible car Taille du texte) */}
+                <Panel title="Accessibilité" emoji="🧑‍🦯" subtitle="Lisibilité et confort.">
+                    <div className="grid gap-2">
+                        <SettingRow
+                            emoji="🔎"
+                            title="Taille du texte"
+                            description="Ajuste la taille globale (UI + briefs)."
+                            value={
+                                textSize === "sm"
+                                    ? "Petit"
+                                    : textSize === "md"
+                                      ? "Standard"
+                                      : textSize === "lg"
+                                        ? "Grand"
+                                        : "Très grand"
+                            }
+                            right={
+                                <div className="flex items-center gap-2">
+                                    <ActionButton
+                                        variant={textSize === "sm" ? "solid" : "soft"}
+                                        onClick={() => setTextSize("sm")}
+                                    >
+                                        A-
+                                    </ActionButton>
+                                    <ActionButton
+                                        variant={textSize === "md" ? "solid" : "soft"}
+                                        onClick={() => setTextSize("md")}
+                                    >
+                                        A
+                                    </ActionButton>
+                                    <ActionButton
+                                        variant={textSize === "lg" ? "solid" : "soft"}
+                                        onClick={() => setTextSize("lg")}
+                                    >
+                                        A+
+                                    </ActionButton>
+                                    <ActionButton
+                                        variant={textSize === "xl" ? "solid" : "soft"}
+                                        onClick={() => setTextSize("xl")}
+                                    >
+                                        A++
+                                    </ActionButton>
+                                </div>
+                            }
+                        />
+
+                        <SettingRow
+                            emoji="🌓"
+                            title="Contraste"
+                            description="High: plus lisible. Balanced: plus doux."
+                            value={contrast === "high" ? "Élevé" : "Équilibré"}
+                            right={
+                                <ActionButton
+                                    variant="soft"
+                                    onClick={() =>
+                                        setContrast((v) => (v === "high" ? "balanced" : "high"))
+                                    }
+                                >
+                                    {contrast === "high" ? "🌓 Balanced" : "🌗 High"}
+                                </ActionButton>
+                            }
+                            faded
+                        />
+
+                        <SettingRow
+                            emoji="🎯"
+                            title="Focus visible"
+                            description="Plus tard: anneau de focus renforcé pour navigation clavier."
+                            value="À venir"
+                            right={<Pill>à venir</Pill>}
+                            faded
+                        />
+                    </div>
+                </Panel>
+
+                {/* 🔻 AMBIANCE (moins visible) */}
                 <Panel
                     title="Ambiance"
                     emoji="🎧"
@@ -225,7 +328,7 @@ export default function SettingsPage() {
                         </ActionButton>
                     }
                 >
-                    <div className="grid gap-2">
+                    <div className={cn("grid gap-2", fadedPanel)}>
                         <SettingRow
                             emoji={audioEnabled ? "🔊" : "🔇"}
                             title="Son"
@@ -260,49 +363,19 @@ export default function SettingsPage() {
                             emoji="🎚️"
                             title="Niveau d’ambiance"
                             description="Plus tard: intensité, musique, ambiance par chapitre."
-                            value="Placeholder"
+                            value="À venir"
                             right={<Pill>à venir</Pill>}
                         />
                     </div>
                 </Panel>
 
-                {/* INTERFACE */}
-                <Panel title="Interface" emoji="🖼️" subtitle="Look & feel de Renaissance.">
-                    <div className="grid gap-2">
-                        <ThemeSwitchRow />
-
-                        <SettingRow
-                            emoji="🌀"
-                            title="Réduire les animations"
-                            description="Utile sur machines modestes, ou en phase dev."
-                            value={reduceMotion ? "Oui" : "Non"}
-                            right={
-                                <ActionButton
-                                    variant="soft"
-                                    onClick={() => setReduceMotion((v) => !v)}
-                                >
-                                    {reduceMotion ? "✅ On" : "🌀 Off"}
-                                </ActionButton>
-                            }
-                        />
-
-                        <SettingRow
-                            emoji="🧼"
-                            title="Nettoyer l’interface"
-                            description="Plus tard: masquer labels DEV, hints, badges."
-                            value="Placeholder"
-                            right={<Pill>à venir</Pill>}
-                        />
-                    </div>
-                </Panel>
-
-                {/* MAÎTRE DU JEU (IA) */}
+                {/* 🔻 MAÎTRE DU JEU (moins visible) */}
                 <Panel
                     title="Maître du Jeu"
                     emoji="🧙"
                     subtitle="Le ton de l’IA, sa façon de te guider."
                 >
-                    <div className="grid gap-2">
+                    <div className={cn("grid gap-2", fadedPanel)}>
                         <SettingRow
                             emoji="🗣️"
                             title="Ton du MJ"
@@ -390,82 +463,9 @@ export default function SettingsPage() {
                     </div>
                 </Panel>
 
-                {/* ACCESSIBILITÉ */}
-                <Panel title="Accessibilité" emoji="🧑‍🦯" subtitle="Lisibilité et confort.">
-                    <div className="grid gap-2">
-                        <SettingRow
-                            emoji="🔎"
-                            title="Taille du texte"
-                            description="Ajuste la taille globale (UI + briefs)."
-                            value={
-                                textSize === "sm"
-                                    ? "Petit"
-                                    : textSize === "md"
-                                      ? "Standard"
-                                      : textSize === "lg"
-                                        ? "Grand"
-                                        : "Très grand"
-                            }
-                            right={
-                                <div className="flex items-center gap-2">
-                                    <ActionButton
-                                        variant={textSize === "sm" ? "solid" : "soft"}
-                                        onClick={() => setTextSize("sm")}
-                                    >
-                                        A-
-                                    </ActionButton>
-                                    <ActionButton
-                                        variant={textSize === "md" ? "solid" : "soft"}
-                                        onClick={() => setTextSize("md")}
-                                    >
-                                        A
-                                    </ActionButton>
-                                    <ActionButton
-                                        variant={textSize === "lg" ? "solid" : "soft"}
-                                        onClick={() => setTextSize("lg")}
-                                    >
-                                        A+
-                                    </ActionButton>
-                                    <ActionButton
-                                        variant={textSize === "xl" ? "solid" : "soft"}
-                                        onClick={() => setTextSize("xl")}
-                                    >
-                                        A++
-                                    </ActionButton>
-                                </div>
-                            }
-                        />
-
-                        <SettingRow
-                            emoji="🌓"
-                            title="Contraste"
-                            description="High: plus lisible. Balanced: plus doux."
-                            value={contrast === "high" ? "Élevé" : "Équilibré"}
-                            right={
-                                <ActionButton
-                                    variant="soft"
-                                    onClick={() =>
-                                        setContrast((v) => (v === "high" ? "balanced" : "high"))
-                                    }
-                                >
-                                    {contrast === "high" ? "🌓 Balanced" : "🌗 High"}
-                                </ActionButton>
-                            }
-                        />
-
-                        <SettingRow
-                            emoji="🎯"
-                            title="Focus visible"
-                            description="Plus tard: anneau de focus renforcé pour navigation clavier."
-                            value="Placeholder"
-                            right={<Pill>à venir</Pill>}
-                        />
-                    </div>
-                </Panel>
-
-                {/* CLAVIER */}
+                {/* 🔻 CLAVIER (moins visible) */}
                 <Panel title="Clavier" emoji="⌨️" subtitle="Raccourcis et navigation.">
-                    <div className="grid gap-2">
+                    <div className={cn("grid gap-2", fadedPanel)}>
                         <SettingRow
                             emoji="🧭"
                             title="Navigation clavier"
@@ -478,7 +478,7 @@ export default function SettingsPage() {
                             emoji="⌘K"
                             title="Command Palette"
                             description="Plus tard: commandes globales (Go to, actions, debug)."
-                            value="Placeholder"
+                            value="À venir"
                             right={<Pill>à venir</Pill>}
                         />
 
@@ -486,20 +486,20 @@ export default function SettingsPage() {
                             emoji="🧩"
                             title="Remap touches"
                             description="Plus tard: personnaliser H/J/K/L, Enter, etc."
-                            value="Placeholder"
+                            value="À venir"
                             right={<Pill>à venir</Pill>}
                         />
                     </div>
                 </Panel>
 
-                {/* DONNÉES */}
+                {/* 🔻 DONNÉES (moins visible) */}
                 <Panel title="Données" emoji="🗄️" subtitle="Sauvegarde et confidentialité.">
-                    <div className="grid gap-2">
+                    <div className={cn("grid gap-2", fadedPanel)}>
                         <SettingRow
                             emoji="☁️"
                             title="Synchronisation"
                             description="Plus tard: auto-sync Supabase, offline-first."
-                            value="Placeholder"
+                            value="À venir"
                             right={<Pill>à venir</Pill>}
                         />
 
@@ -507,7 +507,7 @@ export default function SettingsPage() {
                             emoji="🧾"
                             title="Exporter"
                             description="Export JSON du journal, quêtes, chapitres (pour backup)."
-                            value="Placeholder"
+                            value="À venir"
                             right={
                                 <ActionButton variant="soft" onClick={() => alert("TODO: export")}>
                                     📤 Export
@@ -519,7 +519,7 @@ export default function SettingsPage() {
                             emoji="🧽"
                             title="Effacer cache local"
                             description="LocalStorage / IndexedDB (si utilisé plus tard)."
-                            value="Placeholder"
+                            value="À venir"
                             right={
                                 <ActionButton
                                     variant="soft"
@@ -532,7 +532,7 @@ export default function SettingsPage() {
                     </div>
                 </Panel>
 
-                {/* DEV */}
+                {/* ✅ DEV (bien visible car Overlays + Danger Zone) */}
                 <Panel
                     title="Développement"
                     emoji="🧪"
@@ -547,7 +547,6 @@ export default function SettingsPage() {
                     }
                 >
                     <div className="grid gap-2">
-                        {/* Logs */}
                         <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
                             <div className="flex items-center justify-between gap-3">
                                 <div>
@@ -574,7 +573,6 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        {/* Latence API */}
                         <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
                             <div className="flex items-center justify-between gap-3">
                                 <div>
@@ -602,7 +600,6 @@ export default function SettingsPage() {
                                     >
                                         {apiLatencyMs === 0 ? "⚫ Off" : "⚡ On"}
                                     </ActionButton>
-
                                     <ActionButton
                                         variant="soft"
                                         disabled={!devEnabled}
@@ -610,7 +607,6 @@ export default function SettingsPage() {
                                     >
                                         250
                                     </ActionButton>
-
                                     <ActionButton
                                         variant="soft"
                                         disabled={!devEnabled}
@@ -622,7 +618,7 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        {/* Overlays */}
+                        {/* ✅ Overlays DEV (bien visible) */}
                         <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
                             <div className="flex items-center justify-between gap-3">
                                 <div>
@@ -649,7 +645,7 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        <div className="mt-2 grid gap-2">
+                        <div className="mt-2 grid gap-2 opacity-45">
                             {devActions.map((a) => (
                                 <SettingRow
                                     key={a.key}
@@ -666,7 +662,7 @@ export default function SettingsPage() {
                             ))}
                         </div>
 
-                        {/* Actions DEV */}
+                        {/* ✅ Danger Zone (bien visible) */}
                         <div className="rounded-2xl bg-red-500/10 p-4 ring-1 ring-red-500/20">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
@@ -679,13 +675,10 @@ export default function SettingsPage() {
                                 </div>
 
                                 <div className="flex flex-col gap-2">
-                                    <ActionButton
-                                        variant="soft"
-                                        disabled={!devEnabled}
-                                        onClick={resetDevSettings}
-                                    >
+                                    {/* ❌ v0.1.1: supprimé */}
+                                    {/* <ActionButton variant="soft" disabled={!devEnabled} onClick={resetDevSettings}>
                                         🧽 Reset DEV settings
-                                    </ActionButton>
+                                    </ActionButton> */}
 
                                     <ActionButton
                                         variant="solid"

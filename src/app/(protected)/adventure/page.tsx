@@ -4,14 +4,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-// Lib
-import { AnimatePresence, motion } from "framer-motion";
-
 // Components
 import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
 import { ViewportPortal } from "@/components/ViewportPortal";
 import MasterCard from "@/components/ui/MasterCard";
+import { UiAnimatePresence, UiMotionDiv } from "@/components/motion/UiMotion";
 
 // Helpers
 import { QuestDifficultyPill } from "@/helpers/questDifficulty";
@@ -728,17 +726,17 @@ export default function AdventurePage() {
             )}
 
             {/* ✅ MODAL: CONFIG AVENTURE (context only) */}
-            <AnimatePresence>
+            <UiAnimatePresence>
                 {advConfigOpen && adventure?.id ? (
                     <ViewportPortal>
-                        <motion.div
+                        <UiMotionDiv
                             className="fixed inset-0 z-[130] grid place-items-center bg-black/55 backdrop-blur-[3px] p-4"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             onMouseDown={() => setAdvConfigOpen(false)}
                         >
-                            <motion.div
+                            <UiMotionDiv
                                 className="w-full max-w-2xl rounded-[28px] bg-white/5 p-5 ring-1 ring-white/15 backdrop-blur-md"
                                 initial={{ y: 16, scale: 0.98, opacity: 0 }}
                                 animate={{ y: 0, scale: 1, opacity: 1 }}
@@ -784,24 +782,24 @@ export default function AdventurePage() {
                                         {advConfigSaving ? "⏳ Sauvegarde…" : "✅ Sauvegarder"}
                                     </ActionButton>
                                 </div>
-                            </motion.div>
-                        </motion.div>
+                            </UiMotionDiv>
+                        </UiMotionDiv>
                     </ViewportPortal>
                 ) : null}
-            </AnimatePresence>
+            </UiAnimatePresence>
 
             {/* ✅ MODAL: CONFIG CHAPITRE (context only) */}
-            <AnimatePresence>
+            <UiAnimatePresence>
                 {chapterConfigOpen && chapter?.id ? (
                     <ViewportPortal>
-                        <motion.div
+                        <UiMotionDiv
                             className="fixed inset-0 z-[131] grid place-items-center bg-black/55 backdrop-blur-[3px] p-4"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             onMouseDown={() => setChapterConfigOpen(false)}
                         >
-                            <motion.div
+                            <UiMotionDiv
                                 className="w-full max-w-2xl rounded-[28px] bg-white/5 p-5 ring-1 ring-white/15 backdrop-blur-md"
                                 initial={{ y: 16, scale: 0.98, opacity: 0 }}
                                 animate={{ y: 0, scale: 1, opacity: 1 }}
@@ -847,17 +845,17 @@ export default function AdventurePage() {
                                         {chapterConfigSaving ? "⏳ Sauvegarde…" : "✅ Sauvegarder"}
                                     </ActionButton>
                                 </div>
-                            </motion.div>
-                        </motion.div>
+                            </UiMotionDiv>
+                        </UiMotionDiv>
                     </ViewportPortal>
                 ) : null}
-            </AnimatePresence>
+            </UiAnimatePresence>
 
             {/* ✅ MODAL RENOWN GAIN */}
-            <AnimatePresence>
+            <UiAnimatePresence>
                 {showGain && lastRenownGain ? (
                     <ViewportPortal>
-                        <motion.div
+                        <UiMotionDiv
                             className="fixed inset-0 z-[120] grid place-items-center bg-black/55 backdrop-blur-[3px] p-4"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -867,7 +865,7 @@ export default function AdventurePage() {
                                 window.setTimeout(() => clearLastRenownGain(), 250);
                             }}
                         >
-                            <motion.div
+                            <UiMotionDiv
                                 className="w-full max-w-md rounded-[28px] bg-white/5 p-5 ring-1 ring-white/15"
                                 initial={{ y: 16, scale: 0.98, opacity: 0 }}
                                 animate={{ y: 0, scale: 1, opacity: 1 }}
@@ -924,7 +922,7 @@ export default function AdventurePage() {
                                     return (
                                         <div className="mt-4">
                                             <div className="h-3 w-full overflow-hidden rounded-full bg-white/5 ring-1 ring-white/10">
-                                                <motion.div
+                                                <UiMotionDiv
                                                     className="h-full rounded-full bg-white/25"
                                                     initial={{ width: "0%" }}
                                                     animate={{ width: `${pct}%` }}
@@ -951,24 +949,24 @@ export default function AdventurePage() {
                                         ✨ Continuer
                                     </ActionButton>
                                 </div>
-                            </motion.div>
-                        </motion.div>
+                            </UiMotionDiv>
+                        </UiMotionDiv>
                     </ViewportPortal>
                 ) : null}
-            </AnimatePresence>
+            </UiAnimatePresence>
 
             {/* (Transition modal inchangée, je te laisse la suite telle quelle) */}
-            <AnimatePresence>
+            <UiAnimatePresence>
                 {transitionOpen && chapter?.id && chapter?.adventure_id ? (
                     <ViewportPortal>
-                        <motion.div
+                        <UiMotionDiv
                             className="fixed inset-0 z-[140] grid place-items-center bg-black/55 backdrop-blur-[3px] p-4"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             onMouseDown={() => setTransitionOpen(false)}
                         >
-                            <motion.div
+                            <UiMotionDiv
                                 className="w-full max-w-3xl rounded-[28px] bg-white/5 p-5 ring-1 ring-white/15 backdrop-blur-md"
                                 initial={{ y: 16, scale: 0.98, opacity: 0 }}
                                 animate={{ y: 0, scale: 1, opacity: 1 }}
@@ -1198,11 +1196,11 @@ export default function AdventurePage() {
                                             : "✅ Lancer le prochain chapitre"}
                                     </ActionButton>
                                 </div>
-                            </motion.div>
-                        </motion.div>
+                            </UiMotionDiv>
+                        </UiMotionDiv>
                     </ViewportPortal>
                 ) : null}
-            </AnimatePresence>
+            </UiAnimatePresence>
         </RpgShell>
     );
 }

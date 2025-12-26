@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, X, ScrollText } from "lucide-react";
 
 import RpgShell from "@/components/RpgShell";
@@ -11,6 +10,7 @@ import { ActionButton, Panel, Pill } from "@/components/RpgUi";
 
 import { useGameStore, type Character } from "@/stores/gameStore";
 import MasterCard from "@/components/ui/MasterCard";
+import { UiAnimatePresence, UiMotionDiv } from "@/components/motion/UiMotion";
 
 type AdventureCard = {
     code: string;
@@ -256,7 +256,7 @@ export default function NewAdventurePage() {
         const disabled = !a.enabled;
 
         return (
-            <motion.div
+            <UiMotionDiv
                 key={a.code}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -364,7 +364,7 @@ export default function NewAdventurePage() {
                         {startingAdventure ? "⏳" : "🗡️ Commencer"}
                     </ActionButton>
                 </div>
-            </motion.div>
+            </UiMotionDiv>
         );
     };
 
@@ -444,9 +444,9 @@ export default function NewAdventurePage() {
             {/* ✅ Modal Briefing */}
             {mounted
                 ? createPortal(
-                      <AnimatePresence>
+                      <UiAnimatePresence>
                           {briefingOpen ? (
-                              <motion.div
+                              <UiMotionDiv
                                   className="fixed inset-0 z-[90] flex items-center justify-center p-4"
                                   initial={{ opacity: 0 }}
                                   animate={{ opacity: 1 }}
@@ -458,7 +458,7 @@ export default function NewAdventurePage() {
                                       aria-label="Fermer"
                                   />
 
-                                  <motion.div
+                                  <UiMotionDiv
                                       initial={{ opacity: 0, y: 14, scale: 0.98 }}
                                       animate={{ opacity: 1, y: 0, scale: 1 }}
                                       exit={{ opacity: 0, y: 10, scale: 0.98 }}
@@ -552,10 +552,10 @@ export default function NewAdventurePage() {
                                               </ActionButton>
                                           </div>
                                       </div>
-                                  </motion.div>
-                              </motion.div>
+                                  </UiMotionDiv>
+                              </UiMotionDiv>
                           ) : null}
-                      </AnimatePresence>,
+                      </UiAnimatePresence>,
                       document.body
                   )
                 : null}
@@ -563,9 +563,9 @@ export default function NewAdventurePage() {
             {/* ✅ Modal Règles (Renown/Score) */}
             {mounted
                 ? createPortal(
-                      <AnimatePresence>
+                      <UiAnimatePresence>
                           {rulesOpen ? (
-                              <motion.div
+                              <UiMotionDiv
                                   className="fixed inset-0 z-[90] flex items-center justify-center p-4"
                                   initial={{ opacity: 0 }}
                                   animate={{ opacity: 1 }}
@@ -577,7 +577,7 @@ export default function NewAdventurePage() {
                                       aria-label="Fermer"
                                   />
 
-                                  <motion.div
+                                  <UiMotionDiv
                                       initial={{ opacity: 0, y: 14, scale: 0.98 }}
                                       animate={{ opacity: 1, y: 0, scale: 1 }}
                                       exit={{ opacity: 0, y: 10, scale: 0.98 }}
@@ -674,10 +674,10 @@ export default function NewAdventurePage() {
                                               </ActionButton>
                                           </div>
                                       </div>
-                                  </motion.div>
-                              </motion.div>
+                                  </UiMotionDiv>
+                              </UiMotionDiv>
                           ) : null}
-                      </AnimatePresence>,
+                      </UiAnimatePresence>,
                       document.body
                   )
                 : null}

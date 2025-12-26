@@ -6,6 +6,7 @@ import CommandPalette from "@/components/CommandPalette";
 import Toasts from "@/components/Toasts";
 import DevHud from "@/components/DevHud";
 import SettingsApplier from "@/components/ui/SettingsApplier";
+import { UiMotionConfig } from "@/components/motion/UiMotion";
 
 import "./globals.css";
 
@@ -24,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <CommandPalette />
                 <Toasts />
                 <DevHud />
-                {children}
+                <UiMotionConfig>{children}</UiMotionConfig>
             </body>
         </html>
     );
