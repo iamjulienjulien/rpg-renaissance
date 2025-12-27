@@ -7,9 +7,9 @@ import { useRouter } from "next/navigation";
 // Components
 import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
-import { ViewportPortal } from "@/components/ViewportPortal";
 import MasterCard from "@/components/ui/MasterCard";
-import { UiAnimatePresence, UiMotionDiv } from "@/components/motion/UiMotion";
+import UiModal from "@/components/ui/UiModal";
+import { UiMotionDiv } from "@/components/motion/UiMotion";
 
 // Helpers
 import { QuestDifficultyPill } from "@/helpers/questDifficulty";
@@ -18,6 +18,7 @@ import { questRoomEmoji, questRoomLabel, QuestRoomPill } from "@/helpers/questRo
 
 // Store
 import { useGameStore } from "@/stores/gameStore";
+import { useUiStore } from "@/stores/uiStore";
 
 type Chapter = {
     id: string;
@@ -27,7 +28,7 @@ type Chapter = {
     status: "draft" | "active" | "done";
     created_at: string;
     adventure_code?: string | null;
-    context_text?: string | null; // ✅
+    context_text?: string | null;
 };
 
 type Adventure = {
@@ -37,7 +38,7 @@ type Adventure = {
     type?: string | null;
     description?: string | null;
     emoji?: string | null;
-    context_text?: string | null; // ✅
+    context_text?: string | null;
 };
 
 type AdventureQuest = {
@@ -119,10 +120,9 @@ export default function AdventurePage() {
     const [creating, setCreating] = useState(false);
 
     const bootstrap = useGameStore((s) => s.bootstrap);
-
     const rooms = useGameStore((s) => s.rooms);
 
-    // ✅ Affecter une quête au chapitre courant (store)
+    // Affectation
     const assignQuestToCurrentChapter = useGameStore((s) => s.assignQuestToCurrentChapter);
     const setStoreChapter = useGameStore((s) => s.setChapter);
     const [assigningId, setAssigningId] = useState<string | null>(null);
@@ -131,10 +131,9 @@ export default function AdventurePage() {
     const unassignQuestFromChapter = useGameStore((s) => s.unassignQuestFromChapter);
     const [unassigningId, setUnassigningId] = useState<string | null>(null);
 
-    // ✅ Renown modal (depuis store)
+    // Renown modal (store)
     const lastRenownGain = useGameStore((s) => s.lastRenownGain);
     const clearLastRenownGain = useGameStore((s) => s.clearLastRenownGain);
-    const [showGain, setShowGain] = useState(false);
 
     const congratsById = useGameStore((s) => s.congratsByChapterQuestId);
     const congratsLoadingById = useGameStore((s) => s.congratsLoadingById);
@@ -143,65 +142,36 @@ export default function AdventurePage() {
     const congrats = cqId ? congratsById[cqId] : undefined;
     const congratsLoading = cqId ? !!congratsLoadingById[cqId] : false;
 
-    // ✅ Modals contexte
-    const [advConfigOpen, setAdvConfigOpen] = useState(false);
+    // Drafts + saving (les modals sont dans uiStore, les champs restent ici)
     const [advContextDraft, setAdvContextDraft] = useState("");
     const [advConfigSaving, setAdvConfigSaving] = useState(false);
 
-    const [chapterConfigOpen, setChapterConfigOpen] = useState(false);
     const [chapterContextDraft, setChapterContextDraft] = useState("");
     const [chapterConfigSaving, setChapterConfigSaving] = useState(false);
 
-    // Transition
-    const [transitionOpen, setTransitionOpen] = useState(false);
+    // Transition (modal dans uiStore)
     const [transitionBusy, setTransitionBusy] = useState(false);
-
     const [nextTitle, setNextTitle] = useState("");
     const [nextPace, setNextPace] = useState<Chapter["pace"]>("standard");
     const [nextAiContext, setNextAiContext] = useState("");
-
     const [carryOver, setCarryOver] = useState<ChapterQuest[]>([]);
     const [selectedBacklogIds, setSelectedBacklogIds] = useState<Set<string>>(new Set());
 
-    useEffect(() => {
-        if (!transitionOpen) return;
+    // UI store: modals
+    const isModalOpen = useUiStore((s) => s.isModalOpen);
+    const openModal = useUiStore((s) => s.openModal);
+    const closeModal = useUiStore((s) => s.closeModal);
 
-        // quêtes non terminées à reporter
-        const remaining = chapterItems.filter((cq) => cq.status !== "done");
-        setCarryOver(remaining);
-
-        // valeurs par défaut “prochain chapitre”
-        setNextTitle(chapter?.title ? `${chapter.title} (suite)` : "Nouveau chapitre");
-        setNextPace(chapter?.pace ?? "standard");
-        setNextAiContext("");
-
-        // reset sélection backlog
-        setSelectedBacklogIds(new Set());
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [transitionOpen]);
-
-    useEffect(() => {
-        if (!lastRenownGain) return;
-
-        setShowGain(true);
-
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === "Escape") {
-                setShowGain(false);
-                window.setTimeout(() => clearLastRenownGain(), 250);
-            }
-        };
-
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
-    }, [lastRenownGain, clearLastRenownGain]);
+    const advConfigOpen = isModalOpen("adventureConfig");
+    const chapterConfigOpen = isModalOpen("chapterConfig");
+    const renownOpen = isModalOpen("renownGain");
+    const transitionOpen = isModalOpen("chapterTransition");
 
     const loadAll = async (mode: "initial" | "refresh") => {
         if (mode === "initial") setLoading(true);
         else setRefreshing(true);
 
         try {
-            // 1) latest chapter
             const chRes = await fetch("/api/chapters?latest=1", { cache: "no-store" });
             const chJson = await safeJson(chRes);
             const ch = (chJson?.chapter ?? null) as Chapter | null;
@@ -216,7 +186,6 @@ export default function AdventurePage() {
                 return;
             }
 
-            // 2) chapter quests
             const cqRes = await fetch(
                 `/api/chapter-quests?chapterId=${encodeURIComponent(ch.id)}`,
                 { cache: "no-store" }
@@ -224,15 +193,15 @@ export default function AdventurePage() {
             const cqJson = await safeJson(cqRes);
             setChapterItems((cqJson?.items ?? []) as ChapterQuest[]);
 
-            // 3) adventure details (best-effort)
             const advRes = await fetch(
                 `/api/adventures?id=${encodeURIComponent(ch.adventure_id)}`,
-                { cache: "no-store" }
+                {
+                    cache: "no-store",
+                }
             );
             const advJson = await safeJson(advRes);
             setAdventure((advJson?.adventure ?? null) as Adventure | null);
 
-            // 4) all adventure quests (backlog candidates)
             const aqRes = await fetch(
                 `/api/adventure-quests?adventureId=${encodeURIComponent(ch.adventure_id)}`,
                 { cache: "no-store" }
@@ -249,8 +218,8 @@ export default function AdventurePage() {
 
     useEffect(() => {
         void loadAll("initial");
-        // eslint-disable-next-line react-hooks/exhaustive-deps
         void bootstrap();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const chapterGrouped = useMemo(() => {
@@ -346,7 +315,7 @@ export default function AdventurePage() {
 
     const onUnassignFromChapter = async (cq: ChapterQuest, q: AdventureQuest | null) => {
         if (unassigningId) return;
-        if (cq.status !== "todo") return; // ✅ Règle A
+        if (cq.status !== "todo") return;
 
         setUnassigningId(cq.id);
         try {
@@ -358,17 +327,37 @@ export default function AdventurePage() {
                 mission_md: null,
             });
 
-            if (ok) {
-                await loadAll("refresh");
-            }
+            if (ok) await loadAll("refresh");
         } finally {
             setUnassigningId(null);
         }
     };
 
+    // --- open modals (with draft init)
     const openAdventureConfig = () => {
         setAdvContextDraft((adventure?.context_text ?? "").toString());
-        setAdvConfigOpen(true);
+        openModal("adventureConfig");
+    };
+
+    const openChapterConfig = () => {
+        setChapterContextDraft((chapter?.context_text ?? "").toString());
+        openModal("chapterConfig");
+    };
+
+    const openTransition = () => {
+        // quêtes non terminées à reporter
+        const remaining = chapterItems.filter((cq) => cq.status !== "done");
+        setCarryOver(remaining);
+
+        // defaults prochain chapitre
+        setNextTitle(chapter?.title ? `${chapter.title} (suite)` : "Nouveau chapitre");
+        setNextPace(chapter?.pace ?? "standard");
+        setNextAiContext("");
+
+        // reset backlog selection
+        setSelectedBacklogIds(new Set());
+
+        openModal("chapterTransition");
     };
 
     const saveAdventureContext = async () => {
@@ -397,16 +386,10 @@ export default function AdventurePage() {
 
             await bootstrap();
             await loadAll("refresh");
-
-            setAdvConfigOpen(false);
+            closeModal("adventureConfig");
         } finally {
             setAdvConfigSaving(false);
         }
-    };
-
-    const openChapterConfig = () => {
-        setChapterContextDraft((chapter?.context_text ?? "").toString());
-        setChapterConfigOpen(true);
     };
 
     const saveChapterContext = async () => {
@@ -435,11 +418,22 @@ export default function AdventurePage() {
 
             await bootstrap();
             await loadAll("refresh");
-
-            setChapterConfigOpen(false);
+            closeModal("chapterConfig");
         } finally {
             setChapterConfigSaving(false);
         }
+    };
+
+    // Renown: quand store push un gain, on ouvre la modal via uiStore
+    useEffect(() => {
+        if (!lastRenownGain) return;
+        openModal("renownGain");
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [lastRenownGain]);
+
+    const closeRenown = () => {
+        closeModal("renownGain");
+        window.setTimeout(() => clearLastRenownGain(), 250);
     };
 
     const advEmoji =
@@ -655,7 +649,7 @@ export default function AdventurePage() {
                             <div className="mt-4">
                                 <ActionButton
                                     variant="solid"
-                                    onClick={() => setTransitionOpen(true)}
+                                    onClick={openTransition}
                                     className="w-full text-center"
                                 >
                                     🏁 Clôturer ce chapitre et préparer le suivant
@@ -763,482 +757,343 @@ export default function AdventurePage() {
                 </div>
             )}
 
-            {/* ✅ MODAL: CONFIG AVENTURE (context only) */}
-            <UiAnimatePresence>
-                {advConfigOpen && adventure?.id ? (
-                    <ViewportPortal>
-                        <UiMotionDiv
-                            className="fixed inset-0 z-[130] grid place-items-center bg-black/55 backdrop-blur-[3px] p-4"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onMouseDown={() => setAdvConfigOpen(false)}
+            {/* ✅ MODAL: CONFIG AVENTURE */}
+            <UiModal
+                id="adventureConfig"
+                maxWidth="2xl"
+                eyebrow="🧭 Configuration"
+                title="Contexte de l’aventure"
+                subtitle="Cadre global, contraintes, ambiance, objectifs long-terme."
+                closeOnBackdrop
+                closeOnEscape
+                footer={
+                    <div className="flex justify-end gap-2">
+                        <ActionButton onClick={() => closeModal("adventureConfig")}>
+                            Annuler
+                        </ActionButton>
+                        <ActionButton
+                            variant="solid"
+                            disabled={advConfigSaving}
+                            onClick={() => void saveAdventureContext()}
                         >
-                            <UiMotionDiv
-                                className="w-full max-w-2xl rounded-[28px] bg-white/5 p-5 ring-1 ring-white/15 backdrop-blur-md"
-                                initial={{ y: 16, scale: 0.98, opacity: 0 }}
-                                animate={{ y: 0, scale: 1, opacity: 1 }}
-                                exit={{ y: 10, scale: 0.98, opacity: 0 }}
-                                transition={{ duration: 0.22 }}
-                                onMouseDown={(e) => e.stopPropagation()}
-                            >
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
-                                            🧭 Configuration
-                                        </div>
-                                        <div className="mt-2 text-lg text-white/90 font-semibold">
-                                            Contexte de l’aventure
-                                        </div>
-                                        <div className="mt-1 text-sm text-white/60">
-                                            Cadre global, contraintes, ambiance, objectifs
-                                            long-terme.
-                                        </div>
+                            {advConfigSaving ? "⏳ Sauvegarde…" : "✅ Sauvegarder"}
+                        </ActionButton>
+                    </div>
+                }
+            >
+                {!adventure?.id ? null : (
+                    <textarea
+                        value={advContextDraft}
+                        onChange={(e) => setAdvContextDraft(e.target.value)}
+                        placeholder="Ex: semaine chargée, priorité salon + cuisine, sessions courtes…"
+                        className="min-h-[180px] w-full rounded-2xl bg-black/30 px-4 py-3 rpg-rpg-text-sm text-white/90 ring-1 ring-white/10 outline-none placeholder:text-white/40 focus:ring-2 focus:ring-white/25"
+                    />
+                )}
+            </UiModal>
+
+            {/* ✅ MODAL: CONFIG CHAPITRE */}
+            <UiModal
+                id="chapterConfig"
+                maxWidth="2xl"
+                eyebrow="📚 Configuration"
+                title="Contexte du chapitre"
+                subtitle="Focus du moment, cible locale, partie précise de l’aventure."
+                closeOnBackdrop
+                closeOnEscape
+                footer={
+                    <div className="flex justify-end gap-2">
+                        <ActionButton onClick={() => closeModal("chapterConfig")}>
+                            Annuler
+                        </ActionButton>
+                        <ActionButton
+                            variant="solid"
+                            disabled={chapterConfigSaving}
+                            onClick={() => void saveChapterContext()}
+                        >
+                            {chapterConfigSaving ? "⏳ Sauvegarde…" : "✅ Sauvegarder"}
+                        </ActionButton>
+                    </div>
+                }
+            >
+                {!chapter?.id ? null : (
+                    <textarea
+                        value={chapterContextDraft}
+                        onChange={(e) => setChapterContextDraft(e.target.value)}
+                        placeholder="Ex: focus salon: câbles, poussière, ambiance cozy…"
+                        className="min-h-[180px] w-full rounded-2xl bg-black/30 px-4 py-3 rpg-rpg-text-sm text-white/90 ring-1 ring-white/10 outline-none placeholder:text-white/40 focus:ring-2 focus:ring-white/25"
+                    />
+                )}
+            </UiModal>
+
+            {/* ✅ MODAL: RENOWN GAIN */}
+            <UiModal
+                id="renownGain"
+                maxWidth="md"
+                closeOnBackdrop
+                closeOnEscape
+                eyebrow="🏆 Renommée gagnée"
+                title={
+                    congratsLoading && !congrats?.title
+                        ? "🕯️ Le MJ forge tes lauriers…"
+                        : (congrats?.title ?? "Bravo")
+                }
+                subtitle={undefined}
+                footer={
+                    <div className="flex justify-end">
+                        <ActionButton variant="solid" onClick={closeRenown}>
+                            ✨ Continuer
+                        </ActionButton>
+                    </div>
+                }
+            >
+                {renownOpen && lastRenownGain ? (
+                    <>
+                        <MasterCard title="Félicitations" emoji="🎉">
+                            <div className="whitespace-pre-line rpg-rpg-text-sm text-white/70">
+                                {congratsLoading && !congrats?.message
+                                    ? "✨ ...\n✨ ...\n✨ ..."
+                                    : (congrats?.message ?? "Victoire enregistrée.")}
+                            </div>
+                        </MasterCard>
+
+                        <div className="mt-4 flex items-start justify-between gap-3">
+                            <div>
+                                <div className="text-2xl font-semibold text-white/90">
+                                    +{lastRenownGain.delta}
+                                </div>
+                                <div className="mt-1 text-sm text-white/60">
+                                    {lastRenownGain.reason ?? "Quête terminée"}
+                                </div>
+                            </div>
+
+                            {lastRenownGain.after.level > (lastRenownGain.before?.level ?? 1) ? (
+                                <div className="rounded-2xl bg-emerald-400/10 px-3 py-2 text-emerald-200 ring-1 ring-emerald-400/20">
+                                    ✨ LEVEL UP
+                                    <div className="text-xs opacity-80">
+                                        {lastRenownGain.before?.level ?? 1} →{" "}
+                                        {lastRenownGain.after.level}
+                                    </div>
+                                </div>
+                            ) : null}
+                        </div>
+
+                        {(() => {
+                            const afterValue = Math.max(0, lastRenownGain.after.value);
+                            const into = afterValue % 100;
+                            const pct = Math.max(0, Math.min(100, (into / 100) * 100));
+
+                            return (
+                                <div className="mt-4">
+                                    <div className="h-3 w-full overflow-hidden rounded-full bg-white/5 ring-1 ring-white/10">
+                                        <UiMotionDiv
+                                            className="h-full rounded-full bg-white/25"
+                                            initial={{ width: "0%" }}
+                                            animate={{ width: `${pct}%` }}
+                                            transition={{ duration: 1.6, ease: "easeOut" }}
+                                        />
                                     </div>
 
-                                    <ActionButton onClick={() => setAdvConfigOpen(false)}>
-                                        ✖
-                                    </ActionButton>
-                                </div>
-
-                                <textarea
-                                    value={advContextDraft}
-                                    onChange={(e) => setAdvContextDraft(e.target.value)}
-                                    placeholder="Ex: On est en semaine chargée, priorité au salon + cuisine, peu d’énergie, sessions courtes…"
-                                    className="mt-4 min-h-[180px] w-full rounded-2xl bg-black/30 px-4 py-3 rpg-rpg-text-sm text-white/90 ring-1 ring-white/10 outline-none placeholder:text-white/40 focus:ring-2 focus:ring-white/25"
-                                />
-
-                                <div className="mt-5 flex justify-end gap-2">
-                                    <ActionButton onClick={() => setAdvConfigOpen(false)}>
-                                        Annuler
-                                    </ActionButton>
-                                    <ActionButton
-                                        variant="solid"
-                                        disabled={advConfigSaving}
-                                        onClick={() => void saveAdventureContext()}
-                                    >
-                                        {advConfigSaving ? "⏳ Sauvegarde…" : "✅ Sauvegarder"}
-                                    </ActionButton>
-                                </div>
-                            </UiMotionDiv>
-                        </UiMotionDiv>
-                    </ViewportPortal>
-                ) : null}
-            </UiAnimatePresence>
-
-            {/* ✅ MODAL: CONFIG CHAPITRE (context only) */}
-            <UiAnimatePresence>
-                {chapterConfigOpen && chapter?.id ? (
-                    <ViewportPortal>
-                        <UiMotionDiv
-                            className="fixed inset-0 z-[131] grid place-items-center bg-black/55 backdrop-blur-[3px] p-4"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onMouseDown={() => setChapterConfigOpen(false)}
-                        >
-                            <UiMotionDiv
-                                className="w-full max-w-2xl rounded-[28px] bg-white/5 p-5 ring-1 ring-white/15 backdrop-blur-md"
-                                initial={{ y: 16, scale: 0.98, opacity: 0 }}
-                                animate={{ y: 0, scale: 1, opacity: 1 }}
-                                exit={{ y: 10, scale: 0.98, opacity: 0 }}
-                                transition={{ duration: 0.22 }}
-                                onMouseDown={(e) => e.stopPropagation()}
-                            >
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
-                                            📚 Configuration
-                                        </div>
-                                        <div className="mt-2 text-lg text-white/90 font-semibold">
-                                            Contexte du chapitre
-                                        </div>
-                                        <div className="mt-1 text-sm text-white/60">
-                                            Focus du moment, cible locale, partie précise de
-                                            l’aventure.
-                                        </div>
+                                    <div className="mt-2 flex items-center justify-between text-xs text-white/55">
+                                        <span>✨ {into}/100</span>
+                                        <span>Niv. {lastRenownGain.after.level}</span>
                                     </div>
-
-                                    <ActionButton onClick={() => setChapterConfigOpen(false)}>
-                                        ✖
-                                    </ActionButton>
                                 </div>
-
-                                <textarea
-                                    value={chapterContextDraft}
-                                    onChange={(e) => setChapterContextDraft(e.target.value)}
-                                    placeholder="Ex: Cette semaine on finit le salon: rangement, câbles, poussière. Objectif: ambiance cozy + place au sol pour jouer…"
-                                    className="mt-4 min-h-[180px] w-full rounded-2xl bg-black/30 px-4 py-3 rpg-rpg-text-sm text-white/90 ring-1 ring-white/10 outline-none placeholder:text-white/40 focus:ring-2 focus:ring-white/25"
-                                />
-
-                                <div className="mt-5 flex justify-end gap-2">
-                                    <ActionButton onClick={() => setChapterConfigOpen(false)}>
-                                        Annuler
-                                    </ActionButton>
-                                    <ActionButton
-                                        variant="solid"
-                                        disabled={chapterConfigSaving}
-                                        onClick={() => void saveChapterContext()}
-                                    >
-                                        {chapterConfigSaving ? "⏳ Sauvegarde…" : "✅ Sauvegarder"}
-                                    </ActionButton>
-                                </div>
-                            </UiMotionDiv>
-                        </UiMotionDiv>
-                    </ViewportPortal>
+                            );
+                        })()}
+                    </>
                 ) : null}
-            </UiAnimatePresence>
+            </UiModal>
 
-            {/* ✅ MODAL RENOWN GAIN */}
-            <UiAnimatePresence>
-                {showGain && lastRenownGain ? (
-                    <ViewportPortal>
-                        <UiMotionDiv
-                            className="fixed inset-0 z-[120] grid place-items-center bg-black/55 backdrop-blur-[3px] p-4"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onMouseDown={() => {
-                                setShowGain(false);
-                                window.setTimeout(() => clearLastRenownGain(), 250);
+            {/* ✅ MODAL: TRANSITION CHAPITRE (bug scroll réglé ici) */}
+            <UiModal
+                id="chapterTransition"
+                maxWidth="3xl"
+                closeOnBackdrop
+                closeOnEscape
+                eyebrow="📚 Transition de chapitre"
+                title={
+                    chapter?.title
+                        ? `Clôturer “${chapter.title}” et préparer la suite`
+                        : "Transition"
+                }
+                subtitle="Les quêtes non terminées seront automatiquement reportées."
+                footer={
+                    <div className="flex justify-end gap-2">
+                        <ActionButton onClick={() => closeModal("chapterTransition")}>
+                            Annuler
+                        </ActionButton>
+
+                        <ActionButton
+                            variant="solid"
+                            disabled={transitionBusy || !nextTitle.trim()}
+                            onClick={() => {
+                                void (async () => {
+                                    if (!chapter?.id || !chapter.adventure_id) return;
+
+                                    setTransitionBusy(true);
+                                    try {
+                                        const res = await fetch("/api/chapters/transition", {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({
+                                                prev_chapter_id: chapter.id,
+                                                adventure_id: chapter.adventure_id,
+                                                next: {
+                                                    title: nextTitle.trim(),
+                                                    pace: nextPace,
+                                                    ai_context: nextAiContext.trim() || null,
+                                                },
+                                                backlog_adventure_quest_ids:
+                                                    Array.from(selectedBacklogIds),
+                                            }),
+                                        });
+
+                                        const json = await safeJson(res);
+                                        if (!res.ok) {
+                                            console.error(json?.error ?? "Transition failed");
+                                            return;
+                                        }
+
+                                        await bootstrap();
+                                        await loadAll("refresh");
+                                        closeModal("chapterTransition");
+                                    } finally {
+                                        setTransitionBusy(false);
+                                    }
+                                })();
                             }}
                         >
-                            <UiMotionDiv
-                                className="w-full max-w-md rounded-[28px] bg-white/5 p-5 ring-1 ring-white/15"
-                                initial={{ y: 16, scale: 0.98, opacity: 0 }}
-                                animate={{ y: 0, scale: 1, opacity: 1 }}
-                                exit={{ y: 10, scale: 0.98, opacity: 0 }}
-                                transition={{ duration: 0.22 }}
-                                onMouseDown={(e) => e.stopPropagation()}
-                            >
-                                <MasterCard title="Félicitations" emoji="🎉">
-                                    <div>
-                                        <div className="mt-2 text-sm text-white/85 font-semibold">
-                                            {congratsLoading && !congrats?.title
-                                                ? "🕯️ Le MJ forge tes lauriers…"
-                                                : (congrats?.title ?? "Bravo")}
-                                        </div>
+                            {transitionBusy ? "⏳ Transition…" : "✅ Lancer le prochain chapitre"}
+                        </ActionButton>
+                    </div>
+                }
+            >
+                {/* 1) Carry-over */}
+                <div className="rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="text-white/85 font-semibold">🔁 Quêtes à reporter</div>
+                        <Pill>{carryOver.length}</Pill>
+                    </div>
 
-                                        <div className="mt-2 whitespace-pre-line rpg-rpg-text-sm text-white/70">
-                                            {congratsLoading && !congrats?.message
-                                                ? "✨ ...\n✨ ...\n✨ ..."
-                                                : (congrats?.message ?? "Victoire enregistrée.")}
-                                        </div>
-                                    </div>
-                                </MasterCard>
-
-                                <div className="mt-4 flex items-start justify-between gap-3">
-                                    <div>
-                                        <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
-                                            🏆 Renommée gagnée
-                                        </div>
-                                        <div className="mt-2 text-2xl font-semibold text-white/90">
-                                            +{lastRenownGain.delta}
-                                        </div>
-                                        <div className="mt-1 text-sm text-white/60">
-                                            {lastRenownGain.reason ?? "Quête terminée"}
-                                        </div>
-                                    </div>
-
-                                    {lastRenownGain.after.level >
-                                    (lastRenownGain.before?.level ?? 1) ? (
-                                        <div className="rounded-2xl bg-emerald-400/10 px-3 py-2 text-emerald-200 ring-1 ring-emerald-400/20">
-                                            ✨ LEVEL UP
-                                            <div className="text-xs opacity-80">
-                                                {lastRenownGain.before?.level ?? 1} →{" "}
-                                                {lastRenownGain.after.level}
-                                            </div>
-                                        </div>
-                                    ) : null}
-                                </div>
-
-                                {(() => {
-                                    const afterValue = Math.max(0, lastRenownGain.after.value);
-                                    const into = afterValue % 100;
-                                    const pct = Math.max(0, Math.min(100, (into / 100) * 100));
-
-                                    return (
-                                        <div className="mt-4">
-                                            <div className="h-3 w-full overflow-hidden rounded-full bg-white/5 ring-1 ring-white/10">
-                                                <UiMotionDiv
-                                                    className="h-full rounded-full bg-white/25"
-                                                    initial={{ width: "0%" }}
-                                                    animate={{ width: `${pct}%` }}
-                                                    transition={{ duration: 1.6, ease: "easeOut" }}
-                                                />
-                                            </div>
-
-                                            <div className="mt-2 flex items-center justify-between text-xs text-white/55">
-                                                <span>✨ {into}/100</span>
-                                                <span>Niv. {lastRenownGain.after.level}</span>
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
-
-                                <div className="mt-5 flex justify-end">
-                                    <ActionButton
-                                        variant="solid"
-                                        onClick={() => {
-                                            setShowGain(false);
-                                            window.setTimeout(() => clearLastRenownGain(), 250);
-                                        }}
+                    {carryOver.length === 0 ? (
+                        <div className="mt-3 rpg-rpg-text-sm text-white/60">
+                            Rien à reporter. Chapitre clean ✅
+                        </div>
+                    ) : (
+                        <div className="mt-3 space-y-2">
+                            {carryOver.map((cq) => {
+                                const q = normalizeQuest(cq.adventure_quests);
+                                return (
+                                    <div
+                                        key={cq.id}
+                                        className="rounded-2xl bg-black/30 p-3 ring-1 ring-white/10"
                                     >
-                                        ✨ Continuer
-                                    </ActionButton>
-                                </div>
-                            </UiMotionDiv>
-                        </UiMotionDiv>
-                    </ViewportPortal>
-                ) : null}
-            </UiAnimatePresence>
+                                        <div className="text-white/85 font-semibold truncate">
+                                            {q?.title ?? "Quête"}
+                                        </div>
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            <QuestStatusPill status={cq.status} />
+                                            <QuestRoomPill
+                                                roomCode={q?.room_code ?? cq.room_code}
+                                            />
+                                            <QuestDifficultyPill difficulty={q?.difficulty ?? 2} />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
 
-            {/* (Transition modal inchangée, je te laisse la suite telle quelle) */}
-            <UiAnimatePresence>
-                {transitionOpen && chapter?.id && chapter?.adventure_id ? (
-                    <ViewportPortal>
-                        <UiMotionDiv
-                            className="fixed inset-0 z-[140] grid place-items-center bg-black/55 backdrop-blur-[3px] p-4"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onMouseDown={() => setTransitionOpen(false)}
+                {/* 2) Backlog selection */}
+                <div className="mt-4 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="text-white/85 font-semibold">
+                            🧺 Ajouter depuis le backlog
+                        </div>
+                        <Pill>{backlog.length} dispo</Pill>
+                    </div>
+
+                    {backlog.length === 0 ? (
+                        <div className="mt-3 rpg-rpg-text-sm text-white/60">Backlog vide.</div>
+                    ) : (
+                        <div className="mt-3 space-y-2 max-h-[260px] overflow-auto pr-1">
+                            {backlog.map((q) => {
+                                const checked = selectedBacklogIds.has(q.id);
+                                return (
+                                    <button
+                                        key={q.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedBacklogIds((prev) => {
+                                                const next = new Set(prev);
+                                                if (next.has(q.id)) next.delete(q.id);
+                                                else next.add(q.id);
+                                                return next;
+                                            });
+                                        }}
+                                        className={cn(
+                                            "w-full text-left rounded-2xl p-3 ring-1 transition",
+                                            checked
+                                                ? "bg-white/10 text-white ring-white/15"
+                                                : "bg-black/30 text-white/80 ring-white/10 hover:bg-white/5"
+                                        )}
+                                    >
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="min-w-0">
+                                                <div className="font-semibold truncate">
+                                                    {checked ? "✅ " : "➕ "}
+                                                    {q.title}
+                                                </div>
+                                                <div className="mt-2 flex flex-wrap gap-2">
+                                                    <QuestRoomPill roomCode={q.room_code} />
+                                                    <QuestDifficultyPill
+                                                        difficulty={q.difficulty ?? 2}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="text-xs text-white/50 shrink-0">
+                                                {q.id.slice(0, 8)}…
+                                            </div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* 3) Next chapter config */}
+                <div className="mt-4 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
+                    <div className="text-white/85 font-semibold">🧠 Prochain chapitre</div>
+
+                    <div className="mt-3 grid gap-3 sm:grid-cols-[1.2fr_0.8fr]">
+                        <input
+                            value={nextTitle}
+                            onChange={(e) => setNextTitle(e.target.value)}
+                            placeholder="Titre du prochain chapitre"
+                            className="rounded-2xl bg-black/30 px-4 py-3 rpg-rpg-text-sm text-white/90 ring-1 ring-white/10 outline-none placeholder:text-white/40 focus:ring-2 focus:ring-white/25"
+                        />
+
+                        <select
+                            value={nextPace}
+                            onChange={(e) => setNextPace(e.target.value as Chapter["pace"])}
+                            className="rounded-2xl bg-black/30 px-4 py-3 rpg-rpg-text-sm text-white/90 ring-1 ring-white/10 outline-none focus:ring-2 focus:ring-white/25"
                         >
-                            <UiMotionDiv
-                                className="w-full max-w-3xl rounded-[28px] bg-white/5 p-5 ring-1 ring-white/15 backdrop-blur-md"
-                                initial={{ y: 16, scale: 0.98, opacity: 0 }}
-                                animate={{ y: 0, scale: 1, opacity: 1 }}
-                                exit={{ y: 10, scale: 0.98, opacity: 0 }}
-                                transition={{ duration: 0.22 }}
-                                onMouseDown={(e) => e.stopPropagation()}
-                            >
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
-                                            📚 Transition de chapitre
-                                        </div>
-                                        <div className="mt-2 text-lg text-white/90 font-semibold">
-                                            Clôturer “{chapter.title}” et préparer la suite
-                                        </div>
-                                        <div className="mt-1 text-sm text-white/60">
-                                            Les quêtes non terminées seront automatiquement
-                                            reportées.
-                                        </div>
-                                    </div>
+                            <option value="calme">🌙 calme</option>
+                            <option value="standard">⚡ standard</option>
+                            <option value="intense">🔥 intense</option>
+                        </select>
+                    </div>
 
-                                    <ActionButton onClick={() => setTransitionOpen(false)}>
-                                        ✖
-                                    </ActionButton>
-                                </div>
-
-                                {/* 1) Carry-over */}
-                                <div className="mt-4 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
-                                    <div className="flex items-center justify-between gap-2">
-                                        <div className="text-white/85 font-semibold">
-                                            🔁 Quêtes à reporter
-                                        </div>
-                                        <Pill>{carryOver.length}</Pill>
-                                    </div>
-
-                                    {carryOver.length === 0 ? (
-                                        <div className="mt-3 rpg-rpg-text-sm text-white/60">
-                                            Rien à reporter. Chapitre clean ✅
-                                        </div>
-                                    ) : (
-                                        <div className="mt-3 space-y-2">
-                                            {carryOver.map((cq) => {
-                                                const q = normalizeQuest(cq.adventure_quests);
-                                                return (
-                                                    <div
-                                                        key={cq.id}
-                                                        className="rounded-2xl bg-black/30 p-3 ring-1 ring-white/10"
-                                                    >
-                                                        <div className="text-white/85 font-semibold truncate">
-                                                            {q?.title ?? "Quête"}
-                                                        </div>
-                                                        <div className="mt-2 flex flex-wrap gap-2">
-                                                            <QuestStatusPill status={cq.status} />
-                                                            <QuestRoomPill
-                                                                roomCode={
-                                                                    q?.room_code ?? cq.room_code
-                                                                }
-                                                            />
-                                                            <QuestDifficultyPill
-                                                                difficulty={q?.difficulty ?? 2}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* 2) Backlog selection */}
-                                <div className="mt-4 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
-                                    <div className="flex items-center justify-between gap-2">
-                                        <div className="text-white/85 font-semibold">
-                                            🧺 Ajouter depuis le backlog
-                                        </div>
-                                        <Pill>{backlog.length} dispo</Pill>
-                                    </div>
-
-                                    {backlog.length === 0 ? (
-                                        <div className="mt-3 rpg-rpg-text-sm text-white/60">
-                                            Backlog vide.
-                                        </div>
-                                    ) : (
-                                        <div className="mt-3 space-y-2 max-h-[260px] overflow-auto pr-1">
-                                            {backlog.map((q) => {
-                                                const checked = selectedBacklogIds.has(q.id);
-                                                return (
-                                                    <button
-                                                        key={q.id}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setSelectedBacklogIds((prev) => {
-                                                                const next = new Set(prev);
-                                                                if (next.has(q.id))
-                                                                    next.delete(q.id);
-                                                                else next.add(q.id);
-                                                                return next;
-                                                            });
-                                                        }}
-                                                        className={cn(
-                                                            "w-full text-left rounded-2xl p-3 ring-1 transition",
-                                                            checked
-                                                                ? "bg-white/10 text-white ring-white/15"
-                                                                : "bg-black/30 text-white/80 ring-white/10 hover:bg-white/5"
-                                                        )}
-                                                    >
-                                                        <div className="flex items-start justify-between gap-2">
-                                                            <div className="min-w-0">
-                                                                <div className="font-semibold truncate">
-                                                                    {checked ? "✅ " : "➕ "}
-                                                                    {q.title}
-                                                                </div>
-                                                                <div className="mt-2 flex flex-wrap gap-2">
-                                                                    <QuestRoomPill
-                                                                        roomCode={q.room_code}
-                                                                    />
-                                                                    <QuestDifficultyPill
-                                                                        difficulty={
-                                                                            q.difficulty ?? 2
-                                                                        }
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                            <div className="text-xs text-white/50 shrink-0">
-                                                                {q.id.slice(0, 8)}…
-                                                            </div>
-                                                        </div>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* 3) Next chapter config */}
-                                <div className="mt-4 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
-                                    <div className="text-white/85 font-semibold">
-                                        🧠 Prochain chapitre
-                                    </div>
-
-                                    <div className="mt-3 grid gap-3 sm:grid-cols-[1.2fr_0.8fr]">
-                                        <input
-                                            value={nextTitle}
-                                            onChange={(e) => setNextTitle(e.target.value)}
-                                            placeholder="Titre du prochain chapitre"
-                                            className="rounded-2xl bg-black/30 px-4 py-3 rpg-rpg-text-sm text-white/90 ring-1 ring-white/10 outline-none placeholder:text-white/40 focus:ring-2 focus:ring-white/25"
-                                        />
-
-                                        <select
-                                            value={nextPace}
-                                            onChange={(e) =>
-                                                setNextPace(e.target.value as Chapter["pace"])
-                                            }
-                                            className="rounded-2xl bg-black/30 px-4 py-3 rpg-rpg-text-sm text-white/90 ring-1 ring-white/10 outline-none focus:ring-2 focus:ring-white/25"
-                                        >
-                                            <option value="calme">🌙 calme</option>
-                                            <option value="standard">⚡ standard</option>
-                                            <option value="intense">🔥 intense</option>
-                                        </select>
-                                    </div>
-
-                                    <textarea
-                                        value={nextAiContext}
-                                        onChange={(e) => setNextAiContext(e.target.value)}
-                                        placeholder="Contexte IA pour ce chapitre (ex: semaine chargée, objectifs du foyer, contraintes, humeur, enfants, deadlines…)"
-                                        className="mt-3 min-h-[120px] w-full rounded-2xl bg-black/30 px-4 py-3 rpg-rpg-text-sm text-white/90 ring-1 ring-white/10 outline-none placeholder:text-white/40 focus:ring-2 focus:ring-white/25"
-                                    />
-                                </div>
-
-                                {/* Actions */}
-                                <div className="mt-5 flex justify-end gap-2">
-                                    <ActionButton onClick={() => setTransitionOpen(false)}>
-                                        Annuler
-                                    </ActionButton>
-
-                                    <ActionButton
-                                        variant="solid"
-                                        disabled={transitionBusy || !nextTitle.trim()}
-                                        onClick={() => {
-                                            void (async () => {
-                                                if (!chapter?.id || !chapter.adventure_id) return;
-
-                                                setTransitionBusy(true);
-                                                try {
-                                                    const res = await fetch(
-                                                        "/api/chapters/transition",
-                                                        {
-                                                            method: "POST",
-                                                            headers: {
-                                                                "Content-Type": "application/json",
-                                                            },
-                                                            body: JSON.stringify({
-                                                                prev_chapter_id: chapter.id,
-                                                                adventure_id: chapter.adventure_id,
-                                                                next: {
-                                                                    title: nextTitle.trim(),
-                                                                    pace: nextPace,
-                                                                    ai_context:
-                                                                        nextAiContext.trim() ||
-                                                                        null,
-                                                                },
-                                                                backlog_adventure_quest_ids:
-                                                                    Array.from(selectedBacklogIds),
-                                                            }),
-                                                        }
-                                                    );
-
-                                                    const json = await safeJson(res);
-                                                    if (!res.ok) {
-                                                        console.error(
-                                                            json?.error ?? "Transition failed"
-                                                        );
-                                                        return;
-                                                    }
-
-                                                    await bootstrap();
-                                                    await loadAll("refresh");
-                                                    setTransitionOpen(false);
-                                                } finally {
-                                                    setTransitionBusy(false);
-                                                }
-                                            })();
-                                        }}
-                                    >
-                                        {transitionBusy
-                                            ? "⏳ Transition…"
-                                            : "✅ Lancer le prochain chapitre"}
-                                    </ActionButton>
-                                </div>
-                            </UiMotionDiv>
-                        </UiMotionDiv>
-                    </ViewportPortal>
-                ) : null}
-            </UiAnimatePresence>
+                    <textarea
+                        value={nextAiContext}
+                        onChange={(e) => setNextAiContext(e.target.value)}
+                        placeholder="Contexte IA pour ce chapitre (objectifs, contraintes, humeur...)"
+                        className="mt-3 min-h-[120px] w-full rounded-2xl bg-black/30 px-4 py-3 rpg-rpg-text-sm text-white/90 ring-1 ring-white/10 outline-none placeholder:text-white/40 focus:ring-2 focus:ring-white/25"
+                    />
+                </div>
+            </UiModal>
         </RpgShell>
     );
 }
