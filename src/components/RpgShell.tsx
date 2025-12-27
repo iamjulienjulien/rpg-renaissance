@@ -34,12 +34,14 @@ export default function RpgShell({
     children,
     rightSlot,
     returnButton = true,
+    noRightSlot = false,
 }: {
     title: string;
     subtitle?: string;
     children: React.ReactNode;
     rightSlot?: React.ReactNode;
     returnButton?: boolean;
+    noRightSlot?: boolean;
 }) {
     const logoSrc = useThemeLogo();
 
@@ -77,8 +79,10 @@ export default function RpgShell({
                             </div>
                         )}
 
-                        {rightSlot && <div className="flex items-center gap-2">{rightSlot}</div>}
-                        {!rightSlot && (
+                        {!noRightSlot && rightSlot && (
+                            <div className="flex items-center gap-2">{rightSlot}</div>
+                        )}
+                        {!noRightSlot && !rightSlot && (
                             <div className="flex items-center gap-2">
                                 <DevEnvPill env={process.env.CURRENT_ENV ?? ""} />
                             </div>

@@ -1,33 +1,29 @@
-// src/app/(protected)/layout.tsx
+// src/app/(onboarding)/layout.tsx
 import React from "react";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 
-export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
+export default async function OnboardingLayout({ children }: { children: React.ReactNode }) {
     const supabase = await supabaseServer();
     const { data, error } = await supabase.auth.getUser();
 
-    // 1) Pas connecté -> signin
     if (error || !data.user) {
         redirect("/auth/signin");
     }
 
-    // 2) Connecté mais pas onboardé -> onboarding
-    // (on considère "onboardé" = existe dans player_profiles)
     const { data: profile, error: profileErr } = await supabase
         .from("player_profiles")
         .select("user_id")
         .eq("user_id", data.user.id)
         .maybeSingle();
 
-    // Si erreur base, on évite de bloquer l’utilisateur sur une 500 silencieuse :
-    // tu peux aussi choisir de redirect vers signin avec un message, selon ton goût.
     if (profileErr) {
         redirect("/auth/signin?error=profile_load_failed");
     }
 
-    if (!profile) {
-        redirect("/onboarding");
+    // Déjà onboardé -> pas besoin d’être ici
+    if (profile) {
+        redirect("/");
     }
 
     return <>{children}</>;

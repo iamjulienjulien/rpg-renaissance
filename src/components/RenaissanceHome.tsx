@@ -49,7 +49,7 @@ function adventureEmojiFromCode(code?: string | null) {
     return "";
 }
 
-export default function RenaissanceLanding() {
+export default function RenaissanceHome() {
     const router = useRouter();
 
     const chapter = useGameStore((s) => s.chapter);

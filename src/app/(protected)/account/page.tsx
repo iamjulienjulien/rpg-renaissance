@@ -5,6 +5,7 @@ import RpgShell from "@/components/RpgShell";
 import { Panel, Pill, ActionButton } from "@/components/RpgUi";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useGameStore } from "@/stores/gameStore";
+import { useAuthStore } from "@/stores/authStore";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -13,6 +14,8 @@ function cn(...classes: Array<string | false | null | undefined>) {
 export default function AccountPage() {
     const { user, profile, session, loading, saving, error, bootstrap, updateDisplayName, logout } =
         usePlayerStore();
+
+    const { signOut } = useAuthStore();
 
     const charsBootstrap = useGameStore((s) => s.bootstrap);
     const characters = useGameStore((s) => s.characters);
@@ -117,7 +120,7 @@ export default function AccountPage() {
                             <ActionButton
                                 variant="solid"
                                 disabled={saving}
-                                onClick={() => void logout()}
+                                onClick={() => void signOut()}
                             >
                                 🚪 Se déconnecter
                             </ActionButton>

@@ -366,6 +366,9 @@ type GameStore = {
         adventure_quest_ids: string[];
     }) => Promise<boolean>;
 
+    /* ONBOARDING */
+    completeOnboarding: (input: { display_name: string; character_id: string }) => Promise<boolean>;
+
     /* --------------------------- 🧙 CHARACTERS --------------------------- */
     characters: Character[];
     rooms: AdventureRoom[];
@@ -1026,6 +1029,67 @@ export const useGameStore = create<GameStore>((set, get) => {
                 return true;
             } finally {
                 set({ startChapterStarting: false });
+            }
+        },
+
+        /* ONBOARDING */
+        completeOnboarding: async ({ display_name, character_id }) => {
+            const dn = (display_name ?? "").trim();
+            const cid = (character_id ?? "").trim();
+
+            if (dn.length < 2) {
+                set({ error: "Ton nom de joueur doit faire au moins 2 caractères." });
+                return false;
+            }
+            if (!cid) {
+                set({ error: "Choisis un personnage." });
+                return false;
+            }
+
+            set({ saving: true, error: null });
+
+            try {
+                const res = await apiPost<{
+                    profile: {
+                        user_id: string;
+                        display_name: string | null;
+                        character_id: string | null;
+                    };
+                }>("/api/profile", { display_name: dn, character_id: cid });
+
+                if (!res.ok) throw new Error(res.error);
+
+                const profileRow = (res.data as any)?.profile ?? null;
+                const selected = get().characters.find((c) => c.id === cid) ?? null;
+
+                set({
+                    profile: profileRow
+                        ? {
+                              user_id: profileRow.user_id,
+                              display_name: profileRow.display_name,
+                              character_id: profileRow.character_id,
+                              character: selected,
+                          }
+                        : null,
+                    selectedId: cid,
+                    currentCharacter: selected,
+                });
+
+                useToastStore
+                    .getState()
+                    .success(
+                        "Profil scellé",
+                        selected ? `${selected.emoji} ${selected.name}` : undefined
+                    );
+
+                return true;
+            } catch (e) {
+                const msg = e instanceof Error ? e.message : "Onboarding failed";
+                set({ error: msg });
+                useToastStore.getState().error("Échec", "Impossible de créer le profil joueur");
+                return false;
+            } finally {
+                set({ saving: false });
             }
         },
 
