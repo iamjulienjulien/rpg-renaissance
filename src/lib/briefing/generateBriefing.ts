@@ -2,6 +2,14 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import { openai } from "@/lib/openai";
 
+// ✅ Logs + Journal
+import { createAiGenerationLog } from "@/lib/logs/createAiGenerationLog";
+import { createJournalEntry } from "@/lib/journal/createJournalEntry";
+
+/* ============================================================================
+🧠 TYPES
+============================================================================ */
+
 export type AdventureInfo = {
     code: string;
     title: string;
@@ -28,8 +36,26 @@ type PlayerContext = {
     character: CharacterStyle | null;
 };
 
+type BriefingJson = {
+    title: string;
+    intro: string;
+    bullets: string[];
+    rules_paragraph: string;
+    outro: string;
+};
+
+/* ============================================================================
+🧰 HELPERS
+============================================================================ */
+
 function safeTrim(x: unknown): string {
     return typeof x === "string" ? x.trim() : "";
+}
+
+function normalizeSingle<T>(x: T | T[] | null | undefined): T | null {
+    if (!x) return null;
+    if (Array.isArray(x)) return x[0] ?? null;
+    return x;
 }
 
 function verbosityRules(v?: string | null) {
@@ -38,6 +64,14 @@ function verbosityRules(v?: string | null) {
     return { maxIntroLines: 3, bulletsMin: 4, bulletsMax: 8 };
 }
 
+/* ============================================================================
+🔎 DATA LOADERS
+============================================================================ */
+
+/**
+ * ✅ Login-only
+ * Récupère display_name + style du personnage via player_profiles(user_id)
+ */
 async function loadPlayerContextByUserId(userId: string): Promise<PlayerContext> {
     const supabase = await supabaseServer();
 
@@ -67,7 +101,7 @@ async function loadPlayerContextByUserId(userId: string): Promise<PlayerContext>
     }
 
     const display_name = safeTrim((data as any)?.display_name) || null;
-    const c = (data as any)?.characters ?? null;
+    const c = normalizeSingle((data as any)?.characters);
 
     if (!c) return { display_name, character: null };
 
@@ -84,20 +118,45 @@ async function loadPlayerContextByUserId(userId: string): Promise<PlayerContext>
     };
 }
 
+/* ============================================================================
+🧭 MAIN
+============================================================================ */
+
 /**
- * ✅ Briefing IA pour une aventure (non stocké en BDD pour l’instant).
- * Se régénère quand le personnage change.
+ * ✅ Briefing IA pour une aventure (non stocké en BDD).
+ * - Se régénère quand le personnage change (ou quand tu le décides côté cache UI)
+ *
+ * ✅ Ajouts:
+ * - Log BDD (ai_generations)
+ * - Entrée journal (trace visible “jeu”)
+ *
+ * ⚠️ Note: cette fonction n’a pas de session_id en param.
+ * On le récupère via player_profiles.session_id si présent, sinon on log en best-effort.
  */
 export async function generateBriefingForAdventure(adventure: AdventureInfo) {
     const supabase = await supabaseServer();
 
+    // ✅ Auth obligatoire (login-only)
     const { data: authData, error: authErr } = await supabase.auth.getUser();
     if (authErr) throw new Error(authErr.message);
 
     const userId = authData?.user?.id ?? "";
     if (!userId) throw new Error("Not authenticated");
 
+    // 0) Charger contexte joueur/personnage + (best-effort) session_id depuis player_profiles
     const player = await loadPlayerContextByUserId(userId);
+
+    const { data: profileRow } = await supabase
+        .from("player_profiles")
+        .select("session_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+    const sessionId =
+        typeof (profileRow as any)?.session_id === "string"
+            ? String((profileRow as any).session_id)
+            : null;
+
     const playerName = player.display_name;
     const character = player.character;
 
@@ -106,7 +165,9 @@ export async function generateBriefingForAdventure(adventure: AdventureInfo) {
     const verbosity = character?.ai_style?.verbosity ?? "normal";
     const rules = verbosityRules(verbosity);
 
+    // 1) Préparer OpenAI request
     const model = "gpt-4.1";
+    const provider = "openai";
 
     const systemText = [
         `Tu es le Maître du Jeu de Renaissance.`,
@@ -125,38 +186,41 @@ export async function generateBriefingForAdventure(adventure: AdventureInfo) {
             : null,
         `Contraintes: intro <= ${rules.maxIntroLines} lignes. Bullets ${rules.bulletsMin}-${rules.bulletsMax}.`,
         `Interdit: disclaimer, "en tant qu'IA", explications techniques.`,
-        `La sortie doit respecter le schéma JSON demandé.`,
+        `La sortie doit respecter STRICTEMENT le schéma JSON demandé.`,
     ]
         .filter(Boolean)
         .join("\n");
 
-    const context = {
-        adventure_code: adventure.code,
-        title: adventure.title,
-        base_goal: adventure.baseGoal,
-        neutral_steps: adventure.steps,
+    const contextJson = {
+        adventure_code: safeTrim(adventure.code),
+        title: safeTrim(adventure.title),
+        emoji: safeTrim(adventure.emoji),
+        base_goal: safeTrim(adventure.baseGoal),
+        neutral_steps: Array.isArray(adventure.steps)
+            ? adventure.steps.map((s) => safeTrim(s))
+            : [],
+
+        // debug soft
+        user_id: userId,
+        session_id: sessionId,
+        character_name: character?.name ?? null,
+        character_emoji: character?.emoji ?? null,
     };
 
-    const response = await openai.responses.create({
+    const userInputText =
+        `Contexte aventure:\n${JSON.stringify(contextJson, null, 2)}\n\n` +
+        `Génère ces champs:\n` +
+        `- title (court)\n` +
+        `- intro (voix du personnage)\n` +
+        `- bullets (plan d’action jouable)\n` +
+        `- rules_paragraph (1 paragraphe: règle score/renown)\n` +
+        `- outro (1-2 phrases de clôture)\n`;
+
+    const requestJson = {
         model,
         input: [
             { role: "system", content: [{ type: "input_text", text: systemText }] },
-            {
-                role: "user",
-                content: [
-                    {
-                        type: "input_text",
-                        text:
-                            `Contexte aventure:\n${JSON.stringify(context, null, 2)}\n\n` +
-                            `Génère ces champs:\n` +
-                            `- title (court)\n` +
-                            `- intro (voix du personnage)\n` +
-                            `- bullets (plan d’action jouable)\n` +
-                            `- rules_paragraph (1 paragraphe: règle score/renown)\n` +
-                            `- outro (1-2 phrases de clôture)\n`,
-                    },
-                ],
-            },
+            { role: "user", content: [{ type: "input_text", text: userInputText }] },
         ],
         text: {
             format: {
@@ -181,18 +245,208 @@ export async function generateBriefingForAdventure(adventure: AdventureInfo) {
                 },
             },
         },
-    });
-
-    const briefing = JSON.parse(response.output_text);
-
-    return {
-        briefing,
-        meta: {
-            model,
-            tone,
-            style,
-            verbosity,
-            character_name: character?.name ?? null,
-        },
     };
+
+    // 2) Timing + journal start
+    const startedAt = new Date();
+
+    if (sessionId) {
+        await Promise.allSettled([
+            createJournalEntry({
+                session_id: sessionId,
+                kind: "note",
+                title: "🧭 Brief d’aventure en cours",
+                content: `Le MJ prépare le briefing pour: ${safeTrim(adventure.title) || "Aventure"}.`,
+                chapter_id: null,
+                quest_id: null,
+                adventure_quest_id: null,
+            }),
+        ]);
+    }
+
+    // 3) OpenAI call + parsing
+    let response: any = null;
+    let outputText: string | null = null;
+    let parsed: BriefingJson | null = null;
+    let parseError: string | null = null;
+
+    try {
+        response = await openai.responses.create(requestJson as any);
+        outputText = typeof response?.output_text === "string" ? response.output_text : null;
+
+        try {
+            parsed = outputText ? (JSON.parse(outputText) as BriefingJson) : null;
+        } catch (e: any) {
+            parseError = e?.message ? String(e.message) : "JSON parse error";
+            parsed = null;
+        }
+
+        if (
+            !parsed?.title ||
+            !parsed?.intro ||
+            !Array.isArray(parsed?.bullets) ||
+            !parsed?.rules_paragraph ||
+            !parsed?.outro
+        ) {
+            throw new Error(parseError ?? "Invalid briefing JSON output");
+        }
+
+        const finishedAt = new Date();
+        const durationMs = finishedAt.getTime() - startedAt.getTime();
+
+        // ✅ Log success (best-effort, dépend de sessionId)
+        await Promise.allSettled([
+            sessionId
+                ? createAiGenerationLog({
+                      session_id: sessionId,
+                      user_id: userId,
+
+                      generation_type: "adventure_briefing",
+                      source: "generateBriefingForAdventure",
+
+                      chapter_quest_id: null,
+                      chapter_id: null,
+                      adventure_id: null, // (si tu as un id BDD plus tard, tu pourras le passer)
+
+                      provider,
+                      model,
+
+                      status: "success",
+                      error_message: null,
+                      error_code: null,
+
+                      started_at: startedAt,
+                      finished_at: finishedAt,
+                      duration_ms: durationMs,
+
+                      request_json: requestJson,
+                      system_text: systemText,
+                      user_input_text: userInputText,
+                      context_json: contextJson,
+
+                      response_json: response,
+                      output_text: outputText,
+                      parsed_json: parsed,
+                      parse_error: parseError,
+
+                      rendered_md: null,
+
+                      usage_json: response?.usage ?? null,
+                      tags: ["briefing", "adventure"],
+                      metadata: {
+                          tone,
+                          style,
+                          verbosity,
+                          character_name: character?.name ?? null,
+                          character_emoji: character?.emoji ?? null,
+                          adventure_code: safeTrim(adventure.code) || null,
+                      },
+                  })
+                : Promise.resolve(null),
+        ]);
+
+        // ✅ Journal: trace visible (best-effort)
+        if (sessionId) {
+            await Promise.allSettled([
+                createJournalEntry({
+                    session_id: sessionId,
+                    kind: "note",
+                    title: `🧾 Brief: ${safeTrim(adventure.title) || safeTrim(adventure.code) || "Aventure"}`,
+                    content:
+                        `${safeTrim(parsed.intro)}\n\n` +
+                        `• ${parsed.bullets
+                            .map((b) => safeTrim(b))
+                            .filter(Boolean)
+                            .join("\n• ")}\n\n` +
+                        `${safeTrim(parsed.outro)}`,
+                    chapter_id: null,
+                    quest_id: null,
+                    adventure_quest_id: null,
+                }),
+            ]);
+        }
+
+        return {
+            briefing: parsed,
+            meta: {
+                model,
+                tone,
+                style,
+                verbosity,
+                character_name: character?.name ?? null,
+            },
+        };
+    } catch (e: any) {
+        const finishedAt = new Date();
+        const durationMs = finishedAt.getTime() - startedAt.getTime();
+        const errorMessage = e?.message ? String(e.message) : "OpenAI request failed";
+
+        // ✅ Log error (best-effort)
+        await Promise.allSettled([
+            sessionId
+                ? createAiGenerationLog({
+                      session_id: sessionId,
+                      user_id: userId,
+
+                      generation_type: "adventure_briefing",
+                      source: "generateBriefingForAdventure",
+
+                      chapter_quest_id: null,
+                      chapter_id: null,
+                      adventure_id: null,
+
+                      provider,
+                      model,
+
+                      status: "error",
+                      error_message: errorMessage,
+                      error_code: null,
+
+                      started_at: startedAt,
+                      finished_at: finishedAt,
+                      duration_ms: durationMs,
+
+                      request_json: requestJson,
+                      system_text: systemText,
+                      user_input_text: userInputText,
+                      context_json: contextJson,
+
+                      response_json: response,
+                      output_text: outputText,
+                      parsed_json: parsed,
+                      parse_error: parseError,
+
+                      rendered_md: null,
+
+                      usage_json: response?.usage ?? null,
+                      tags: ["briefing", "adventure", "error"],
+                      metadata: {
+                          tone,
+                          style,
+                          verbosity,
+                          character_name: character?.name ?? null,
+                          character_emoji: character?.emoji ?? null,
+                          adventure_code: safeTrim(adventure.code) || null,
+                      },
+                  })
+                : Promise.resolve(null),
+        ]);
+
+        // ✅ Journal: trace soft
+        if (sessionId) {
+            await Promise.allSettled([
+                createJournalEntry({
+                    session_id: sessionId,
+                    kind: "note",
+                    title: "⚠️ Brief d’aventure interrompu",
+                    content: `Échec génération briefing: ${errorMessage}`,
+                    chapter_id: null,
+                    quest_id: null,
+                    adventure_quest_id: null,
+                }),
+            ]);
+        }
+
+        throw new Error(errorMessage);
+    }
 }

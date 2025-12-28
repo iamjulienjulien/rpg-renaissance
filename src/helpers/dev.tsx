@@ -25,7 +25,7 @@ export function envEmoji(env: string): string {
 export function DevEnvPill(env: any) {
     const currentEnv = env;
 
-    console.log("currentEnv", process.env);
+    // console.log("currentEnv", process.env);
 
     if (currentEnv === "") return "";
 

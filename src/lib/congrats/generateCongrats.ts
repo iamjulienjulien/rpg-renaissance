@@ -2,6 +2,10 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import { openai } from "@/lib/openai";
 
+// ✅ Logs + Journal
+import { createAiGenerationLog } from "@/lib/logs/createAiGenerationLog";
+import { createJournalEntry } from "@/lib/journal/createJournalEntry";
+
 /* ============================================================================
 🧠 TYPES
 ============================================================================ */
@@ -32,12 +36,31 @@ export type CongratsContext = {
     mission_md?: string | null;
 };
 
+type LoadedContexts = {
+    session_id: string | null;
+    chapter_id: string | null;
+    adventure_id: string | null;
+    adventure_context_text: string | null;
+    chapter_context_text: string | null;
+};
+
+type CongratsJson = {
+    title: string;
+    message: string;
+};
+
 /* ============================================================================
 🧰 HELPERS
 ============================================================================ */
 
 function safeTrim(x: unknown): string {
     return typeof x === "string" ? x.trim() : "";
+}
+
+function normalizeSingle<T>(x: T | T[] | null | undefined): T | null {
+    if (!x) return null;
+    if (Array.isArray(x)) return x[0] ?? null;
+    return x;
 }
 
 function difficultyLabel(d?: number | null) {
@@ -55,9 +78,13 @@ function verbosityRules(v?: string | null) {
 }
 
 /* ============================================================================
-🔎 DATA LOADERS (aligné generateMission)
+🔎 DATA LOADERS
 ============================================================================ */
 
+/**
+ * ✅ Login-only
+ * Récupère display_name + style du personnage via player_profiles(user_id)
+ */
 async function loadPlayerContextByUserId(userId: string): Promise<PlayerContext> {
     const supabase = await supabaseServer();
 
@@ -87,7 +114,7 @@ async function loadPlayerContextByUserId(userId: string): Promise<PlayerContext>
     }
 
     const display_name = safeTrim((data as any)?.display_name) || null;
-    const c = (data as any)?.characters ?? null;
+    const c = normalizeSingle((data as any)?.characters);
 
     if (!c) {
         return { display_name, character: null };
@@ -107,18 +134,12 @@ async function loadPlayerContextByUserId(userId: string): Promise<PlayerContext>
 }
 
 /**
- * ✅ Même logique que generateMission:
+ * ✅ Contextes (aligné generateMission):
  * - chapter_quests -> chapter_id + session_id
  * - chapters -> context_text + adventure_id
  * - adventures -> context_text
  */
-async function loadContextsForChapterQuest(chapterQuestId: string): Promise<{
-    session_id: string | null;
-    chapter_id: string | null;
-    adventure_id: string | null;
-    adventure_context_text: string | null;
-    chapter_context_text: string | null;
-}> {
+async function loadContextsForChapterQuest(chapterQuestId: string): Promise<LoadedContexts> {
     const supabase = await supabaseServer();
 
     // 1) chapter_quests
@@ -200,13 +221,17 @@ async function loadContextsForChapterQuest(chapterQuestId: string): Promise<{
 }
 
 /* ============================================================================
-🎉 MAIN (structure proche generateMission)
+🎉 MAIN
 ============================================================================ */
 
 /**
  * ✅ Félicitations IA (non stockées en BDD)
  * - Générées au startQuest (prefetch)
  * - Affichées plus tard dans la modal Renown
+ *
+ * ✅ Ajouts:
+ * - Log BDD (ai_generations)
+ * - Entrée journal (trace visible “jeu”)
  */
 export async function generateCongratsForQuest(input: CongratsContext) {
     const supabase = await supabaseServer();
@@ -218,10 +243,13 @@ export async function generateCongratsForQuest(input: CongratsContext) {
     const userId = authData?.user?.id ?? "";
     if (!userId) throw new Error("Not authenticated");
 
-    // 0) Contexte global (aventure) + spécifique (chapitre)
-    const ctx = await loadContextsForChapterQuest(input.chapter_quest_id);
+    const chapterQuestId = safeTrim(input.chapter_quest_id);
+    if (!chapterQuestId) throw new Error("Missing chapter_quest_id");
 
-    // 1) Style personnage + display_name
+    // 0) Contextes (global aventure + chapitre)
+    const ctx = await loadContextsForChapterQuest(chapterQuestId);
+
+    // 1) Style joueur/personnage
     const player = await loadPlayerContextByUserId(userId);
     const playerName = player.display_name;
     const character = player.character;
@@ -231,8 +259,9 @@ export async function generateCongratsForQuest(input: CongratsContext) {
     const verbosity = character?.ai_style?.verbosity ?? "normal";
     const rules = verbosityRules(verbosity);
 
-    // 2) Génération OpenAI
+    // 2) Préparer OpenAI request
     const model = "gpt-4.1";
+    const provider = "openai";
 
     const systemText = [
         `Tu es le Maître du Jeu de Renaissance.`,
@@ -268,8 +297,8 @@ export async function generateCongratsForQuest(input: CongratsContext) {
         .filter(Boolean)
         .join("\n");
 
-    const context = {
-        quest_title: safeTrim(input.quest_title),
+    const contextJson = {
+        quest_title: safeTrim(input.quest_title) || "Quête",
         room_code: input.room_code ?? null,
         difficulty: difficultyLabel(input.difficulty),
         mission_hint: safeTrim(input.mission_md ?? "").slice(0, 900) || null,
@@ -284,23 +313,17 @@ export async function generateCongratsForQuest(input: CongratsContext) {
         chapter_context: ctx.chapter_context_text ?? "",
     };
 
-    const response = await openai.responses.create({
+    const userInputText =
+        `Contexte:\n${JSON.stringify(contextJson, null, 2)}\n\n` +
+        `Génère:\n` +
+        `- title (court, 2 à 6 mots, style “sceau”)\n` +
+        `- message (félicitations)\n`;
+
+    const requestJson = {
         model,
         input: [
             { role: "system", content: [{ type: "input_text", text: systemText }] },
-            {
-                role: "user",
-                content: [
-                    {
-                        type: "input_text",
-                        text:
-                            `Contexte:\n${JSON.stringify(context, null, 2)}\n\n` +
-                            `Génère:\n` +
-                            `- title (court, 2 à 6 mots, style “sceau”)\n` +
-                            `- message (félicitations)\n`,
-                    },
-                ],
-            },
+            { role: "user", content: [{ type: "input_text", text: userInputText }] },
         ],
         text: {
             format: {
@@ -317,19 +340,196 @@ export async function generateCongratsForQuest(input: CongratsContext) {
                 },
             },
         },
-    });
-
-    const congrats = JSON.parse(response.output_text);
-
-    return {
-        congrats,
-        meta: {
-            model,
-            tone,
-            style,
-            verbosity,
-            character_name: character?.name ?? null,
-            character_emoji: character?.emoji ?? null,
-        },
     };
+
+    // 3) Timing + log start
+    const startedAt = new Date();
+
+    // Journal: “une génération a été demandée”
+    if (ctx.session_id) {
+        await Promise.allSettled([
+            createJournalEntry({
+                session_id: ctx.session_id,
+                kind: "note",
+                title: "🎉 Le MJ aiguise les lauriers",
+                content: `Génération de félicitations pour: ${safeTrim(input.quest_title) || "Quête"}.`,
+                chapter_id: ctx.chapter_id,
+                quest_id: null,
+                adventure_quest_id: null,
+            }),
+        ]);
+    }
+
+    // 4) OpenAI call + parsing
+    let response: any = null;
+    let outputText: string | null = null;
+    let parsed: CongratsJson | null = null;
+    let parseError: string | null = null;
+
+    try {
+        response = await openai.responses.create(requestJson as any);
+        outputText = typeof response?.output_text === "string" ? response.output_text : null;
+
+        try {
+            parsed = outputText ? (JSON.parse(outputText) as CongratsJson) : null;
+        } catch (e: any) {
+            parseError = e?.message ? String(e.message) : "JSON parse error";
+            parsed = null;
+        }
+
+        if (!parsed?.title || !parsed?.message) {
+            throw new Error(parseError ?? "Invalid congrats JSON output");
+        }
+
+        const finishedAt = new Date();
+        const durationMs = finishedAt.getTime() - startedAt.getTime();
+
+        // ✅ Log success
+        await Promise.allSettled([
+            ctx.session_id
+                ? createAiGenerationLog({
+                      session_id: ctx.session_id,
+                      user_id: userId,
+
+                      generation_type: "congrats",
+                      source: "generateCongratsForQuest",
+
+                      chapter_quest_id: chapterQuestId,
+                      chapter_id: ctx.chapter_id,
+                      adventure_id: ctx.adventure_id,
+
+                      provider,
+                      model,
+
+                      status: "success",
+                      error_message: null,
+                      error_code: null,
+
+                      started_at: startedAt,
+                      finished_at: finishedAt,
+                      duration_ms: durationMs,
+
+                      request_json: requestJson,
+                      system_text: systemText,
+                      user_input_text: userInputText,
+                      context_json: contextJson,
+
+                      response_json: response,
+                      output_text: outputText,
+                      parsed_json: parsed,
+                      parse_error: parseError,
+
+                      rendered_md: null, // pas de markdown final ici
+
+                      usage_json: response?.usage ?? null,
+                      tags: ["congrats"],
+                      metadata: {
+                          tone,
+                          style,
+                          verbosity,
+                          character_name: character?.name ?? null,
+                          character_emoji: character?.emoji ?? null,
+                      },
+                  })
+                : Promise.resolve(null),
+        ]);
+
+        // ✅ Journal: “résultat dispo”
+        if (ctx.session_id) {
+            await Promise.allSettled([
+                createJournalEntry({
+                    session_id: ctx.session_id,
+                    kind: "note",
+                    title: `🏆 ${safeTrim(parsed.title) || "Bravo"}`,
+                    content: safeTrim(parsed.message) || null,
+                    chapter_id: ctx.chapter_id,
+                    quest_id: null,
+                    adventure_quest_id: null,
+                }),
+            ]);
+        }
+
+        return {
+            congrats: parsed,
+            meta: {
+                model,
+                tone,
+                style,
+                verbosity,
+                character_name: character?.name ?? null,
+                character_emoji: character?.emoji ?? null,
+            },
+        };
+    } catch (e: any) {
+        const finishedAt = new Date();
+        const durationMs = finishedAt.getTime() - startedAt.getTime();
+        const errorMessage = e?.message ? String(e.message) : "OpenAI request failed";
+
+        // ✅ Log error (best-effort)
+        await Promise.allSettled([
+            ctx.session_id
+                ? createAiGenerationLog({
+                      session_id: ctx.session_id,
+                      user_id: userId,
+
+                      generation_type: "congrats",
+                      source: "generateCongratsForQuest",
+
+                      chapter_quest_id: chapterQuestId,
+                      chapter_id: ctx.chapter_id,
+                      adventure_id: ctx.adventure_id,
+
+                      provider,
+                      model,
+
+                      status: "error",
+                      error_message: errorMessage,
+                      error_code: null,
+
+                      started_at: startedAt,
+                      finished_at: finishedAt,
+                      duration_ms: durationMs,
+
+                      request_json: requestJson,
+                      system_text: systemText,
+                      user_input_text: userInputText,
+                      context_json: contextJson,
+
+                      response_json: response,
+                      output_text: outputText,
+                      parsed_json: parsed,
+                      parse_error: parseError,
+
+                      rendered_md: null,
+
+                      usage_json: response?.usage ?? null,
+                      tags: ["congrats", "error"],
+                      metadata: {
+                          tone,
+                          style,
+                          verbosity,
+                          character_name: character?.name ?? null,
+                          character_emoji: character?.emoji ?? null,
+                      },
+                  })
+                : Promise.resolve(null),
+        ]);
+
+        // ✅ Journal: trace soft (pas obligatoire)
+        if (ctx.session_id) {
+            await Promise.allSettled([
+                createJournalEntry({
+                    session_id: ctx.session_id,
+                    kind: "note",
+                    title: "⚠️ Le MJ trébuche",
+                    content: `Échec génération félicitations: ${errorMessage}`,
+                    chapter_id: ctx.chapter_id,
+                    quest_id: null,
+                    adventure_quest_id: null,
+                }),
+            ]);
+        }
+
+        throw new Error(errorMessage);
+    }
 }

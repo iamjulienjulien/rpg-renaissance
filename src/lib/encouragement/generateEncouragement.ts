@@ -2,6 +2,10 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import { openai } from "@/lib/openai";
 
+// ✅ Logs + Journal
+import { createAiGenerationLog } from "@/lib/logs/createAiGenerationLog";
+import { createJournalEntry } from "@/lib/journal/createJournalEntry";
+
 /* ============================================================================
 🧠 TYPES
 ============================================================================ */
@@ -33,12 +37,31 @@ export type EncouragementContext = {
     mission_md?: string | null;
 };
 
+type LoadedContexts = {
+    session_id: string | null;
+    chapter_id: string | null;
+    adventure_id: string | null;
+    adventure_context_text: string | null;
+    chapter_context_text: string | null;
+};
+
+type EncouragementJson = {
+    title: string;
+    message: string;
+};
+
 /* ============================================================================
 🧰 HELPERS
 ============================================================================ */
 
 function safeTrim(x: unknown): string {
     return typeof x === "string" ? x.trim() : "";
+}
+
+function normalizeSingle<T>(x: T | T[] | null | undefined): T | null {
+    if (!x) return null;
+    if (Array.isArray(x)) return x[0] ?? null;
+    return x;
 }
 
 function difficultyLabel(d?: number | null) {
@@ -92,7 +115,7 @@ async function loadPlayerContextByUserId(userId: string): Promise<PlayerContext>
     }
 
     const display_name = safeTrim((data as any)?.display_name) || null;
-    const c = (data as any)?.characters ?? null;
+    const c = normalizeSingle((data as any)?.characters);
 
     if (!c) return { display_name, character: null };
 
@@ -110,16 +133,14 @@ async function loadPlayerContextByUserId(userId: string): Promise<PlayerContext>
 }
 
 /**
- * ✅ Contexte global (aventure) + spécifique (chapitre) depuis chapter_quest_id
- * chapter_quests -> chapters(context_text, adventure_id) -> adventures(context_text)
+ * ✅ Contextes (aligné generateMission / generateCongrats):
+ * - chapter_quests -> chapter_id + session_id
+ * - chapters -> context_text + adventure_id
+ * - adventures -> context_text
+ *
+ * ⚠️ Note: on garde des noms *_text (harmonisés) pour éviter confusion.
  */
-async function loadContextsByChapterQuestId(chapterQuestId: string): Promise<{
-    session_id: string | null;
-    chapter_id: string | null;
-    adventure_id: string | null;
-    adventure_context: string | null;
-    chapter_context: string | null;
-}> {
+async function loadContextsForChapterQuest(chapterQuestId: string): Promise<LoadedContexts> {
     const supabase = await supabaseServer();
 
     // 1) chapter_quests -> session_id + chapter_id
@@ -130,77 +151,74 @@ async function loadContextsByChapterQuestId(chapterQuestId: string): Promise<{
         .maybeSingle();
 
     if (cqErr) {
-        console.warn("loadContextsByChapterQuestId: chapter_quests warning:", cqErr.message);
+        console.warn("loadContextsForChapterQuest chapter_quests warning:", cqErr.message);
         return {
             session_id: null,
             chapter_id: null,
             adventure_id: null,
-            adventure_context: null,
-            chapter_context: null,
+            adventure_context_text: null,
+            chapter_context_text: null,
+        };
+    }
+
+    if (!cq) {
+        return {
+            session_id: null,
+            chapter_id: null,
+            adventure_id: null,
+            adventure_context_text: null,
+            chapter_context_text: null,
         };
     }
 
     const session_id = (cq as any)?.session_id ?? null;
     const chapter_id = (cq as any)?.chapter_id ?? null;
 
-    if (!chapter_id) {
-        return {
-            session_id,
-            chapter_id: null,
-            adventure_id: null,
-            adventure_context: null,
-            chapter_context: null,
-        };
-    }
-
     // 2) chapters -> context_text + adventure_id
-    const { data: ch, error: chErr } = await supabase
-        .from("chapters")
-        .select("context_text, adventure_id")
-        .eq("id", chapter_id)
-        .maybeSingle();
+    let adventure_id: string | null = null;
+    let chapter_context_text: string | null = null;
 
-    if (chErr) {
-        console.warn("loadContextsByChapterQuestId: chapters warning:", chErr.message);
-        return {
-            session_id,
-            chapter_id,
-            adventure_id: null,
-            adventure_context: null,
-            chapter_context: null,
-        };
-    }
+    if (chapter_id) {
+        const { data: ch, error: chErr } = await supabase
+            .from("chapters")
+            .select("context_text, adventure_id")
+            .eq("id", chapter_id)
+            .maybeSingle();
 
-    const chapterCtx = safeTrim((ch as any)?.context_text);
-    const chapter_context = chapterCtx.length ? chapterCtx : null;
-
-    const adventure_id = (ch as any)?.adventure_id ?? null;
-    if (!adventure_id) {
-        return {
-            session_id,
-            chapter_id,
-            adventure_id: null,
-            adventure_context: null,
-            chapter_context,
-        };
+        if (chErr) {
+            console.warn("loadContextsForChapterQuest chapters warning:", chErr.message);
+        } else {
+            const ctx = safeTrim((ch as any)?.context_text);
+            chapter_context_text = ctx.length ? ctx : null;
+            adventure_id = (ch as any)?.adventure_id ?? null;
+        }
     }
 
     // 3) adventures -> context_text
-    const { data: adv, error: advErr } = await supabase
-        .from("adventures")
-        .select("context_text")
-        .eq("id", adventure_id)
-        .maybeSingle();
+    let adventure_context_text: string | null = null;
 
-    if (advErr) {
-        console.warn("loadContextsByChapterQuestId: adventures warning:", advErr.message);
-        return { session_id, chapter_id, adventure_id, adventure_context: null, chapter_context };
+    if (adventure_id) {
+        const { data: adv, error: advErr } = await supabase
+            .from("adventures")
+            .select("context_text")
+            .eq("id", adventure_id)
+            .maybeSingle();
+
+        if (advErr) {
+            console.warn("loadContextsForChapterQuest adventures warning:", advErr.message);
+        } else {
+            const advCtx = safeTrim((adv as any)?.context_text);
+            adventure_context_text = advCtx.length ? advCtx : null;
+        }
     }
 
-    const advCtx = safeTrim((adv as any)?.context_text);
-    const adventure_context = advCtx.length ? advCtx : null;
-
-    return { session_id, chapter_id, adventure_id, adventure_context, chapter_context };
+    return {
+        session_id,
+        chapter_id,
+        adventure_id,
+        adventure_context_text,
+        chapter_context_text,
+    };
 }
 
 /* ============================================================================
@@ -213,6 +231,10 @@ async function loadContextsByChapterQuestId(chapterQuestId: string): Promise<{
  * - Utilise 2 contextes:
  *   - adventures.context_text = contexte global
  *   - chapters.context_text   = contexte chapitre
+ *
+ * ✅ Ajouts:
+ * - Log BDD (ai_generations)
+ * - Entrée journal (trace visible “jeu”)
  */
 export async function generateEncouragementForQuest(input: EncouragementContext) {
     const supabase = await supabaseServer();
@@ -224,6 +246,12 @@ export async function generateEncouragementForQuest(input: EncouragementContext)
     const userId = authData?.user?.id ?? "";
     if (!userId) throw new Error("Not authenticated");
 
+    const chapterQuestId = safeTrim(input.chapter_quest_id);
+    if (!chapterQuestId) throw new Error("Missing chapter_quest_id");
+
+    // 0) Contextes (global aventure + chapitre)
+    const ctx = await loadContextsForChapterQuest(chapterQuestId);
+
     // 1) Style joueur/personnage
     const player = await loadPlayerContextByUserId(userId);
     const playerName = player.display_name;
@@ -234,19 +262,9 @@ export async function generateEncouragementForQuest(input: EncouragementContext)
     const verbosity = character?.ai_style?.verbosity ?? "normal";
     const rules = verbosityRules(verbosity);
 
-    // 2) Contextes (global aventure + chapitre)
-    const ctx = input.chapter_quest_id
-        ? await loadContextsByChapterQuestId(input.chapter_quest_id)
-        : {
-              session_id: null,
-              chapter_id: null,
-              adventure_id: null,
-              adventure_context: null,
-              chapter_context: null,
-          };
-
-    // 3) Génération OpenAI
+    // 2) Préparer OpenAI request
     const model = "gpt-4.1";
+    const provider = "openai";
 
     const systemText = [
         `Tu es le Maître du Jeu de Renaissance.`,
@@ -261,13 +279,13 @@ export async function generateEncouragementForQuest(input: EncouragementContext)
             : `Le joueur n'a pas de nom affiché. N'invente pas de prénom.`,
 
         // ✅ Contexte global (aventure)
-        ctx.adventure_context
-            ? `CONTEXTE GLOBAL D’AVENTURE (cadre général, priorités, contraintes globales, objectifs long-terme):\n${ctx.adventure_context}`
+        ctx.adventure_context_text
+            ? `CONTEXTE GLOBAL D’AVENTURE (cadre général, priorités, contraintes globales, objectifs long-terme):\n${ctx.adventure_context_text}`
             : `CONTEXTE GLOBAL D’AVENTURE: (aucun fourni).`,
 
         // ✅ Contexte spécifique (chapitre)
-        ctx.chapter_context
-            ? `CONTEXTE SPÉCIFIQUE DE CE CHAPITRE (focus local, angle du moment; c’est une partie de l’aventure):\n${ctx.chapter_context}`
+        ctx.chapter_context_text
+            ? `CONTEXTE SPÉCIFIQUE DE CE CHAPITRE (focus local, angle du moment; c’est une partie de l’aventure):\n${ctx.chapter_context_text}`
             : `CONTEXTE SPÉCIFIQUE DE CE CHAPITRE: (aucun fourni).`,
 
         `Règle d’or: si les deux contextes existent, respecte le global en premier, puis adapte finement au chapitre.`,
@@ -281,39 +299,33 @@ export async function generateEncouragementForQuest(input: EncouragementContext)
         .filter(Boolean)
         .join("\n");
 
-    const userContext = {
+    const contextJson = {
         quest_title: safeTrim(input.quest_title) || "Quête",
         room_code: input.room_code ?? null,
         difficulty: difficultyLabel(input.difficulty),
         mission_hint: safeTrim(input.mission_md ?? "").slice(0, 800) || null,
 
-        // utile à l’IA (redondant mais clair)
-        adventure_context: ctx.adventure_context ?? "",
-        chapter_context: ctx.chapter_context ?? "",
+        // ✅ Hiérarchie explicite (utile au modèle)
+        adventure_context: ctx.adventure_context_text ?? "",
+        chapter_context: ctx.chapter_context_text ?? "",
 
-        // debug soft si besoin (sans être obligatoire)
+        // ids best-effort (utile debug)
         session_id: ctx.session_id,
         chapter_id: ctx.chapter_id,
         adventure_id: ctx.adventure_id,
     };
 
-    const response = await openai.responses.create({
+    const userInputText =
+        `Contexte:\n${JSON.stringify(contextJson, null, 2)}\n\n` +
+        `Génère:\n` +
+        `- title (court, 2 à 5 mots)\n` +
+        `- message (encouragement)\n`;
+
+    const requestJson = {
         model,
         input: [
             { role: "system", content: [{ type: "input_text", text: systemText }] },
-            {
-                role: "user",
-                content: [
-                    {
-                        type: "input_text",
-                        text:
-                            `Contexte:\n${JSON.stringify(userContext, null, 2)}\n\n` +
-                            `Génère:\n` +
-                            `- title (court, 2 à 5 mots)\n` +
-                            `- message (encouragement)\n`,
-                    },
-                ],
-            },
+            { role: "user", content: [{ type: "input_text", text: userInputText }] },
         ],
         text: {
             format: {
@@ -330,19 +342,195 @@ export async function generateEncouragementForQuest(input: EncouragementContext)
                 },
             },
         },
-    });
-
-    const encouragement = JSON.parse(response.output_text);
-
-    return {
-        encouragement,
-        meta: {
-            model,
-            tone,
-            style,
-            verbosity,
-            character_name: character?.name ?? null,
-            character_emoji: character?.emoji ?? null,
-        },
     };
+
+    // 3) Timing + journal start
+    const startedAt = new Date();
+
+    if (ctx.session_id) {
+        await Promise.allSettled([
+            createJournalEntry({
+                session_id: ctx.session_id,
+                kind: "note",
+                title: "💪 Le MJ rallume la braise",
+                content: `Génération d’encouragement pour: ${safeTrim(input.quest_title) || "Quête"}.`,
+                chapter_id: ctx.chapter_id,
+                quest_id: null,
+                adventure_quest_id: null,
+            }),
+        ]);
+    }
+
+    // 4) OpenAI call + parsing
+    let response: any = null;
+    let outputText: string | null = null;
+    let parsed: EncouragementJson | null = null;
+    let parseError: string | null = null;
+
+    try {
+        response = await openai.responses.create(requestJson as any);
+        outputText = typeof response?.output_text === "string" ? response.output_text : null;
+
+        try {
+            parsed = outputText ? (JSON.parse(outputText) as EncouragementJson) : null;
+        } catch (e: any) {
+            parseError = e?.message ? String(e.message) : "JSON parse error";
+            parsed = null;
+        }
+
+        if (!parsed?.title || !parsed?.message) {
+            throw new Error(parseError ?? "Invalid encouragement JSON output");
+        }
+
+        const finishedAt = new Date();
+        const durationMs = finishedAt.getTime() - startedAt.getTime();
+
+        // ✅ Log success
+        await Promise.allSettled([
+            ctx.session_id
+                ? createAiGenerationLog({
+                      session_id: ctx.session_id,
+                      user_id: userId,
+
+                      generation_type: "encouragement",
+                      source: "generateEncouragementForQuest",
+
+                      chapter_quest_id: chapterQuestId,
+                      chapter_id: ctx.chapter_id,
+                      adventure_id: ctx.adventure_id,
+
+                      provider,
+                      model,
+
+                      status: "success",
+                      error_message: null,
+                      error_code: null,
+
+                      started_at: startedAt,
+                      finished_at: finishedAt,
+                      duration_ms: durationMs,
+
+                      request_json: requestJson,
+                      system_text: systemText,
+                      user_input_text: userInputText,
+                      context_json: contextJson,
+
+                      response_json: response,
+                      output_text: outputText,
+                      parsed_json: parsed,
+                      parse_error: parseError,
+
+                      rendered_md: null,
+
+                      usage_json: response?.usage ?? null,
+                      tags: ["encouragement"],
+                      metadata: {
+                          tone,
+                          style,
+                          verbosity,
+                          character_name: character?.name ?? null,
+                          character_emoji: character?.emoji ?? null,
+                      },
+                  })
+                : Promise.resolve(null),
+        ]);
+
+        // ✅ Journal: résultat dispo
+        if (ctx.session_id) {
+            await Promise.allSettled([
+                createJournalEntry({
+                    session_id: ctx.session_id,
+                    kind: "note",
+                    title: `✨ ${safeTrim(parsed.title) || "Courage"}`,
+                    content: safeTrim(parsed.message) || null,
+                    chapter_id: ctx.chapter_id,
+                    quest_id: null,
+                    adventure_quest_id: null,
+                }),
+            ]);
+        }
+
+        return {
+            encouragement: parsed,
+            meta: {
+                model,
+                tone,
+                style,
+                verbosity,
+                character_name: character?.name ?? null,
+                character_emoji: character?.emoji ?? null,
+            },
+        };
+    } catch (e: any) {
+        const finishedAt = new Date();
+        const durationMs = finishedAt.getTime() - startedAt.getTime();
+        const errorMessage = e?.message ? String(e.message) : "OpenAI request failed";
+
+        // ✅ Log error (best-effort)
+        await Promise.allSettled([
+            ctx.session_id
+                ? createAiGenerationLog({
+                      session_id: ctx.session_id,
+                      user_id: userId,
+
+                      generation_type: "encouragement",
+                      source: "generateEncouragementForQuest",
+
+                      chapter_quest_id: chapterQuestId,
+                      chapter_id: ctx.chapter_id,
+                      adventure_id: ctx.adventure_id,
+
+                      provider,
+                      model,
+
+                      status: "error",
+                      error_message: errorMessage,
+                      error_code: null,
+
+                      started_at: startedAt,
+                      finished_at: finishedAt,
+                      duration_ms: durationMs,
+
+                      request_json: requestJson,
+                      system_text: systemText,
+                      user_input_text: userInputText,
+                      context_json: contextJson,
+
+                      response_json: response,
+                      output_text: outputText,
+                      parsed_json: parsed,
+                      parse_error: parseError,
+
+                      rendered_md: null,
+
+                      usage_json: response?.usage ?? null,
+                      tags: ["encouragement", "error"],
+                      metadata: {
+                          tone,
+                          style,
+                          verbosity,
+                          character_name: character?.name ?? null,
+                          character_emoji: character?.emoji ?? null,
+                      },
+                  })
+                : Promise.resolve(null),
+        ]);
+
+        // ✅ Journal: trace soft
+        if (ctx.session_id) {
+            await Promise.allSettled([
+                createJournalEntry({
+                    session_id: ctx.session_id,
+                    kind: "note",
+                    title: "⚠️ Le MJ perd le souffle",
+                    content: `Échec génération encouragement: ${errorMessage}`,
+                    chapter_id: ctx.chapter_id,
+                    quest_id: null,
+                    adventure_quest_id: null,
+                }),
+            ]);
+        }
+
+        throw new Error(errorMessage);
+    }
 }
