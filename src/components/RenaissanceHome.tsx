@@ -198,28 +198,31 @@ export default function RenaissanceHome() {
                                             🧙‍♀️ PERSONNAGE
                                         </div>
 
-                                        <div className="mt-2 inline-flex max-w-[320px] items-center gap-3 rounded-2xl bg-black/25 text-right">
+                                        <div className="mt-2 inline-flex max-w-[320px] items-center gap-3 rounded-2xl text-right">
                                             {/* 🧾 Infos */}
                                             <div className="min-w-0 text-left">
                                                 <div className="truncate text- font-semibold text-white/80">
+                                                    {activeCharacter?.emoji ?? "🧙"}{" "}
                                                     {activeCharacter?.name ?? "Aucun personnage"}
                                                 </div>
 
                                                 <div className="mt-0.5 truncate textx] text-white/60 text-right">
-                                                    {activeCharacter
-                                                        ? `${activeCharacter.emoji ?? "🧙"} ${activeCharacter.archetype ?? "Aventure"}`
-                                                        : "Choisis un avatar pour colorer le ton"}
+                                                    {activeCharacter && (
+                                                        <div className="mt-1 text-xs text-white/70 line-clamp-2">
+                                                            {activeCharacter.vibe}
+                                                        </div>
+                                                    )}
                                                 </div>
 
-                                                {/* {activeCharacter?.motto ? (
+                                                {activeCharacter?.motto ? (
                                                     <div className="mt-1 truncate text-[11px] text-white/40">
                                                         “{activeCharacter.motto}”
                                                     </div>
-                                                ) : null} */}
+                                                ) : null}
                                             </div>
 
                                             {/* 🖼️ Avatar */}
-                                            <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10">
+                                            <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10">
                                                 {activeCharacter?.code ? (
                                                     <img
                                                         src={`/assets/images/characters/${activeCharacter.code}.png`}
@@ -337,14 +340,12 @@ export default function RenaissanceHome() {
                     </div>
                 </div>
 
-                {/* Footer note */}
-                <div className="mt-8 rounded-2xl bg-black/20 p-4 ring-1 ring-white/10">
-                    <div className="text-xs tracking-[0.18em] text-white/55">🧠 NOTE</div>
-                    <div className="mt-2 rpg-text-sm text-white/60">
-                        Ton flow cible: <span className="text-white/80">Aventure</span> →{" "}
-                        <span className="text-white/80">Backlog de quêtes (IA)</span> →{" "}
-                        <span className="text-white/80">Chapitre</span> →{" "}
-                        <span className="text-white/80">Quêtes jouées</span>.
+                {/* Footer */}
+                <div className="mt-20 text-xs text-white/45">
+                    <div className="h-px w-full bg-gradient-to-r from-white/0 via-white/15 to-white/0" />
+                    <div className="mt-3 flex items-center justify-between">
+                        <span>© Renaissance</span>
+                        <span className="hidden sm:inline">A game by @iamjulienjulien</span>
                     </div>
                 </div>
             </div>

@@ -139,7 +139,7 @@ export default function RpgShell({
                         <div className="h-px w-full bg-gradient-to-r from-white/0 via-white/15 to-white/0" />
                         <div className="mt-3 flex items-center justify-between">
                             <span>© Renaissance</span>
-                            <span className="hidden sm:inline">By @iamjulienjulien</span>
+                            <span className="hidden sm:inline">A game by @iamjulienjulien</span>
                         </div>
                     </div>
 

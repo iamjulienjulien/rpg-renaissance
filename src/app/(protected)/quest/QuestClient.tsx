@@ -106,6 +106,10 @@ export default function QuestClient() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // useEffect(() => {
+    //     console.log("quest", quest);
+    // }, [quest]);
+
     const questJournal = React.useMemo(() => {
         if (!quest?.id) return [];
 

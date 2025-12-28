@@ -40,6 +40,11 @@ export type AdventureQuest = {
     estimate_min: number | null;
 };
 
+export type AdventureQuestWithStatus = AdventureQuest & {
+    status: "todo" | "doing" | "done" | null;
+    created_at?: string;
+};
+
 type AdventureRoom = {
     id: string;
     adventure_id: string;
@@ -81,6 +86,15 @@ export type Chapter = {
     pace: "calme" | "standard" | "intense";
     status: "draft" | "active" | "done";
     created_at: string;
+};
+
+export type CreateAdventureQuestInput = {
+    adventure_id: string;
+    room_code: string | null;
+    title: string;
+    description?: string | null;
+    difficulty?: 1 | 2 | 3;
+    estimate_min?: number | null;
 };
 
 /** 🎭 Style IA (voix) */
@@ -173,6 +187,22 @@ export type ChapterStoryRow = {
     updated_at: string;
     created_at?: string;
 };
+
+export type ReloadKey =
+    | "session"
+    | "characters"
+    | "profile"
+    | "chapter"
+    | "renown"
+    | "adventureTypes"
+    | "adventure"
+    | "chapterQuests"
+    | "backlog"
+    | "rooms"
+    | "roomTemplates"
+    | "chaptersByAdventure";
+
+export type ReloadInput = ReloadKey | ReloadKey[];
 
 /* ============================================================================
 🧰 HELPERS (logiques locales, sans état)
@@ -288,6 +318,7 @@ type GameStore = {
     currentAdventure: Adventure | null;
     currentChapter: Chapter | null;
     currentQuests: ChapterQuestFull[];
+    currentChapterQuests: ChapterQuestFull[];
     currentCharacter: Character | null;
 
     /* --------------------------- 🗺️ ADVENTURE --------------------------- */
@@ -387,13 +418,21 @@ type GameStore = {
 
     // actions
     bootstrap: () => Promise<void>;
+    reload: (what: ReloadInput, opts?: { silent?: boolean }) => Promise<void>;
     refreshProfile: () => Promise<void>;
     activateCharacter: (characterId: string) => Promise<void>;
     loadActiveCharacter: () => Promise<void>;
 
+    /* ---------------------------- 🧺 BACKLOG ---------------------------- */
+    adventureBacklog: AdventureQuestWithStatus[];
+    adventureBacklogLoading: boolean;
+    loadAdventureBacklog: (adventureId: string) => Promise<AdventureQuestWithStatus[]>;
+
     /* ---------------------------- ⚔️ QUESTS ----------------------------- */
+
     startQuest: (chapterQuestId: string, quest?: QuestLite | null) => Promise<any | null>;
     finishQuest: (chapterQuestId: string, quest?: QuestLite | null) => Promise<any | null>;
+    createAdventureQuest: (input: CreateAdventureQuestInput) => Promise<AdventureQuest | null>;
     assignQuestToCurrentChapter: (adventureQuestId: string) => Promise<boolean>;
     unassignQuestFromChapter: (
         chapterQuestId: string,
@@ -470,6 +509,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         currentAdventure: null,
         currentChapter: null,
         currentQuests: [],
+        currentChapterQuests: [],
         currentCharacter: null,
 
         rooms: [],
@@ -1193,30 +1233,47 @@ export const useGameStore = create<GameStore>((set, get) => {
 
                 // Dépend du chapitre (best-effort)
                 let currentAdventure: Adventure | null = null;
+                let currentChapterQuests: ChapterQuestFull[] = [];
                 let currentQuests: ChapterQuestFull[] = [];
                 let rooms: AdventureRoom[] = [];
                 let templates: RoomTemplate[] = [];
+                let adventureBacklog: AdventureQuestWithStatus[] = [];
 
                 if (chapter?.id) {
-                    const [advRes, questsRes, roomsRes, templatesRes] = await Promise.allSettled([
-                        chapter.adventure_id
-                            ? fetch(
-                                  `/api/adventures?id=${encodeURIComponent(chapter.adventure_id)}`,
-                                  { cache: "no-store" }
-                              )
-                            : Promise.resolve(null as any),
-                        fetch(
-                            `/api/chapter-quests?status=doing&chapterId=${encodeURIComponent(chapter.id)}`,
-                            { cache: "no-store" }
-                        ),
-                        chapter.adventure_id
-                            ? fetch(
-                                  `/api/adventure-rooms?adventureId=${encodeURIComponent(chapter.adventure_id)}`,
-                                  { cache: "no-store" }
-                              )
-                            : Promise.resolve(null as any),
-                        fetch("/api/room-templates", { cache: "no-store" }),
-                    ]);
+                    const [advRes, questsRes, roomsRes, templatesRes, backlogRes] =
+                        await Promise.allSettled([
+                            chapter.adventure_id
+                                ? fetch(
+                                      `/api/adventures?id=${encodeURIComponent(
+                                          chapter.adventure_id
+                                      )}`,
+                                      { cache: "no-store" }
+                                  )
+                                : Promise.resolve(null as any),
+                            fetch(
+                                `/api/chapter-quests?chapterId=${encodeURIComponent(chapter.id)}`,
+                                {
+                                    cache: "no-store",
+                                }
+                            ),
+                            chapter.adventure_id
+                                ? fetch(
+                                      `/api/adventure-rooms?adventureId=${encodeURIComponent(
+                                          chapter.adventure_id
+                                      )}`,
+                                      { cache: "no-store" }
+                                  )
+                                : Promise.resolve(null as any),
+                            fetch("/api/room-templates", { cache: "no-store" }),
+                            chapter.adventure_id
+                                ? fetch(
+                                      `/api/adventure-quests?adventureId=${encodeURIComponent(
+                                          chapter.adventure_id
+                                      )}`,
+                                      { cache: "no-store" }
+                                  )
+                                : Promise.resolve(null as any),
+                        ]);
 
                     if (advRes.status === "fulfilled" && advRes.value) {
                         const advJson = await fetchJson(advRes.value);
@@ -1227,7 +1284,12 @@ export const useGameStore = create<GameStore>((set, get) => {
                     if (questsRes.status === "fulfilled") {
                         const qJson = await fetchJson(questsRes.value);
                         if (questsRes.value.ok)
-                            currentQuests = (qJson?.items ?? []) as ChapterQuestFull[];
+                            currentChapterQuests = (qJson?.items ?? []) as ChapterQuestFull[];
+
+                        // 🔎 "currentQuests" = doing uniquement (utilisé ailleurs)
+                        currentQuests = (currentChapterQuests ?? []).filter(
+                            (q) => q.status === "doing"
+                        );
                     }
 
                     if (roomsRes.status === "fulfilled") {
@@ -1240,24 +1302,37 @@ export const useGameStore = create<GameStore>((set, get) => {
                         if (templatesRes.value.ok)
                             templates = (roomTemplatesJson?.templates ?? []) as RoomTemplate[];
                     }
+
+                    if (backlogRes.status === "fulfilled" && backlogRes.value) {
+                        const bJson = await fetchJson(backlogRes.value);
+                        if (backlogRes.value.ok) {
+                            const list = (bJson?.quests ?? []) as AdventureQuestWithStatus[];
+                            adventureBacklog = Array.isArray(list) ? list : [];
+                        }
+                    }
                 }
 
                 set({
                     characters,
                     rooms,
+                    templates,
                     profile,
                     selectedId,
                     currentCharacter,
+
                     chapter,
-                    renown,
                     currentChapter: chapter,
+
                     currentAdventure,
+                    currentChapterQuests,
                     currentQuests,
+
+                    adventureBacklog,
+
+                    renown,
                     adventureTypes,
-                    templates,
                 });
 
-                // Précharge la liste des chapitres de l’aventure (best-effort)
                 if (currentAdventure?.id) {
                     void get().getChaptersByAdventure(currentAdventure.id);
                 }
@@ -1266,12 +1341,21 @@ export const useGameStore = create<GameStore>((set, get) => {
                     characters: [],
                     profile: null,
                     selectedId: null,
+
                     chapter: null,
-                    renown: null,
                     currentChapter: null,
+
                     currentAdventure: null,
+
                     currentQuests: [],
+                    currentChapterQuests: [],
+
+                    adventureBacklog: [],
+
+                    renown: null,
                     adventureTypes: [],
+                    rooms: [],
+                    templates: [],
                     error: e instanceof Error ? e.message : "Bootstrap failed",
                 });
             } finally {
@@ -1281,6 +1365,234 @@ export const useGameStore = create<GameStore>((set, get) => {
                     renownLoading: false,
                 });
                 console.info("🏁 bootstrap End");
+            }
+        },
+
+        reload: async (what, opts) => {
+            const silent = !!opts?.silent;
+
+            const input = Array.isArray(what) ? what : [what];
+            const requested = new Set<ReloadKey>(input as ReloadKey[]);
+
+            // Dépendances auto
+            if (requested.has("chapter")) {
+                requested.add("adventure");
+                requested.add("chapterQuests");
+                requested.add("backlog");
+                requested.add("rooms");
+                requested.add("roomTemplates");
+            }
+            if (requested.has("adventure")) {
+                requested.add("chaptersByAdventure");
+            }
+            if (requested.has("session")) {
+                requested.add("renown");
+            }
+
+            if (!silent) {
+                set((s) => ({
+                    error: null,
+                    loading:
+                        requested.has("chapter") ||
+                        requested.has("adventure") ||
+                        requested.has("chapterQuests") ||
+                        requested.has("backlog")
+                            ? true
+                            : s.loading,
+                    characterLoading:
+                        requested.has("characters") || requested.has("profile")
+                            ? true
+                            : s.characterLoading,
+                    renownLoading: requested.has("renown") ? true : s.renownLoading,
+                }));
+            }
+
+            const safeFetch = async (url: string) => {
+                const res = await fetch(url, { cache: "no-store" });
+                const json = await fetchJson(res);
+                return { ok: res.ok, json, statusText: res.statusText };
+            };
+
+            try {
+                // 1) sessionId si nécessaire
+                let sessionId = useSessionStore.getState().activeSessionId ?? null;
+
+                if (requested.has("session") || (requested.has("renown") && !sessionId)) {
+                    const sessionRes = await apiGet<{ session: GameSession | null }>(
+                        "/api/session/active"
+                    );
+                    if (!sessionRes.ok)
+                        throw new Error(sessionRes.error ?? "Failed to load session");
+                    sessionId = sessionRes.data?.session?.id ?? null;
+                }
+
+                // 2) Blocs indépendants
+                const jobs: Array<Promise<void>> = [];
+
+                if (requested.has("characters")) {
+                    jobs.push(
+                        (async () => {
+                            const r = await safeFetch("/api/characters");
+                            if (!r.ok)
+                                throw new Error(r.json?.error ?? "Failed to load characters");
+                            const characters = (r.json?.characters ?? []) as Character[];
+                            set({ characters });
+                        })()
+                    );
+                }
+
+                if (requested.has("profile")) {
+                    jobs.push(
+                        (async () => {
+                            const r = await safeFetch("/api/profile/character");
+                            if (!r.ok) {
+                                set({ profile: null, selectedId: null, currentCharacter: null });
+                                return;
+                            }
+
+                            const profile = (r.json?.profile ?? null) as Profile;
+
+                            set((s) => {
+                                const selectedId = (profile?.character_id ?? null) as string | null;
+                                const currentCharacter = selectedId
+                                    ? (s.characters.find((c) => c.id === selectedId) ?? null)
+                                    : (profile?.character ?? null);
+
+                                return { profile, selectedId, currentCharacter };
+                            });
+                        })()
+                    );
+                }
+
+                if (requested.has("adventureTypes")) {
+                    jobs.push(
+                        (async () => {
+                            const r = await safeFetch("/api/adventure-types");
+                            if (!r.ok) return;
+                            const adventureTypes = (r.json?.adventureTypes ??
+                                []) as AdventureType[];
+                            set({ adventureTypes });
+                        })()
+                    );
+                }
+
+                if (requested.has("chapter")) {
+                    jobs.push(
+                        (async () => {
+                            const r = await safeFetch("/api/chapters?latest=1");
+                            if (!r.ok) {
+                                set({
+                                    chapter: null,
+                                    currentChapter: null,
+                                    currentAdventure: null,
+                                    currentQuests: [],
+                                    currentChapterQuests: [],
+                                    adventureBacklog: [],
+                                    rooms: [],
+                                });
+                                return;
+                            }
+
+                            const chapter = (r.json?.chapter ?? null) as Chapter | null;
+                            set({ chapter, currentChapter: chapter });
+                        })()
+                    );
+                }
+
+                if (requested.has("renown")) {
+                    jobs.push(
+                        (async () => {
+                            if (!sessionId) {
+                                set({ renown: null });
+                                return;
+                            }
+                            const r = await safeFetch(
+                                `/api/renown?session_id=${encodeURIComponent(sessionId)}`
+                            );
+                            if (!r.ok) return;
+                            const renown = (r.json?.renown ?? null) as Renown | null;
+                            set({ renown });
+                        })()
+                    );
+                }
+
+                await Promise.all(jobs);
+
+                // 3) Dépendants du chapitre/adventure_id
+                const chapter = get().chapter ?? get().currentChapter ?? null;
+                const adventureId = chapter?.adventure_id ?? null;
+
+                if (requested.has("adventure")) {
+                    if (!adventureId) {
+                        set({ currentAdventure: null });
+                    } else {
+                        const r = await safeFetch(
+                            `/api/adventures?id=${encodeURIComponent(adventureId)}`
+                        );
+                        if (r.ok)
+                            set({
+                                currentAdventure: (r.json?.adventure ?? null) as Adventure | null,
+                            });
+                    }
+                }
+
+                if (requested.has("chapterQuests")) {
+                    if (!chapter?.id) {
+                        set({ currentQuests: [], currentChapterQuests: [] });
+                    } else {
+                        const r = await safeFetch(
+                            `/api/chapter-quests?chapterId=${encodeURIComponent(chapter.id)}`
+                        );
+                        if (r.ok) {
+                            const items = (r.json?.items ?? []) as ChapterQuestFull[];
+                            const list = Array.isArray(items) ? items : [];
+                            set({
+                                currentChapterQuests: list,
+                                currentQuests: list.filter((q) => q.status === "doing"),
+                            });
+                        }
+                    }
+                }
+
+                if (requested.has("backlog")) {
+                    if (!adventureId) {
+                        set({ adventureBacklog: [] });
+                    } else {
+                        await get().loadAdventureBacklog(adventureId);
+                    }
+                }
+
+                if (requested.has("rooms")) {
+                    if (!adventureId) {
+                        set({ rooms: [] });
+                    } else {
+                        const r = await safeFetch(
+                            `/api/adventure-rooms?adventureId=${encodeURIComponent(adventureId)}`
+                        );
+                        if (r.ok) set({ rooms: (r.json?.rooms ?? []) as any[] });
+                    }
+                }
+
+                if (requested.has("roomTemplates")) {
+                    const r = await safeFetch("/api/room-templates");
+                    if (r.ok) set({ templates: (r.json?.templates ?? []) as any[] });
+                }
+
+                if (requested.has("chaptersByAdventure")) {
+                    const advId = get().currentAdventure?.id ?? adventureId ?? null;
+                    if (advId) void get().getChaptersByAdventure(advId);
+                }
+            } catch (e) {
+                const msg = e instanceof Error ? e.message : "Reload failed";
+                set({ error: msg });
+            } finally {
+                if (!silent) {
+                    set({
+                        loading: false,
+                        characterLoading: false,
+                        renownLoading: false,
+                    });
+                }
             }
         },
 
@@ -1348,6 +1660,42 @@ export const useGameStore = create<GameStore>((set, get) => {
 
         loadActiveCharacter: async () => {
             await get().refreshProfile();
+        },
+
+        /* =========================================================================
+        🧺 BACKLOG (nouveau)
+        ========================================================================= */
+
+        adventureBacklog: [],
+        adventureBacklogLoading: false,
+
+        loadAdventureBacklog: async (adventureId: string) => {
+            const id = (adventureId ?? "").trim();
+            if (!id) {
+                set({ adventureBacklog: [] });
+                return [];
+            }
+
+            set({ adventureBacklogLoading: true });
+
+            try {
+                const res = await apiGet<{ quests: AdventureQuestWithStatus[] }>(
+                    `/api/adventure-quests?adventureId=${encodeURIComponent(id)}`
+                );
+
+                if (!res.ok) {
+                    set({ adventureBacklog: [] });
+                    return [];
+                }
+
+                const quests = (res.data as any)?.quests ?? [];
+                const list = Array.isArray(quests) ? quests : [];
+
+                set({ adventureBacklog: list });
+                return list;
+            } finally {
+                set({ adventureBacklogLoading: false });
+            }
         },
 
         /* =========================================================================
@@ -1474,6 +1822,45 @@ export const useGameStore = create<GameStore>((set, get) => {
             }
         },
 
+        createAdventureQuest: async (input) => {
+            const toast = useToastStore.getState();
+
+            const adventure_id = (input?.adventure_id ?? "").trim();
+            const title = (input?.title ?? "").trim();
+
+            if (!adventure_id || !title) {
+                toast.error("Quête", "Titre ou aventure manquant.");
+                return null;
+            }
+
+            const res = await apiPost<{ quest: AdventureQuest }>("/api/adventure-quests", {
+                adventure_id,
+                room_code: input.room_code ?? null,
+                title,
+                description: input.description ?? null,
+                difficulty: input.difficulty ?? 2,
+                estimate_min: input.estimate_min ?? null,
+            });
+
+            if (!res.ok) {
+                toast.error("Quête", res.error ?? "Création impossible");
+                return null;
+            }
+
+            const quest = (res.data as any)?.quest as AdventureQuest | undefined;
+            if (!quest?.id) {
+                toast.error("Quête", "Création impossible (réponse vide)");
+                return null;
+            }
+
+            toast.success("Quête créée", `📜 ${quest.title}`);
+
+            // ✅ refresh backlog (et éventuellement chapitreQuests si écran chapitre ouvert)
+            void get().reload(["backlog"], { silent: true });
+
+            return quest;
+        },
+
         /* =========================================================================
         ✅ AFFECTATION (backlog -> chapter)
         ========================================================================= */
@@ -1515,6 +1902,9 @@ export const useGameStore = create<GameStore>((set, get) => {
                     quest_id: adventureQuestId,
                 });
 
+                // ✅ refresh minimal
+                void get().reload(["chapterQuests", "backlog"], { silent: true });
+
                 return true;
             } catch (e) {
                 console.error(e);
@@ -1540,7 +1930,7 @@ export const useGameStore = create<GameStore>((set, get) => {
                     return false;
                 }
 
-                // 🔥 Nettoyer les caches “runtime”
+                // 🔥 Nettoyer caches runtime
                 set((s) => {
                     const nextEnc = { ...s.encouragementByChapterQuestId };
                     delete nextEnc[id];
@@ -1558,11 +1948,6 @@ export const useGameStore = create<GameStore>((set, get) => {
                     };
                 });
 
-                // ✅ Optionnel: retirer du snapshot actuel si présent
-                set((s) => ({
-                    currentQuests: (s.currentQuests ?? []).filter((q) => q.id !== id),
-                }));
-
                 toast.success("Quest unassigned", "Removed from chapter.");
 
                 const line = questLine(quest);
@@ -1575,8 +1960,8 @@ export const useGameStore = create<GameStore>((set, get) => {
                     quest_id: quest?.id ?? null,
                 });
 
-                // Best-effort refresh global (si tu veux rester “source of truth”)
-                void get().bootstrap();
+                // ✅ refresh minimal
+                void get().reload(["chapterQuests", "backlog"], { silent: true });
 
                 return true;
             } catch (e) {
