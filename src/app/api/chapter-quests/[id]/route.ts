@@ -5,6 +5,10 @@ import { getActiveSessionOrThrow } from "@/lib/sessions/getActiveSession";
 
 type Ctx = { params: Promise<{ id: string }> };
 
+/**
+ * ✅ baseSelect enrichi: récupère les nouvelles colonnes depuis adventure_quests
+ * + jointure mission inchangée
+ */
 const baseSelect = `
     id,
     chapter_id,
@@ -12,7 +16,7 @@ const baseSelect = `
     status,
     created_at,
     session_id,
-    adventure_quests!chapter_quests_adventure_quest_id_fkey (
+    adventure_quests:adventure_quests!chapter_quests_adventure_quest_id_fkey (
         id,
         adventure_id,
         room_code,
@@ -20,6 +24,8 @@ const baseSelect = `
         description,
         difficulty,
         estimate_min,
+        priority,
+        urgency,
         created_at,
         session_id
     ),
@@ -44,12 +50,17 @@ export async function GET(_req: NextRequest, context: Ctx) {
     const session = await getActiveSessionOrThrow();
     const { id } = await context.params;
 
-    const { data, error } = await supabase
+    let q = supabase
         .from("chapter_quests")
         .select(baseSelect)
         .eq("id", id)
-        .eq("session_id", session.id)
-        .maybeSingle();
+        .eq("session_id", session.id);
+
+    // ✅ Optionnel mais cohérent (si adventure_quests a session_id)
+    // Empêche tout retour “cross-session” sur la jointure.
+    q = q.eq("adventure_quests.session_id", session.id);
+
+    const { data, error } = await q.maybeSingle();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -90,13 +101,17 @@ export async function PATCH(req: NextRequest, context: Ctx) {
         return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    // Update scoped session, and re-select enriched join
+    let q = supabase
         .from("chapter_quests")
         .update({ status })
         .eq("id", id)
         .eq("session_id", session.id)
-        .select(baseSelect) // ✅ renvoie aussi la mission si besoin
+        .select(baseSelect)
+        .eq("adventure_quests.session_id", session.id)
         .maybeSingle();
+
+    const { data, error } = await q;
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });

@@ -4,17 +4,25 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
-import RpgShell from "@/components/RpgShell";
-import { ActionButton, Panel, Pill } from "@/components/RpgUi";
-import { QuestDifficultyPill } from "@/helpers/questDifficulty";
 import ReactMarkdown from "react-markdown";
-import MasterCard from "@/components/ui/MasterCard";
-import { getCurrentCharacterEmoji, getCurrentCharacterName } from "@/helpers/adventure";
 
 // Stores
 import { useGameStore } from "@/stores/gameStore";
 import { useJournalStore } from "@/stores/journalStore";
+
+// Components
+import RpgShell from "@/components/RpgShell";
+import { ActionButton, Panel, Pill } from "@/components/RpgUi";
+import MasterCard from "@/components/ui/MasterCard";
 import { UiAnimatePresence, UiMotionDiv } from "@/components/motion/UiMotion";
+
+// Helpers
+import { QuestDifficultyPill } from "@/helpers/questDifficulty";
+import { QuestRoomPill } from "@/helpers/questRoom";
+import { QuestStatusPill } from "@/helpers/questStatus";
+import { QuestPriorityPill } from "@/helpers/questPriority";
+import { QuestUrgencyPill } from "@/helpers/questUrgency";
+import { getCurrentCharacterEmoji, getCurrentCharacterName } from "@/helpers/adventure";
 
 type Quest = {
     id: string;
@@ -24,6 +32,9 @@ type Quest = {
     status: "todo" | "doing" | "done";
     room_code: string | null;
     difficulty?: number | null;
+    priority?: "secondary" | "normal" | "main" | null;
+    urgency?: "low" | "normal" | "high" | "critical" | null; // adapte si ton enum diffère
+    estimate_min?: number | null;
 };
 
 type ChapterQuest = {
@@ -106,9 +117,9 @@ export default function QuestClient() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // useEffect(() => {
-    //     console.log("quest", quest);
-    // }, [quest]);
+    useEffect(() => {
+        console.log("quest", quest);
+    }, [quest]);
 
     const questJournal = React.useMemo(() => {
         if (!quest?.id) return [];
@@ -213,22 +224,47 @@ export default function QuestClient() {
                 <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
                     {/* LEFT */}
                     <div className="flex flex-col gap-5">
-                        <Panel title="Quête" emoji="🔖">
+                        <Panel
+                            title="Quête"
+                            emoji="🔖"
+                            right={<QuestStatusPill status={chapterQuest.status} />}
+                        >
                             <div className="flex flex-col gap-3">
-                                <div className="text-white/90 font-semibold">{quest.title}</div>
+                                <div className="mb-2">
+                                    {/* Title */}
+                                    <div className="text-white/90 font-semibold">{quest.title}</div>
 
+                                    {/* Description (si présente) */}
+                                    {quest.description?.trim() ? (
+                                        <div className="whitespace-pre-line rpg-text-sm text-white/70">
+                                            {quest.description}
+                                        </div>
+                                    ) : null}
+                                </div>
+
+                                {/* Pills */}
                                 <div className="flex flex-wrap gap-2">
-                                    {quest.room_code ? (
-                                        <Pill>🚪 {quest.room_code}</Pill>
-                                    ) : (
-                                        <Pill>🗺️ sans pièce</Pill>
-                                    )}
+                                    <QuestRoomPill roomCode={quest.room_code} />
 
-                                    {quest.difficulty ? (
-                                        <QuestDifficultyPill difficulty={quest.difficulty} />
-                                    ) : (
-                                        <Pill>🎚️ —</Pill>
-                                    )}
+                                    <QuestDifficultyPill difficulty={quest.difficulty ?? null} />
+
+                                    {/* ✅ Priority (helper) */}
+                                    <QuestPriorityPill
+                                        priority={(quest as any)?.priority ?? null}
+                                    />
+
+                                    {/* ✅ Urgency (helper) - si dispo */}
+                                    {"urgency" in quest ? (
+                                        <QuestUrgencyPill
+                                            urgency={(quest as any)?.urgency ?? null}
+                                        />
+                                    ) : null}
+
+                                    {/* ✅ Estimate (simple pill) */}
+                                    {typeof quest.estimate_min === "number" &&
+                                    quest.estimate_min > 0 ? (
+                                        <Pill>⏱️ {quest.estimate_min} min</Pill>
+                                    ) : null}
                                 </div>
                             </div>
                         </Panel>

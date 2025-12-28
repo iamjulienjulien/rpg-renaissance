@@ -8,8 +8,7 @@ const baseSelect = `
     adventure_quest_id,
     status,
     created_at,
-    session_id,
-    adventure_quests!chapter_quests_adventure_quest_id_fkey (
+    adventure_quests:adventure_quests!chapter_quests_adventure_quest_id_fkey (
         id,
         adventure_id,
         room_code,
@@ -17,8 +16,9 @@ const baseSelect = `
         description,
         difficulty,
         estimate_min,
-        created_at,
-        session_id
+        priority,
+        urgency,
+        created_at
     )
 `;
 

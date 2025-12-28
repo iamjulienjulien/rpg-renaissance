@@ -25,14 +25,16 @@ import { QuestStatusPill } from "@/helpers/questStatus";
 import { questRoomEmoji, questRoomLabel, QuestRoomPill } from "@/helpers/questRoom";
 
 // Stores
+import { useGameStore } from "@/stores/gameStore";
+import { useUiStore } from "@/stores/uiStore";
+
+// Types
 import {
-    useGameStore,
     type Adventure,
     type AdventureQuest,
     type Chapter,
     type ChapterQuestFull,
-} from "@/stores/gameStore";
-import { useUiStore } from "@/stores/uiStore";
+} from "@/types/game";
 
 /* ============================================================================
 🧰 HELPERS (purs)

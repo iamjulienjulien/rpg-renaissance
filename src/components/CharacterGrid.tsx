@@ -3,7 +3,7 @@
 
 import React from "react";
 import Image from "next/image";
-import type { Character } from "@/stores/gameStore";
+import type { Character } from "@/types/game";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
