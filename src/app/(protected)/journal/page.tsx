@@ -23,6 +23,32 @@ type Entry = {
     created_at: string;
 };
 
+type StoryScene = {
+    chapter_quest_id: string;
+    quest_title: string;
+    room_code: string;
+    scene: string;
+};
+
+type StoryTrophy = {
+    title: string;
+    description: string;
+};
+
+type ChapterStoryJson = {
+    title: string;
+    summary: string;
+    scenes: StoryScene[];
+    trophies: StoryTrophy[];
+    mj_verdict: string;
+};
+
+type ChapterStoryUI = ChapterStoryJson & {
+    chapter_id: string;
+    updated_at?: string;
+    model?: string | null;
+};
+
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
 }
@@ -245,24 +271,6 @@ function GrimoireTabs(props: {
     );
 }
 
-/* ----------------------------------------------------------------------------
-Tab 2: récit MJ (placeholder)
----------------------------------------------------------------------------- */
-
-type ChapterStoryJson = {
-    title: string;
-    chapter_title: string;
-    summary: string;
-    paragraphs: string[];
-    trophies: string[];
-};
-
-type ChapterStoryUI = ChapterStoryJson & {
-    chapter_id: string;
-    updated_at?: string;
-    model?: string | null;
-};
-
 function StoryView() {
     const currentAdventure = useGameStore((s) => s.currentAdventure);
 
@@ -279,20 +287,6 @@ function StoryView() {
     const adventureId = currentAdventure?.id ?? "";
     const chapters = adventureId ? (chaptersByAdventureId?.[adventureId] ?? []) : [];
     const chaptersLoading = adventureId ? !!chaptersLoadingByAdventureId?.[adventureId] : false;
-
-    type ChapterStoryJson = {
-        title: string;
-        chapter_title: string;
-        summary: string;
-        paragraphs: string[];
-        trophies: string[];
-    };
-
-    type ChapterStoryUI = ChapterStoryJson & {
-        chapter_id: string;
-        updated_at?: string;
-        model?: string | null;
-    };
 
     // 1) Charger tous les chapitres de l’aventure
     useEffect(() => {
@@ -387,8 +381,10 @@ function StoryView() {
 
                             const loading = !!loadingById?.[ch.id];
 
-                            const scenes = Array.isArray(s?.paragraphs) ? s!.paragraphs : [];
+                            const scenes = Array.isArray(s?.scenes) ? s!.scenes : [];
                             const trophies = Array.isArray(s?.trophies) ? s!.trophies : [];
+                            const mjVerdict =
+                                typeof s?.mj_verdict === "string" ? s.mj_verdict.trim() : "";
 
                             return (
                                 <div key={ch.id} className="grid gap-3">
@@ -427,7 +423,10 @@ function StoryView() {
                                             Ce chapitre n’a pas encore de chronique.
                                         </div>
                                     ) : (
-                                        <MasterCard title={s.title || "Chronique"} emoji="📜">
+                                        <MasterCard
+                                            title={(s.title || "Chronique").trim()}
+                                            emoji="📜"
+                                        >
                                             <div className="grid gap-4">
                                                 <div>
                                                     <div className="mb-2 text-xs tracking-[0.22em] text-white/55 uppercase">
@@ -441,15 +440,29 @@ function StoryView() {
                                                         Scènes
                                                     </div>
                                                     <div className="grid gap-2">
-                                                        {scenes.map((line, idx) => (
+                                                        {scenes.map((sc, idx) => (
                                                             <div
-                                                                key={idx}
+                                                                key={
+                                                                    sc.chapter_quest_id || `${idx}`
+                                                                }
                                                                 className="rounded-2xl bg-white/5 p-3 ring-1 ring-white/10 text-sm text-white/75"
                                                             >
-                                                                <span className="text-white/90 font-semibold mr-2">
-                                                                    {idx + 1}.
-                                                                </span>
-                                                                {line}
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <span className="text-white/90 font-semibold">
+                                                                        {idx + 1}.
+                                                                    </span>
+                                                                    <span className="text-white/90 font-semibold">
+                                                                        {sc.quest_title}
+                                                                    </span>
+                                                                    {sc.room_code ? (
+                                                                        <Pill>
+                                                                            🗺️ {sc.room_code}
+                                                                        </Pill>
+                                                                    ) : null}
+                                                                </div>
+                                                                <div className="mt-2 text-white/70 leading-7 whitespace-pre-line">
+                                                                    {sc.scene}
+                                                                </div>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -467,11 +480,28 @@ function StoryView() {
                                                     ) : (
                                                         <div className="flex flex-wrap gap-2">
                                                             {trophies.map((t, idx) => (
-                                                                <Pill key={idx}>🏅 {t}</Pill>
+                                                                <span
+                                                                    key={`${t.title}-${idx}`}
+                                                                    title={t.description || ""}
+                                                                    className="inline-flex"
+                                                                >
+                                                                    <Pill>🏅 {t.title}</Pill>
+                                                                </span>
                                                             ))}
                                                         </div>
                                                     )}
                                                 </div>
+
+                                                {mjVerdict ? (
+                                                    <div>
+                                                        <div className="mb-2 text-xs tracking-[0.22em] text-white/55 uppercase">
+                                                            Avis du MJ
+                                                        </div>
+                                                        <div className="rounded-2xl bg-white/5 p-3 ring-1 ring-white/10 text-sm text-white/75">
+                                                            {mjVerdict}
+                                                        </div>
+                                                    </div>
+                                                ) : null}
 
                                                 <div className="text-xs text-white/45">
                                                     Stocké en BDD.

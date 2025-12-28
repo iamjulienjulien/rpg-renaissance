@@ -53,8 +53,11 @@ type AdventureData = {
     context_text: string | null;
 };
 
-type QuestBucketRow = {
+type ChapterQuestRow = {
+    id: string; // chapter_quests.id
     status: "todo" | "doing" | "done";
+    created_at: string | null;
+    updated_at: string | null;
     adventure_quests: {
         id: string;
         title: string | null;
@@ -74,15 +77,19 @@ type StoryContext = {
         chapter_context: string;
     };
     adventure: {
+        id: string | null;
         title: string | null;
         code: string | null;
         adventure_context: string;
     };
-    quests: {
-        done: Array<{ title: string; room_code: string | null; difficulty: number | null }>;
-        doing: Array<{ title: string; room_code: string | null }>;
-        todo: Array<{ title: string; room_code: string | null }>;
-    };
+    done_quests: Array<{
+        chapter_quest_id: string;
+        quest_title: string;
+        room_code: string | null;
+        difficulty: number | null;
+        completed_at: string | null; // best-effort: updated_at ou created_at
+        order_hint: number; // index déjà trié (0..n-1)
+    }>;
 };
 
 /* ============================================================================
@@ -94,9 +101,21 @@ function safeTrim(x: unknown): string {
 }
 
 function verbosityRules(v?: string | null) {
-    if (v === "short") return { maxParagraphs: 3 };
-    if (v === "rich") return { maxParagraphs: 7 };
-    return { maxParagraphs: 5 };
+    if (v === "short") return { maxScenes: 4 };
+    if (v === "rich") return { maxScenes: 12 };
+    return { maxScenes: 8 };
+}
+
+function toIsoOrNull(x: unknown): string | null {
+    if (!x) return null;
+    const d = new Date(x as any);
+    return Number.isFinite(d.getTime()) ? d.toISOString() : null;
+}
+
+function pickCompletionTs(row: ChapterQuestRow): string | null {
+    // Best-effort: si la quête est "done", updated_at est souvent le meilleur proxy.
+    // Sinon fallback created_at.
+    return toIsoOrNull(row.updated_at) ?? toIsoOrNull(row.created_at);
 }
 
 /* ============================================================================
@@ -156,15 +175,20 @@ async function loadPlayerContextByUserId(userId: string): Promise<PlayerContext>
 /**
  * Charge:
  * - chapitre (session_id scope, contexte chapitre)
- * - aventure (best-effort, contexte aventure)
- * - quêtes du chapitre (buckets todo/doing/done)
+ * - aventure (contexte aventure)
+ * - quêtes DONE du chapitre triées chrono (chapter_quests.updated_at/created_at)
+ *
+ * ⚠️ Note importante:
+ * - Si ton "contexte d'aventure" est vide alors que la BDD est remplie,
+ *   c’est très souvent une question de RLS/policies sur "adventures".
+ *   Ici on fait au mieux et on log en warning si on détecte un mismatch.
  */
 async function loadStoryInputs(chapterId: string): Promise<{
     chapter: ChapterData;
     adventure: AdventureData;
     chapter_context_text: string | null;
     adventure_context_text: string | null;
-    quests: { done: any[]; doing: any[]; todo: any[] };
+    done_quests: StoryContext["done_quests"];
 }> {
     const supabase = await supabaseServer();
 
@@ -216,14 +240,26 @@ async function loadStoryInputs(chapterId: string): Promise<{
             const advCtx = safeTrim(adventure.context_text);
             adventure_context_text = advCtx.length ? advCtx : null;
         }
+
+        // Signal faible mais utile: aventure_id présent, mais aucun contexte récupéré.
+        // (souvent RLS/policy)
+        if (!adventure_context_text) {
+            console.warn(
+                "generateChapterStory: adventure_context_text empty (check RLS on adventures?)",
+                { adventure_id: chapter.adventure_id, chapter_id: chapter.id }
+            );
+        }
     }
 
-    // 2) Quêtes du chapitre (join adventure_quests)
+    // 2) Quêtes du chapitre (DONE only) + tri chrono
     const { data: cqs, error: cqErr } = await supabase
         .from("chapter_quests")
         .select(
             `
+            id,
             status,
+            created_at,
+            updated_at,
             adventure_quests!chapter_quests_adventure_quest_id_fkey (
                 id,
                 title,
@@ -234,32 +270,27 @@ async function loadStoryInputs(chapterId: string): Promise<{
         `
         )
         .eq("chapter_id", chapterId)
-        .eq("session_id", chapter.session_id);
+        .eq("session_id", chapter.session_id)
+        .eq("status", "done");
 
     if (cqErr) throw new Error(cqErr.message);
 
-    const rows = (cqs ?? []) as unknown as QuestBucketRow[];
+    const rows = (cqs ?? []) as unknown as ChapterQuestRow[];
 
-    const done = rows
-        .filter((r) => r.status === "done")
-        .map((r) => ({
-            title: safeTrim(r.adventure_quests?.title) || "Quête",
+    const sortedDone = rows
+        .slice()
+        .sort((a, b) => {
+            const ta = new Date(pickCompletionTs(a) ?? 0).getTime();
+            const tb = new Date(pickCompletionTs(b) ?? 0).getTime();
+            return ta - tb;
+        })
+        .map((r, idx) => ({
+            chapter_quest_id: r.id,
+            quest_title: safeTrim(r.adventure_quests?.title) || "Quête",
             room_code: r.adventure_quests?.room_code ?? null,
             difficulty: r.adventure_quests?.difficulty ?? null,
-        }));
-
-    const doing = rows
-        .filter((r) => r.status === "doing")
-        .map((r) => ({
-            title: safeTrim(r.adventure_quests?.title) || "Quête",
-            room_code: r.adventure_quests?.room_code ?? null,
-        }));
-
-    const todo = rows
-        .filter((r) => r.status === "todo")
-        .map((r) => ({
-            title: safeTrim(r.adventure_quests?.title) || "Quête",
-            room_code: r.adventure_quests?.room_code ?? null,
+            completed_at: pickCompletionTs(r),
+            order_hint: idx,
         }));
 
     return {
@@ -267,7 +298,7 @@ async function loadStoryInputs(chapterId: string): Promise<{
         adventure,
         chapter_context_text,
         adventure_context_text,
-        quests: { done, doing, todo },
+        done_quests: sortedDone,
     };
 }
 
@@ -281,24 +312,15 @@ function buildSystemText(input: {
     tone: string;
     style: string;
     verbosity: string;
-    maxParagraphs: number;
     adventureContext: string | null;
     chapterContext: string | null;
 }) {
-    const {
-        playerName,
-        character,
-        tone,
-        style,
-        verbosity,
-        maxParagraphs,
-        adventureContext,
-        chapterContext,
-    } = input;
+    const { playerName, character, tone, style, verbosity, adventureContext, chapterContext } =
+        input;
 
     return [
         `Tu es le Maître du Jeu de Renaissance.`,
-        `Tu écris un récit de chapitre figé (stocké en BDD).`,
+        `Tu écris un RÉCIT DE CHAPITRE figé (stocké en BDD).`,
         `Style: roman de jeu vidéo, concret, sensoriel, sans blabla meta.`,
         `Interdit: "en tant qu'IA", disclaimers, justification meta.`,
         `Emojis sobres.`,
@@ -318,11 +340,13 @@ function buildSystemText(input: {
             : `CONTEXTE SPÉCIFIQUE DE CE CHAPITRE: (aucun fourni).`,
 
         `Règle d’or: si les deux contextes existent, respecte le global en premier, puis adapte finement au chapitre.`,
-        character?.motto
-            ? `Serment (à refléter sans citer mot pour mot): ${character.motto}`
-            : null,
-        `Contrainte: max ${maxParagraphs} paragraphes. Chaque paragraphe = 2 à 5 phrases.`,
+        character?.motto ? `Serment (à refléter sans citer): ${character.motto}` : null,
         `Tu dois fournir un JSON STRICT selon le schéma demandé.`,
+        `Rappels de structure:`,
+        `- summary: 3 à 4 phrases (pas 1 phrase).`,
+        `- scenes: une scène par quête DONE, dans le même ordre que fourni (order_hint).`,
+        `- trophies: 2 à 6 trophées, chacun = titre (2-3 mots) + description (raison du trophée).`,
+        `- mj_verdict: une seule phrase, avis du MJ sur ce chapitre, respectant ton + serment.`,
     ]
         .filter(Boolean)
         .join("\n");
@@ -330,32 +354,62 @@ function buildSystemText(input: {
 
 function buildUserText(inputContext: StoryContext) {
     return (
-        `Contexte:\n${JSON.stringify(inputContext, null, 2)}\n\n` +
+        `Contexte (ne contient QUE les quêtes terminées):\n${JSON.stringify(inputContext, null, 2)}\n\n` +
         `Génère:\n` +
         `- title (court)\n` +
-        `- summary (1 phrase)\n` +
-        `- paragraphs (array de paragraphes texte)\n` +
-        `- trophies (array de 2 à 6 lignes courtes, optionnel mais recommandé)\n`
+        `- summary (3-4 phrases)\n` +
+        `- scenes (array; 1 scène PAR quête done, ordre identique à done_quests)\n` +
+        `- trophies (array; 2-6 items; chaque item: title 2-3 mots + description)\n` +
+        `- mj_verdict (1 phrase)\n`
     );
 }
 
 function renderStoryMarkdown(storyJson: any): string {
     const mdParts: string[] = [];
 
-    mdParts.push(`**${String(storyJson.summary ?? "").trim()}**`);
-    mdParts.push("");
-
-    for (const p of storyJson.paragraphs ?? []) {
-        mdParts.push(String(p).trim());
+    // Summary (3-4 phrases)
+    const summary = safeTrim(storyJson?.summary);
+    if (summary) {
+        mdParts.push(`**${summary}**`);
         mdParts.push("");
     }
 
-    if (Array.isArray(storyJson.trophies) && storyJson.trophies.length) {
-        mdParts.push("**🏅 Faits marquants**");
+    // Scenes
+    if (Array.isArray(storyJson?.scenes) && storyJson.scenes.length) {
+        mdParts.push("**🎬 Scènes**");
         mdParts.push("");
-        for (const t of storyJson.trophies) {
-            mdParts.push(`- ${String(t).trim()}`);
+
+        for (const s of storyJson.scenes) {
+            const questTitle = safeTrim(s?.quest_title) || "Quête";
+            const room = safeTrim(s?.room_code) || "";
+            const header = room ? `${questTitle} · ${room}` : questTitle;
+
+            mdParts.push(`- **${header}**`);
+            const text = safeTrim(s?.scene);
+            if (text) mdParts.push(`  ${text}`);
+            mdParts.push("");
         }
+    }
+
+    // Trophies (title + description séparée, parfaite pour tooltip ensuite)
+    if (Array.isArray(storyJson?.trophies) && storyJson.trophies.length) {
+        mdParts.push("**🏅 Trophées**");
+        mdParts.push("");
+
+        for (const t of storyJson.trophies) {
+            const title = safeTrim(t?.title) || "Trophée";
+            const desc = safeTrim(t?.description);
+            mdParts.push(`- **${title}**${desc ? ` — ${desc}` : ""}`);
+        }
+        mdParts.push("");
+    }
+
+    // MJ verdict
+    const verdict = safeTrim(storyJson?.mj_verdict);
+    if (verdict) {
+        mdParts.push("**🧙 Avis du MJ**");
+        mdParts.push("");
+        mdParts.push(verdict);
         mdParts.push("");
     }
 
@@ -368,12 +422,14 @@ function renderStoryMarkdown(storyJson: any): string {
 
 /**
  * ✅ Récit IA “scellé” pour un chapitre (stocké en BDD)
- * - 2 contextes:
- *   - adventures.context_text = global
- *   - chapters.context_text   = chapitre
- * - Cache scopé par session_id
- * - ✅ Log BDD (ai_generations) pour debug/dev
- * - ✅ Journal entry (journal_entries) pour trace gameplay (best-effort)
+ * - 2 contextes: adventures.context_text (global) + chapters.context_text (chapitre)
+ * - N'envoie QUE les quêtes "done"
+ * - scenes = 1 par quête done, ordre chrono (trié)
+ * - summary 3-4 phrases
+ * - trophies = {title, description}
+ * - mj_verdict = 1 phrase
+ * - ✅ Logs (ai_generations)
+ * - ✅ Journal entry (journal_entries) best-effort
  */
 export async function generateStoryForChapter(chapterId: string, force: boolean = false) {
     const supabase = await supabaseServer();
@@ -385,13 +441,12 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
     const userId = authData?.user?.id ?? "";
     if (!userId) throw new Error("Not authenticated");
 
-    // 0) Inputs: chapitre + aventure + quêtes + contextes
-    const { chapter, adventure, chapter_context_text, adventure_context_text, quests } =
+    // 0) Inputs: chapitre + aventure + DONE quests + contextes
+    const { chapter, adventure, chapter_context_text, adventure_context_text, done_quests } =
         await loadStoryInputs(chapterId);
 
     const sessionId = chapter.session_id;
     const chapterTitle = chapter.title;
-    const pace = chapter.pace;
 
     // 1) Cache (scopé session) si pas force
     if (!force) {
@@ -426,19 +481,11 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
                     status: "success",
                     chapter_id: chapterId,
                     adventure_id: chapter.adventure_id,
-                    request_json: {
-                        cached: true,
-                        force: false,
-                        chapter_id: chapterId,
-                    },
-                    response_json: null,
-                    output_text: null,
+                    request_json: { cached: true, force: false, chapter_id: chapterId },
                     parsed_json: (existing as any)?.story_json ?? null,
                     rendered_md: (existing as any)?.story_md ?? null,
-                    metadata: {
-                        note: "cache_hit",
-                        updated_at: (existing as any)?.updated_at ?? null,
-                    },
+                    metadata: { note: "cache_hit", version: "chapter_story_v2" },
+                    tags: ["cached=true", "chapter_story_v2"],
                 });
             } catch {}
 
@@ -454,7 +501,12 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
     const tone = character?.ai_style?.tone ?? "neutre";
     const style = character?.ai_style?.style ?? "narratif";
     const verbosity = character?.ai_style?.verbosity ?? "normal";
+
+    // (Optionnel) borne soft: si énorme chapitre, on limite le nombre de scènes envoyées au modèle
+    // mais on conserve l'ordre (les plus anciennes d'abord).
     const rules = verbosityRules(verbosity);
+    const doneLimited =
+        done_quests.length > rules.maxScenes ? done_quests.slice(0, rules.maxScenes) : done_quests;
 
     // 3) Prompt + payload OpenAI (gardé tel quel pour logs)
     const model = "gpt-4.1";
@@ -465,7 +517,6 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
         tone,
         style,
         verbosity,
-        maxParagraphs: rules.maxParagraphs,
         adventureContext: adventure_context_text,
         chapterContext: chapter_context_text,
     });
@@ -474,21 +525,18 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
         chapter: {
             id: chapterId,
             title: chapterTitle,
-            pace,
+            pace: chapter.pace,
             status: chapter.status,
             created_at: chapter.created_at,
             chapter_context: chapter_context_text ?? "",
         },
         adventure: {
+            id: chapter.adventure_id,
             title: adventure.title ?? null,
             code: adventure.code ?? null,
             adventure_context: adventure_context_text ?? "",
         },
-        quests: {
-            done: quests.done,
-            doing: quests.doing,
-            todo: quests.todo,
-        },
+        done_quests: doneLimited,
     };
 
     const userText = buildUserText(inputContext);
@@ -497,35 +545,49 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
         model,
         input: [
             { role: "system", content: [{ type: "input_text", text: systemText }] },
-            {
-                role: "user",
-                content: [{ type: "input_text", text: userText }],
-            },
+            { role: "user", content: [{ type: "input_text", text: userText }] },
         ],
         text: {
             format: {
                 type: "json_schema",
-                name: "chapter_story_v1",
+                name: "chapter_story_v2",
                 schema: {
                     type: "object",
                     additionalProperties: false,
                     properties: {
                         title: { type: "string" },
-                        summary: { type: "string" },
-                        paragraphs: {
+                        summary: { type: "string" }, // 3-4 phrases (contrainte dans prompt)
+                        scenes: {
                             type: "array",
-                            items: { type: "string" },
-                            minItems: 2,
-                            maxItems: rules.maxParagraphs,
+                            items: {
+                                type: "object",
+                                additionalProperties: false,
+                                properties: {
+                                    chapter_quest_id: { type: "string" },
+                                    quest_title: { type: "string" },
+                                    room_code: { type: "string" },
+                                    scene: { type: "string" },
+                                },
+                                required: ["chapter_quest_id", "quest_title", "room_code", "scene"],
+                            },
                         },
                         trophies: {
                             type: "array",
-                            items: { type: "string" },
-                            minItems: 0,
+                            items: {
+                                type: "object",
+                                additionalProperties: false,
+                                properties: {
+                                    title: { type: "string" }, // 2-3 mots (contrainte dans prompt)
+                                    description: { type: "string" }, // tooltip
+                                },
+                                required: ["title", "description"],
+                            },
+                            minItems: 2,
                             maxItems: 6,
                         },
+                        mj_verdict: { type: "string" },
                     },
-                    required: ["title", "summary", "paragraphs", "trophies"],
+                    required: ["title", "summary", "scenes", "trophies", "mj_verdict"],
                 },
             },
         },
@@ -579,7 +641,12 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
                 metadata: {
                     force,
                     chapter_title: chapterTitle,
+                    version: "chapter_story_v2",
+                    done_count_sent: doneLimited.length,
+                    done_count_total: done_quests.length,
+                    adventure_context_present: Boolean(adventure_context_text),
                 },
+                tags: ["chapter_story_v2", `force=${String(force)}`],
             });
         } catch {}
 
@@ -644,6 +711,8 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
                 parse_error: null,
                 rendered_md: storyMd,
                 error_message: `Chapter story upsert failed: ${saveErr.message}`,
+                metadata: { version: "chapter_story_v2" },
+                tags: ["chapter_story_v2"],
             });
         } catch {}
 
@@ -677,19 +746,17 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
             usage_json: (response as any)?.usage ?? null,
             metadata: {
                 force,
+                version: "chapter_story_v2",
                 chapter_title: chapterTitle,
-                quest_counts: {
-                    done: quests.done.length,
-                    doing: quests.doing.length,
-                    todo: quests.todo.length,
-                },
+                adventure_context_present: Boolean(adventure_context_text),
+                done_count_sent: doneLimited.length,
+                done_count_total: done_quests.length,
             },
+            tags: ["chapter_story_v2", `force=${String(force)}`],
         });
     } catch {}
 
     // ✅ Journal entry best-effort (success)
-    // Note: on reste sur kind="note" pour coller à ton union type actuel.
-    // Tu pourras créer un kind dédié plus tard si tu veux.
     try {
         await createJournalEntry({
             session_id: sessionId,
@@ -697,8 +764,10 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
             title: "📖 Récit scellé",
             content:
                 `Le MJ a scellé le récit du chapitre: ${chapterTitle}\n` +
-                `Modèle: ${model}\n` +
-                `Quêtes: ${quests.done.length} terminées, ${quests.doing.length} en cours, ${quests.todo.length} à faire.`,
+                `Quêtes terminées: ${done_quests.length}\n` +
+                (done_quests.length
+                    ? `Dernière: ${done_quests[done_quests.length - 1]?.quest_title ?? "—"}`
+                    : `Aucune quête terminée (récit minimal).`),
             chapter_id: chapterId,
         });
     } catch {}
