@@ -15,6 +15,7 @@ import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
 import MasterCard from "@/components/ui/MasterCard";
 import { UiAnimatePresence, UiMotionDiv } from "@/components/motion/UiMotion";
+import UiTooltip from "@/components/ui/UiTooltip";
 
 // Helpers
 import { QuestDifficultyPill } from "@/helpers/questDifficulty";
@@ -68,6 +69,24 @@ type QuestPhoto = {
     sort: number;
 };
 
+type PhotoCategory = "initial" | "final" | "other";
+
+function categoryEmoji(c: PhotoCategory) {
+    if (c === "initial") return "🌅";
+    if (c === "final") return "🏁";
+    return "✨";
+}
+
+function categoryLabel(c: PhotoCategory) {
+    if (c === "initial") return "Photo initiale";
+    if (c === "final") return "Photo finale";
+    return "Autre photo";
+}
+
+function cn(...classes: Array<string | false | null | undefined>) {
+    return classes.filter(Boolean).join(" ");
+}
+
 export default function QuestClient() {
     const router = useRouter();
     const sp = useSearchParams();
@@ -109,6 +128,19 @@ export default function QuestClient() {
 
     const [photosLoading, setPhotosLoading] = useState(false);
     const [photos, setPhotos] = useState<QuestPhoto[]>([]);
+
+    const [photoFilter, setPhotoFilter] = useState<PhotoCategory[]>(["initial", "final", "other"]);
+
+    const filteredPhotos = React.useMemo(() => {
+        if (!photoFilter.length) return photos;
+        return photos.filter((p) => photoFilter.includes(p.category));
+    }, [photos, photoFilter]);
+
+    const toggleCategory = (cat: PhotoCategory) => {
+        setPhotoFilter((prev) =>
+            prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+        );
+    };
 
     const load = async () => {
         if (!chapterQuestId) return;
@@ -520,6 +552,18 @@ export default function QuestClient() {
                                             ⛓️ Ajouter une quête chainée
                                         </ActionButton>
 
+                                        <ActionButton
+                                            onClick={() => {
+                                                openModal("questPhotoUpload", {
+                                                    chapter_quest_id: chapterQuest.id,
+                                                    quest_title: quest?.title ?? null,
+                                                });
+                                            }}
+                                            disabled={busy}
+                                        >
+                                            📷 Envoyer une photo
+                                        </ActionButton>
+
                                         <ActionButton onClick={() => router.push("/adventure")}>
                                             ↩️ Retour
                                         </ActionButton>
@@ -538,45 +582,79 @@ export default function QuestClient() {
                         </Panel>
                         {photosLoading ? (
                             <Panel
-                                title="Photos"
-                                emoji="🖼️"
-                                subtitle="Chargement…"
+                                title="Preuves de quête"
+                                emoji="📸"
+                                subtitle="Ce qui a été fait, pour de vrai."
                                 right={<Pill>⏳</Pill>}
                             >
                                 <div className="rounded-2xl bg-black/30 p-4 rpg-text-sm text-white/60 ring-1 ring-white/10">
-                                    ⏳ Chargement des photos…
+                                    ⏳ Chargement des preuves…
                                 </div>
                             </Panel>
                         ) : photos.length > 0 ? (
                             <Panel
-                                title="Photos"
-                                emoji="🖼️"
-                                subtitle="Traces visuelles de cette quête."
-                                right={<Pill>{photos.length}</Pill>}
+                                title="Preuves de quête"
+                                emoji="📸"
+                                subtitle="Ce qui a été fait, pour de vrai."
+                                right={<Pill>{filteredPhotos.length}</Pill>}
                             >
-                                <div className="grid gap-2">
-                                    {/* petite légende catégories */}
-                                    <div className="flex flex-wrap gap-2">
-                                        {photos.some((p) => p.category === "initial") ? (
-                                            <Pill>🟦 initial</Pill>
-                                        ) : null}
-                                        {photos.some((p) => p.category === "final") ? (
-                                            <Pill>🟩 final</Pill>
-                                        ) : null}
-                                        {photos.some((p) => p.category === "other") ? (
-                                            <Pill>🟪 autre</Pill>
-                                        ) : null}
+                                <div className="grid">
+                                    {/* ✅ Espace réduit entre subtitle et pills */}
+                                    <div className="-mt-1 flex flex-wrap gap-2">
+                                        {(photos.some((p) => p.category === "initial") ||
+                                            photos.some((p) => p.category === "final") ||
+                                            photos.some((p) => p.category === "other")) && (
+                                            <>
+                                                {(
+                                                    ["initial", "final", "other"] as PhotoCategory[]
+                                                ).map((cat) => {
+                                                    const exists = photos.some(
+                                                        (p) => p.category === cat
+                                                    );
+                                                    if (!exists) return null;
+
+                                                    const active = photoFilter.includes(cat);
+
+                                                    return (
+                                                        <div
+                                                            key={cat}
+                                                            className="group inline-flex"
+                                                        >
+                                                            <UiTooltip
+                                                                content={categoryLabel(cat)}
+                                                                side="top"
+                                                                singleLine
+                                                            >
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        toggleCategory(cat)
+                                                                    }
+                                                                    className={cn(
+                                                                        "inline-flex items-center justify-center",
+                                                                        "rounded-full px-3 py-1 text-xs ring-1 transition",
+                                                                        active
+                                                                            ? "bg-white/20 text-white ring-white/20"
+                                                                            : "bg-white/5 text-white/70 ring-white/10 hover:bg-white/10"
+                                                                    )}
+                                                                    aria-pressed={active}
+                                                                    title={categoryLabel(cat)}
+                                                                >
+                                                                    {categoryEmoji(cat)}
+                                                                </button>
+                                                            </UiTooltip>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </>
+                                        )}
                                     </div>
 
-                                    {/* grille */}
-                                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                                        {photos.map((p) => {
-                                            const label =
-                                                p.category === "initial"
-                                                    ? "🟦 initial"
-                                                    : p.category === "final"
-                                                      ? "🟩 final"
-                                                      : "🟪 autre";
+                                    {/* ✅ Espace augmenté entre pills et grille */}
+                                    <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                        {filteredPhotos.map((p) => {
+                                            const catEmoji = categoryEmoji(p.category);
+                                            const catLabel = categoryLabel(p.category);
 
                                             return (
                                                 <div
@@ -584,42 +662,78 @@ export default function QuestClient() {
                                                     className="group relative overflow-hidden rounded-2xl bg-black/25 ring-1 ring-white/10"
                                                 >
                                                     {p.signed_url ? (
-                                                        // eslint-disable-next-line @next/next/no-img-element
-                                                        <img
-                                                            src={p.signed_url}
-                                                            alt={p.caption ?? `Photo ${label}`}
-                                                            className="aspect-square w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
-                                                            loading="lazy"
-                                                        />
+                                                        <UiTooltip
+                                                            content={
+                                                                <div className="grid gap-1">
+                                                                    <div className="text-white/95 font-semibold">
+                                                                        {catEmoji} {catLabel}
+                                                                    </div>
+                                                                    {p.caption ? (
+                                                                        <div className="text-white/80">
+                                                                            {p.caption}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="text-white/60">
+                                                                            (pas de légende)
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            }
+                                                            side="top"
+                                                            // align="center"
+                                                            maxWidthClassName="max-w-[280px]"
+                                                        >
+                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                            <img
+                                                                src={p.signed_url}
+                                                                alt={p.caption ?? catLabel}
+                                                                className="aspect-square w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                                                                loading="lazy"
+                                                            />
+                                                        </UiTooltip>
                                                     ) : (
                                                         <div className="aspect-square grid place-items-center text-white/50 text-sm">
                                                             Image indisponible
                                                         </div>
                                                     )}
 
-                                                    {/* overlay */}
-                                                    <div className="pointer-events-none absolute inset-x-0 bottom-0 p-2">
-                                                        <div className="flex items-end justify-between gap-2">
-                                                            <div className="min-w-0">
-                                                                <div className="text-[11px] text-white/80">
-                                                                    {label}
-                                                                </div>
-                                                                {p.caption ? (
-                                                                    <div className="truncate text-[12px] text-white/90 font-semibold">
-                                                                        {p.caption}
-                                                                    </div>
-                                                                ) : null}
-                                                            </div>
-
-                                                            {p.is_cover ? (
-                                                                <Pill>⭐ cover</Pill>
-                                                            ) : null}
+                                                    {/* corner badges */}
+                                                    <div className="absolute left-2 top-2 flex items-center gap-2">
+                                                        <div className="group inline-flex">
+                                                            <UiTooltip
+                                                                content={catLabel}
+                                                                side="bottom"
+                                                                align="start"
+                                                            >
+                                                                <span className="inline-flex items-center justify-center rounded-full bg-black/45 px-2 py-1 text-xs ring-1 ring-white/10 backdrop-blur-md">
+                                                                    {catEmoji}
+                                                                </span>
+                                                            </UiTooltip>
                                                         </div>
+
+                                                        {p.is_cover ? (
+                                                            <div className="group inline-flex">
+                                                                <UiTooltip
+                                                                    content="Photo mise en avant"
+                                                                    side="bottom"
+                                                                >
+                                                                    <span className="inline-flex items-center justify-center rounded-full bg-black/45 px-2 py-1 text-xs ring-1 ring-white/10 backdrop-blur-md">
+                                                                        ⭐
+                                                                    </span>
+                                                                </UiTooltip>
+                                                            </div>
+                                                        ) : null}
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
+
+                                    {photoFilter.length && filteredPhotos.length === 0 ? (
+                                        <div className="mt-3 rounded-2xl bg-black/20 p-3 ring-1 ring-white/10 text-xs text-white/60">
+                                            Aucun cliché ne correspond à ce filtre.
+                                        </div>
+                                    ) : null}
                                 </div>
                             </Panel>
                         ) : null}
