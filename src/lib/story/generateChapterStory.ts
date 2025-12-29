@@ -505,8 +505,7 @@ export async function generateStoryForChapter(chapterId: string, force: boolean 
     // (Optionnel) borne soft: si énorme chapitre, on limite le nombre de scènes envoyées au modèle
     // mais on conserve l'ordre (les plus anciennes d'abord).
     const rules = verbosityRules(verbosity);
-    const doneLimited =
-        done_quests.length > rules.maxScenes ? done_quests.slice(0, rules.maxScenes) : done_quests;
+    const doneLimited = done_quests;
 
     // 3) Prompt + payload OpenAI (gardé tel quel pour logs)
     const model = "gpt-4.1";
