@@ -12,6 +12,19 @@ function clsx(...xs: Array<string | null | undefined | false>) {
     return xs.filter(Boolean).join(" ");
 }
 
+function Panel(props: { children: React.ReactNode; className?: string }) {
+    return (
+        <div
+            className={clsx(
+                "rounded-[28px] bg-white/5 p-4 ring-1 ring-white/10 backdrop-blur-md",
+                props.className
+            )}
+        >
+            {props.children}
+        </div>
+    );
+}
+
 function Badge(props: {
     children: React.ReactNode;
     tone?: "gray" | "green" | "red" | "blue" | "amber";
@@ -54,13 +67,22 @@ function Td(props: { children: React.ReactNode; className?: string; colSpan?: nu
     );
 }
 
+function formatDate(iso?: string | null) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString("fr-FR", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+}
+
 /* ============================================================================
 🧩 JSON VIEWER (no libs)
 ============================================================================ */
-
-function isPlainObject(x: any) {
-    return x && typeof x === "object" && !Array.isArray(x);
-}
 
 function JsonViewer(props: { title: string; value: any; defaultOpen?: boolean }) {
     const [open, setOpen] = React.useState(!!props.defaultOpen);
@@ -73,7 +95,7 @@ function JsonViewer(props: { title: string; value: any; defaultOpen?: boolean })
               : JSON.stringify(props.value, null, 2);
 
     return (
-        <div className="rounded-xl bg-black/20 ring-1 ring-white/10">
+        <div className="rounded-2xl bg-black/20 ring-1 ring-white/10">
             <button
                 type="button"
                 onClick={() => setOpen((v) => !v)}
@@ -88,7 +110,7 @@ function JsonViewer(props: { title: string; value: any; defaultOpen?: boolean })
                     {pretty == null ? (
                         <div className="text-xs text-white/40">null</div>
                     ) : (
-                        <pre className="max-h-[340px] overflow-auto whitespace-pre-wrap break-words text-xs text-white/75">
+                        <pre className="max-h-[360px] overflow-auto whitespace-pre-wrap break-words text-xs text-white/75">
                             {pretty}
                         </pre>
                     )}
@@ -128,6 +150,7 @@ function Drawer(props: { open: boolean; onClose: () => void; children: React.Rea
 ============================================================================ */
 
 export default function AdminAiGenerationsPanel() {
+    // List
     const rows = useAdminStore((s) => s.aiGenerations);
     const count = useAdminStore((s) => s.aiGenerationsCount);
     const loading = useAdminStore((s) => s.aiGenerationsLoading);
@@ -137,6 +160,7 @@ export default function AdminAiGenerationsPanel() {
     const setFilters = useAdminStore((s) => s.setAiGenerationsFilters);
     const fetchRows = useAdminStore((s) => s.fetchAiGenerations);
 
+    // Drawer
     const openRow = useAdminStore((s) => s.openAiGeneration);
     const closeRow = useAdminStore((s) => s.closeAiGeneration);
 
@@ -145,96 +169,195 @@ export default function AdminAiGenerationsPanel() {
     const selectedLoading = useAdminStore((s) => s.selectedAiGenerationLoading);
     const selectedError = useAdminStore((s) => s.selectedAiGenerationError);
 
+    // Local draft for search + model (évite fetch à chaque keypress)
+    const [qDraft, setQDraft] = React.useState(filters.q ?? "");
+    const [modelDraft, setModelDraft] = React.useState(filters.model ?? "");
+
     React.useEffect(() => {
         void fetchRows({ reset: true });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const canPrev = (filters.offset ?? 0) > 0;
-    const canNext = rows.length === (filters.limit ?? 25);
+    // Options (basées sur les rows courantes, simple mais utile)
+    const typeOptions = React.useMemo(() => {
+        const set = new Set<string>();
+        for (const r of rows) if (r.generation_type) set.add(r.generation_type);
+        return Array.from(set).sort();
+    }, [rows]);
+
+    const modelOptions = React.useMemo(() => {
+        const set = new Set<string>();
+        for (const r of rows) if (r.model) set.add(r.model);
+        return Array.from(set).sort();
+    }, [rows]);
+
+    const limit = Number(filters.limit ?? 25);
+    const offset = Number(filters.offset ?? 0);
+
+    const canPrev = offset > 0;
+    const canNext = rows.length === limit && limit > 0;
+
+    const applyFilters = async () => {
+        setFilters({ q: qDraft, model: modelDraft, offset: 0 });
+        await fetchRows({ reset: true });
+    };
+
+    const resetFilters = async () => {
+        setQDraft("");
+        setModelDraft("");
+        setFilters({ q: "", type: "", status: "all", model: "", limit: 25, offset: 0 });
+        await fetchRows({ reset: true });
+    };
+
+    const goPrev = async () => {
+        const nextOffset = Math.max(0, offset - limit);
+        setFilters({ offset: nextOffset });
+        await fetchRows();
+    };
+
+    const goNext = async () => {
+        const nextOffset = offset + limit;
+        setFilters({ offset: nextOffset });
+        await fetchRows();
+    };
 
     return (
-        <section className="space-y-3">
+        <section className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                    <h2 className="text-lg font-semibold text-white/90">Logs IA</h2>
+                    <h2 className="text-lg font-semibold text-white/90">🧠 IA: Générations</h2>
                     <p className="mt-1 text-sm text-white/55">
-                        Supabase: <span className="text-white/70">ai_generations</span>
+                        Logs de la table <span className="text-white/70">ai_generations</span>
                         {typeof count === "number" ? ` • total: ${count}` : ""}
                     </p>
                 </div>
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="flex flex-wrap items-center gap-2">
                     <button
-                        onClick={() => void fetchRows({ reset: true })}
-                        className="h-10 rounded-xl bg-white/10 px-4 text-sm text-white/85 ring-1 ring-white/10 hover:bg-white/15"
+                        onClick={() => void fetchRows()}
+                        className="h-10 rounded-2xl bg-white/10 px-4 text-sm text-white/85 ring-1 ring-white/10 transition hover:bg-white/15"
+                        disabled={loading}
                     >
-                        {loading ? "Refresh…" : "Refresh"}
+                        {loading ? "⏳ Refresh…" : "🔄 Refresh"}
                     </button>
                 </div>
             </div>
 
             {/* Filters */}
-            <div className="grid gap-2 md:grid-cols-4">
-                <input
-                    className="h-10 rounded-xl bg-white/5 px-3 text-sm text-white/85 ring-1 ring-white/10 placeholder:text-white/35 outline-none focus:ring-white/20"
-                    placeholder="Search: session_id, user_id, chapter_id…"
-                    value={filters.q ?? ""}
-                    onChange={(e) => setFilters({ q: e.target.value })}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter") void fetchRows({ reset: true });
-                    }}
-                />
+            <Panel>
+                <div className="grid gap-2 md:grid-cols-12 md:items-end">
+                    <div className="md:col-span-5">
+                        <div className="text-xs tracking-[0.22em] uppercase text-white/45">
+                            Recherche
+                        </div>
+                        <input
+                            className="mt-2 h-10 w-full rounded-2xl bg-white/5 px-3 text-sm text-white/85 ring-1 ring-white/10 placeholder:text-white/35 outline-none focus:ring-white/20"
+                            placeholder="Search: session_id, user_id, chapter_id, error…"
+                            value={qDraft}
+                            onChange={(e) => setQDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") void applyFilters();
+                            }}
+                        />
+                    </div>
 
-                <select
-                    className="h-10 rounded-xl bg-white/5 px-3 text-sm text-white/85 ring-1 ring-white/10 outline-none focus:ring-white/20"
-                    value={filters.type ?? ""}
-                    onChange={(e) => {
-                        setFilters({ type: e.target.value, offset: 0 });
-                        void fetchRows({ reset: true });
-                    }}
-                >
-                    <option value="">Type: tous</option>
-                    <option value="mission_order">mission_order</option>
-                    <option value="chapter_story">chapter_story</option>
-                    <option value="quest_congrats">quest_congrats</option>
-                    <option value="quest_encouragement">quest_encouragement</option>
-                    <option value="adventure_briefing">adventure_briefing</option>
-                </select>
+                    <div className="md:col-span-2">
+                        <div className="text-xs tracking-[0.22em] uppercase text-white/45">
+                            Status
+                        </div>
+                        <select
+                            className="mt-2 h-10 w-full rounded-2xl bg-white/5 px-3 text-sm text-white/85 ring-1 ring-white/10 outline-none focus:ring-white/20"
+                            value={filters.status ?? "all"}
+                            onChange={(e) => {
+                                setFilters({ status: e.target.value as any, offset: 0 });
+                                void fetchRows({ reset: true });
+                            }}
+                        >
+                            <option value="all">all</option>
+                            <option value="success">success</option>
+                            <option value="error">error</option>
+                        </select>
+                    </div>
 
-                <select
-                    className="h-10 rounded-xl bg-white/5 px-3 text-sm text-white/85 ring-1 ring-white/10 outline-none focus:ring-white/20"
-                    value={filters.status ?? "all"}
-                    onChange={(e) => {
-                        setFilters({ status: e.target.value as any, offset: 0 });
-                        void fetchRows({ reset: true });
-                    }}
-                >
-                    <option value="all">Status: tous</option>
-                    <option value="success">success</option>
-                    <option value="error">error</option>
-                </select>
+                    <div className="md:col-span-2">
+                        <div className="text-xs tracking-[0.22em] uppercase text-white/45">
+                            Type
+                        </div>
+                        <select
+                            className="mt-2 h-10 w-full rounded-2xl bg-white/5 px-3 text-sm text-white/85 ring-1 ring-white/10 outline-none focus:ring-white/20"
+                            value={filters.type ?? ""}
+                            onChange={(e) => {
+                                setFilters({ type: e.target.value, offset: 0 });
+                                void fetchRows({ reset: true });
+                            }}
+                        >
+                            <option value="">(all)</option>
+                            {typeOptions.map((t) => (
+                                <option key={t} value={t}>
+                                    {t}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
 
-                <input
-                    className="h-10 rounded-xl bg-white/5 px-3 text-sm text-white/85 ring-1 ring-white/10 placeholder:text-white/35 outline-none focus:ring-white/20"
-                    placeholder="Model (ex: gpt-4.1)"
-                    value={filters.model ?? ""}
-                    onChange={(e) => setFilters({ model: e.target.value })}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter") void fetchRows({ reset: true });
-                    }}
-                />
-            </div>
+                    <div className="md:col-span-3">
+                        <div className="text-xs tracking-[0.22em] uppercase text-white/45">
+                            Model
+                        </div>
+                        {/* combo: input libre + suggestions */}
+                        <input
+                            list="admin-ai-models"
+                            className="mt-2 h-10 w-full rounded-2xl bg-white/5 px-3 text-sm text-white/85 ring-1 ring-white/10 placeholder:text-white/35 outline-none focus:ring-white/20"
+                            placeholder="ex: gpt-4.1-mini"
+                            value={modelDraft}
+                            onChange={(e) => setModelDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") void applyFilters();
+                            }}
+                        />
+                        <datalist id="admin-ai-models">
+                            {modelOptions.map((m) => (
+                                <option key={m} value={m} />
+                            ))}
+                        </datalist>
+                    </div>
+
+                    <div className="md:col-span-12 mt-2 flex flex-wrap gap-2">
+                        <button
+                            onClick={() => void applyFilters()}
+                            className="h-10 rounded-2xl bg-white/10 px-4 text-sm text-white/85 ring-1 ring-white/10 transition hover:bg-white/15"
+                            disabled={loading}
+                        >
+                            🔎 Appliquer
+                        </button>
+
+                        <button
+                            onClick={() => void resetFilters()}
+                            className="h-10 rounded-2xl bg-white/5 px-4 text-sm text-white/70 ring-1 ring-white/10 transition hover:bg-white/10"
+                            disabled={loading}
+                        >
+                            🧽 Reset
+                        </button>
+
+                        <div className="ml-auto flex items-center gap-2 text-xs text-white/45">
+                            <Badge tone="gray">limit: {limit}</Badge>
+                            <Badge tone="gray">offset: {offset}</Badge>
+                        </div>
+                    </div>
+                </div>
+            </Panel>
 
             {/* Table */}
-            <div className="overflow-hidden rounded-2xl ring-1 ring-white/10">
+            <div className="overflow-hidden rounded-[28px] ring-1 ring-white/10 bg-white/5">
                 {error ? (
-                    <div className="bg-rose-400/10 p-4 text-sm text-rose-200">{error}</div>
+                    <div className="bg-rose-400/10 p-4 text-sm text-rose-200 ring-1 ring-rose-400/20">
+                        {error}
+                    </div>
                 ) : null}
 
                 <div className="overflow-x-auto">
                     <table className="w-full">
-                        <thead className="bg-white/5">
+                        <thead className="bg-black/20">
                             <tr>
                                 <Th>Date</Th>
                                 <Th>Type</Th>
@@ -247,7 +370,7 @@ export default function AdminAiGenerationsPanel() {
                             </tr>
                         </thead>
 
-                        <tbody className="divide-y divide-white/5">
+                        <tbody className="divide-y divide-white/10">
                             {loading && rows.length === 0 ? (
                                 <tr>
                                     <Td className="py-10" colSpan={8}>
@@ -262,10 +385,12 @@ export default function AdminAiGenerationsPanel() {
                                 </tr>
                             ) : (
                                 rows.map((r) => (
-                                    <tr key={r.id} className="hover:bg-white/5">
+                                    <tr key={r.id} className="hover:bg-black/15">
                                         <Td>
-                                            <div>{r.created_at}</div>
-                                            <div className="mt-1 text-xs text-white/40">{r.id}</div>
+                                            <div className="text-white/85">
+                                                {formatDate(r.created_at)}
+                                            </div>
+                                            <div className="mt-1 text-xs text-white/35">{r.id}</div>
                                         </Td>
 
                                         <Td>
@@ -292,8 +417,8 @@ export default function AdminAiGenerationsPanel() {
                                         </Td>
 
                                         <Td>
-                                            <div className="text-white/85">{r.session_id}</div>
-                                            <div className="mt-1 text-xs text-white/40">
+                                            <div className="text-white/80">{r.session_id}</div>
+                                            <div className="mt-1 text-xs text-white/35">
                                                 {r.user_id ?? "—"}
                                             </div>
                                         </Td>
@@ -303,7 +428,7 @@ export default function AdminAiGenerationsPanel() {
                                         <Td>
                                             <button
                                                 onClick={() => openRow(r.id)}
-                                                className="h-8 rounded-lg bg-white/10 px-3 text-xs text-white/85 ring-1 ring-white/10 hover:bg-white/15"
+                                                className="h-9 rounded-2xl bg-white/10 px-3 text-xs text-white/85 ring-1 ring-white/10 transition hover:bg-white/15"
                                             >
                                                 Ouvrir
                                             </button>
@@ -316,24 +441,19 @@ export default function AdminAiGenerationsPanel() {
                 </div>
 
                 {/* Pagination */}
-                <div className="flex items-center justify-between gap-3 border-t border-white/10 bg-white/5 px-4 py-3">
-                    <div className="text-xs text-white/50">
-                        offset {filters.offset ?? 0} • limit {filters.limit ?? 25}
+                <div className="flex items-center justify-between gap-3 border-t border-white/10 bg-black/15 px-4 py-3">
+                    <div className="text-xs text-white/45">
+                        {typeof count === "number"
+                            ? `rows ${offset + 1}–${offset + rows.length} / ${count}`
+                            : `rows ${offset + 1}–${offset + rows.length}`}
                     </div>
 
                     <div className="flex gap-2">
                         <button
                             disabled={!canPrev || loading}
-                            onClick={() => {
-                                const nextOffset = Math.max(
-                                    0,
-                                    (filters.offset ?? 0) - (filters.limit ?? 25)
-                                );
-                                setFilters({ offset: nextOffset });
-                                void fetchRows();
-                            }}
+                            onClick={() => void goPrev()}
                             className={clsx(
-                                "h-9 rounded-xl px-3 text-sm ring-1 ring-white/10",
+                                "h-9 rounded-2xl px-3 text-sm ring-1 ring-white/10 transition",
                                 !canPrev || loading
                                     ? "bg-white/5 text-white/30"
                                     : "bg-white/10 text-white/85 hover:bg-white/15"
@@ -344,13 +464,9 @@ export default function AdminAiGenerationsPanel() {
 
                         <button
                             disabled={!canNext || loading}
-                            onClick={() => {
-                                const nextOffset = (filters.offset ?? 0) + (filters.limit ?? 25);
-                                setFilters({ offset: nextOffset });
-                                void fetchRows();
-                            }}
+                            onClick={() => void goNext()}
                             className={clsx(
-                                "h-9 rounded-xl px-3 text-sm ring-1 ring-white/10",
+                                "h-9 rounded-2xl px-3 text-sm ring-1 ring-white/10 transition",
                                 !canNext || loading
                                     ? "bg-white/5 text-white/30"
                                     : "bg-white/10 text-white/85 hover:bg-white/15"
@@ -365,15 +481,19 @@ export default function AdminAiGenerationsPanel() {
             {/* Drawer */}
             <Drawer open={!!selectedId} onClose={closeRow}>
                 <div className="flex items-start justify-between gap-4">
-                    <div>
-                        <div className="text-sm text-white/50">AI Generation</div>
-                        <div className="mt-1 text-lg font-semibold text-white/90">
+                    <div className="min-w-0">
+                        <div className="text-xs tracking-[0.22em] uppercase text-white/45">
+                            IA Generation
+                        </div>
+                        <div className="mt-1 truncate text-lg font-semibold text-white/90">
                             {selectedId ?? "—"}
                         </div>
+
                         <div className="mt-2 flex flex-wrap gap-2">
                             {selected?.generation_type ? (
                                 <Badge tone="blue">{String(selected.generation_type)}</Badge>
                             ) : null}
+
                             {selected?.status ? (
                                 selected.status === "success" ? (
                                     <Badge tone="green">success</Badge>
@@ -381,6 +501,7 @@ export default function AdminAiGenerationsPanel() {
                                     <Badge tone="red">error</Badge>
                                 )
                             ) : null}
+
                             {selected?.model ? (
                                 <Badge tone="gray">{String(selected.model)}</Badge>
                             ) : null}
@@ -389,13 +510,13 @@ export default function AdminAiGenerationsPanel() {
 
                     <button
                         onClick={closeRow}
-                        className="h-10 rounded-xl bg-white/10 px-4 text-sm text-white/85 ring-1 ring-white/10 hover:bg-white/15"
+                        className="h-10 shrink-0 rounded-2xl bg-white/10 px-4 text-sm text-white/85 ring-1 ring-white/10 transition hover:bg-white/15"
                     >
-                        Fermer
+                        Fermer ✖
                     </button>
                 </div>
 
-                <div className="mt-4">
+                <div className="mt-4 space-y-3">
                     {selectedLoading ? (
                         <div className="rounded-2xl bg-white/5 p-4 text-sm text-white/60 ring-1 ring-white/10">
                             Chargement des détails…
@@ -409,9 +530,9 @@ export default function AdminAiGenerationsPanel() {
                             Aucune donnée.
                         </div>
                     ) : (
-                        <div className="space-y-3">
+                        <>
                             {/* Quick facts */}
-                            <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
+                            <Panel className="bg-white/5">
                                 <div className="grid gap-3 md:grid-cols-2">
                                     <div>
                                         <div className="text-xs text-white/45">created_at</div>
@@ -489,13 +610,13 @@ export default function AdminAiGenerationsPanel() {
                                 </div>
 
                                 {selected.error_message ? (
-                                    <div className="mt-4 rounded-xl bg-rose-400/10 p-3 text-sm text-rose-200 ring-1 ring-rose-400/20">
+                                    <div className="mt-4 rounded-2xl bg-rose-400/10 p-3 text-sm text-rose-200 ring-1 ring-rose-400/20">
                                         {String(selected.error_message)}
                                     </div>
                                 ) : null}
-                            </div>
+                            </Panel>
 
-                            {/* JSON / Text fields */}
+                            {/* JSON / Text blocks (safe even if columns missing) */}
                             <JsonViewer title="system_text" value={selected.system_text ?? null} />
                             <JsonViewer
                                 title="user_input_text"
@@ -523,7 +644,7 @@ export default function AdminAiGenerationsPanel() {
                             <JsonViewer title="tags" value={selected.tags ?? null} />
                             <JsonViewer title="rendered_md" value={selected.rendered_md ?? null} />
                             <JsonViewer title="parse_error" value={selected.parse_error ?? null} />
-                        </div>
+                        </>
                     )}
                 </div>
             </Drawer>

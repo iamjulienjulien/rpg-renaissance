@@ -1,64 +1,73 @@
 // src/app/admin/page.tsx
 import React from "react";
+
+import AdminKpisPanel from "./AdminKpisPanel";
 import AdminAiGenerationsPanel from "./AdminAiGenerationsPanel";
+import AdminUsersPanel from "./AdminUsersPanel";
+import AdminSessionsPanel from "./AdminSessionsPanel";
+import AdminAdventuresPanel from "./AdminAdventuresPanel";
+import AdminChaptersPanel from "./AdminChaptersPanel";
+import AdminQuestsPanel from "./AdminQuestsPanel";
 
-/* ============================================================================
-🧠 TYPES (fake KPIs seulement)
-============================================================================ */
-
-type Kpi = {
-    label: string;
-    value: string;
-    hint?: string | null;
+type Props = {
+    searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-const KPIS: Kpi[] = [
-    { label: "Utilisateurs actifs (7j)", value: "128", hint: "+12% semaine" },
-    { label: "Sessions actives", value: "42", hint: "dont 9 en jeu" },
-    { label: "Générations IA (24h)", value: "1 934" },
-    { label: "Taux d’erreur IA", value: "1.8%" },
-    { label: "Latence médiane", value: "620 ms" },
-    { label: "Coût estimé", value: "€ 7.43" },
-];
-
-function Panel(props: { children: React.ReactNode }) {
-    return <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">{props.children}</div>;
+function asString(v: string | string[] | undefined) {
+    if (!v) return "";
+    return Array.isArray(v) ? (v[0] ?? "") : v;
 }
 
-function SectionHeader(props: { title: string; subtitle?: string }) {
-    return (
-        <div>
-            <h2 className="text-lg font-semibold text-white/90">{props.title}</h2>
-            {props.subtitle ? <p className="mt-1 text-sm text-white/55">{props.subtitle}</p> : null}
-        </div>
-    );
+function cleanParam(v: string) {
+    const s = (v ?? "").trim();
+    if (!s) return "";
+    if (s === "undefined" || s === "null") return "";
+    return s;
 }
 
-/* ============================================================================
-📄 PAGE
-============================================================================ */
+export default async function AdminPage(props: Props) {
+    const sp = (await props.searchParams) ?? {};
+    const tab = cleanParam(asString(sp.tab)) || "dashboard";
 
-export default function AdminPage() {
+    // Pass-through (utile pour sessions?userId=...)
+    const userId = cleanParam(asString(sp.userId));
+    const sessionId = cleanParam(asString(sp.sessionId));
+    const adventureId = cleanParam(asString(sp.adventureId));
+
     return (
         <div className="space-y-10">
-            {/* KPIs */}
-            <section>
-                <SectionHeader title="Vue d’ensemble" subtitle="Indicateurs clés (placeholder)" />
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {KPIS.map((k) => (
-                        <Panel key={k.label}>
-                            <div className="text-sm text-white/55">{k.label}</div>
-                            <div className="mt-1 text-2xl font-semibold text-white">{k.value}</div>
-                            {k.hint ? (
-                                <div className="mt-1 text-xs text-white/45">{k.hint}</div>
-                            ) : null}
-                        </Panel>
-                    ))}
-                </div>
-            </section>
+            {tab === "dashboard" ? (
+                <>
+                    <AdminKpisPanel />
+                    <AdminAiGenerationsPanel />
+                </>
+            ) : null}
 
-            {/* Real logs */}
-            <AdminAiGenerationsPanel />
+            {tab === "ai" ? <AdminAiGenerationsPanel /> : null}
+            {tab === "users" ? <AdminUsersPanel /> : null}
+
+            {tab === "sessions" ? <AdminSessionsPanel userId={userId || null} /> : null}
+
+            {tab === "adventures" ? (
+                <AdminAdventuresPanel userId={userId || null} sessionId={sessionId || null} />
+            ) : null}
+
+            {tab === "chapters" ? (
+                <AdminChaptersPanel
+                    userId={userId || null}
+                    sessionId={sessionId || null}
+                    adventureId={adventureId || null}
+                />
+            ) : null}
+
+            {tab === "quests" ? (
+                <AdminQuestsPanel
+                    userId={userId || null}
+                    sessionId={sessionId || null}
+                    adventureId={adventureId || null}
+                    chapterId={asString((sp as any).chapterId) || null}
+                />
+            ) : null}
 
             <footer className="text-center text-xs text-white/40">
                 Admin Console • Logs branchés sur Supabase

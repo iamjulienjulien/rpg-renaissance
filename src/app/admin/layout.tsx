@@ -5,6 +5,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { clientEnv } from "@/lib/env/client";
+
 /* ============================================================================
 🧠 ADMIN LAYOUT
 - Sidebar + Topbar
@@ -112,14 +114,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     const nav = useMemo(
         () => [
-            { href: "/admin", label: "Dashboard", emoji: "📊" },
-            { href: "/admin?tab=ai", label: "IA: Générations", emoji: "🧠" },
-            { href: "/admin?tab=sessions", label: "Sessions", emoji: "🧩" },
-            { href: "/admin?tab=adventures", label: "Aventures", emoji: "🧭" },
-            { href: "/admin?tab=chapters", label: "Chapitres", emoji: "📚" },
-            { href: "/admin?tab=quests", label: "Quêtes", emoji: "📜" },
-            { href: "/admin?tab=journal", label: "Journal", emoji: "📝" },
-            { href: "/admin?tab=health", label: "Santé / Debug", emoji: "🛠️" },
+            { href: "/admin", label: "Dashboard", emoji: "📊", active: true },
+            { href: "/admin?tab=ai", label: "IA: Générations", emoji: "🧠", active: true },
+            { href: "/admin?tab=users", label: "Utilisateurs", emoji: "👤", active: true },
+            { href: "/admin?tab=sessions", label: "Sessions", emoji: "🧩", active: true },
+            { href: "/admin?tab=adventures", label: "Aventures", emoji: "🧭", active: true },
+            { href: "/admin?tab=chapters", label: "Chapitres", emoji: "📚", active: true },
+            { href: "/admin?tab=quests", label: "Quêtes", emoji: "📜", active: true },
+            { href: "/admin?tab=journal", label: "Journal", emoji: "📝", active: false },
+            { href: "/admin?tab=health", label: "Santé / Debug", emoji: "🛠️", active: false },
         ],
         []
     );
@@ -165,23 +168,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             >
                                 Admin Console
                             </div>
-                            <div
+                            {/* <div
                                 className={cn(
                                     "mt-1 text-sm",
                                     theme.isDark ? "text-white/55" : "text-black/55"
                                 )}
                             >
                                 Monitoring, IA, données, debug.
-                            </div>
+                            </div> */}
                         </div>
 
                         <ThemeToggle isDark={theme.isDark} onToggle={theme.toggle} />
                     </div>
 
                     <div className="mt-4 flex flex-wrap gap-2">
-                        <Badge>env: local</Badge>
+                        <Badge>env: {clientEnv.appEnv ?? ""}</Badge>
                         <Badge>auth: off</Badge>
-                        <Badge>v: placeholder</Badge>
+                        <Badge>v: {clientEnv.appVersion ?? ""}</Badge>
                     </div>
 
                     <div className="mt-5 space-y-2">
@@ -197,13 +200,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                         (item.href.includes("?tab=") &&
                                             new URLSearchParams(item.href.split("?")[1]).get(
                                                 "tab"
-                                            ) != null))
+                                            ) != null)) &&
+                                    item.active
                                 }
                             />
                         ))}
                     </div>
 
-                    <div
+                    {/* <div
                         className={cn(
                             "mt-5 rounded-2xl p-3 ring-1",
                             ring,
@@ -227,7 +231,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             Cette console utilise des fake data. On branchera Supabase et les droits
                             ensuite.
                         </div>
-                    </div>
+                    </div> */}
                 </aside>
 
                 {/* Main */}
@@ -260,7 +264,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 </div>
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-2">
+                            {/* <div className="flex flex-wrap items-center gap-2">
                                 <button
                                     type="button"
                                     className={cn(
@@ -296,7 +300,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 >
                                     🧨 Clear caches (fake)
                                 </button>
-                            </div>
+                            </div> */}
                         </div>
                     </div>
 
@@ -304,7 +308,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <div className="mt-4">{children}</div>
 
                     {/* Footer */}
-                    <div className={cn("mt-6 rounded-[28px] p-4 ring-1", panelBg, ring)}>
+                    {/* <div className={cn("mt-6 rounded-[28px] p-4 ring-1", panelBg, ring)}>
                         <div
                             className={cn(
                                 "text-sm font-semibold",
@@ -322,7 +326,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             Objectif: observer, diagnostiquer, et itérer vite. Plus tard: droits +
                             vraies stats + exports.
                         </div>
-                    </div>
+                    </div> */}
                 </main>
             </div>
         </div>
