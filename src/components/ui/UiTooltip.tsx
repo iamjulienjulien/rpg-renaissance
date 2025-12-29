@@ -111,7 +111,7 @@ export default function UiTooltip({
             <div
                 ref={tipRef}
                 className={cn(
-                    "pointer-events-none fixed z-[200]",
+                    "pointer-events-none fixed z-[120]",
                     "opacity-0 scale-[0.98] translate-y-[-2px]",
                     "transition duration-150 ease-out",
                     "will-change-transform"

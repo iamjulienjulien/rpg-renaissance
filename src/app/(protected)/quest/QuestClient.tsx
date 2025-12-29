@@ -16,6 +16,7 @@ import { ActionButton, Panel, Pill } from "@/components/RpgUi";
 import MasterCard from "@/components/ui/MasterCard";
 import { UiAnimatePresence, UiMotionDiv } from "@/components/motion/UiMotion";
 import UiTooltip from "@/components/ui/UiTooltip";
+import UiLightbox, { type UiLightboxItem } from "@/components/ui/UiLightbox";
 
 // Helpers
 import { QuestDifficultyPill } from "@/helpers/questDifficulty";
@@ -131,10 +132,27 @@ export default function QuestClient() {
 
     const [photoFilter, setPhotoFilter] = useState<PhotoCategory[]>(["initial", "final", "other"]);
 
+    const [lightboxOpen, setLightboxOpen] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
+
     const filteredPhotos = React.useMemo(() => {
         if (!photoFilter.length) return photos;
         return photos.filter((p) => photoFilter.includes(p.category));
     }, [photos, photoFilter]);
+
+    const lightboxItems: UiLightboxItem[] = React.useMemo(() => {
+        return (filteredPhotos ?? [])
+            .filter((p) => !!p.signed_url)
+            .map((p) => ({
+                id: p.id,
+                url: p.signed_url as string,
+                alt: p.caption ?? categoryLabel(p.category),
+                caption: p.caption,
+                categoryEmoji: categoryEmoji(p.category),
+                categoryLabel: categoryLabel(p.category),
+                isCover: !!p.is_cover,
+            }));
+    }, [filteredPhotos]);
 
     const toggleCategory = (cat: PhotoCategory) => {
         setPhotoFilter((prev) =>
@@ -683,13 +701,29 @@ export default function QuestClient() {
                                                             // align="center"
                                                             maxWidthClassName="max-w-[280px]"
                                                         >
-                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                            <img
-                                                                src={p.signed_url}
-                                                                alt={p.caption ?? catLabel}
-                                                                className="aspect-square w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
-                                                                loading="lazy"
-                                                            />
+                                                            <button
+                                                                type="button"
+                                                                className="block w-full text-left"
+                                                                onClick={() => {
+                                                                    // index sur la liste filtrée (mais seulement les items qui ont une signed_url)
+                                                                    const idx =
+                                                                        lightboxItems.findIndex(
+                                                                            (it) => it.id === p.id
+                                                                        );
+                                                                    if (idx < 0) return;
+                                                                    setLightboxIndex(idx);
+                                                                    setLightboxOpen(true);
+                                                                }}
+                                                                aria-label="Ouvrir la photo"
+                                                            >
+                                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                <img
+                                                                    src={p.signed_url}
+                                                                    alt={p.caption ?? catLabel}
+                                                                    className="aspect-square w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                                                                    loading="lazy"
+                                                                />
+                                                            </button>
                                                         </UiTooltip>
                                                     ) : (
                                                         <div className="aspect-square grid place-items-center text-white/50 text-sm">
@@ -871,6 +905,12 @@ export default function QuestClient() {
                     if (!chapterQuestId) return;
                     void loadPhotos(chapterQuestId);
                 }}
+            />
+            <UiLightbox
+                open={lightboxOpen}
+                items={lightboxItems}
+                startIndex={lightboxIndex}
+                onClose={() => setLightboxOpen(false)}
             />
         </RpgShell>
     );
