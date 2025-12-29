@@ -23,6 +23,8 @@ import { QuestStatusPill } from "@/helpers/questStatus";
 import { QuestPriorityPill } from "@/helpers/questPriority";
 import { QuestUrgencyPill } from "@/helpers/questUrgency";
 import { getCurrentCharacterEmoji, getCurrentCharacterName } from "@/helpers/adventure";
+import { useUiStore } from "@/stores/uiStore";
+import QuestCreateModal from "@/components/modals/QuestCreateModal";
 
 type Quest = {
     id: string;
@@ -43,6 +45,13 @@ type ChapterQuest = {
     chapter_id: string;
     status: "todo" | "doing" | "done";
 };
+
+type ChainNext = {
+    chain_id: string;
+    next_adventure_quest_id: string;
+    next_title: string | null;
+    next_position: number | null;
+} | null;
 
 export default function QuestClient() {
     const router = useRouter();
@@ -66,6 +75,9 @@ export default function QuestClient() {
     const finishQuest = useGameStore((s) => s.finishQuest);
     const bootstrap = useGameStore((s) => s.bootstrap);
 
+    const [chainNext, setChainNext] = useState<ChainNext>(null);
+    const [nextCqId, setNextCqId] = useState<string | null>(null);
+
     const [mounted, setMounted] = useState(false);
     const [encOpen, setEncOpen] = useState(false);
 
@@ -77,6 +89,8 @@ export default function QuestClient() {
     const encouragementById = useGameStore((s) => s.encouragementByChapterQuestId);
 
     const encouragement = chapterQuestId ? encouragementById[chapterQuestId] : undefined;
+
+    const { openModal } = useUiStore();
 
     const load = async () => {
         if (!chapterQuestId) return;
@@ -96,6 +110,22 @@ export default function QuestClient() {
             setChapterQuest(json.chapterQuest);
             setQuest(json.quest);
             setMissionMd(json.mission_md ?? json.mission?.mission_md ?? null);
+
+            // ✅ NEW
+            const next = (json?.chain_next ?? null) as ChainNext;
+            setChainNext(next);
+            setNextCqId(null);
+
+            if (next?.next_adventure_quest_id && json?.chapterQuest?.chapter_id) {
+                const r = await fetch(
+                    `/api/chapter-quests/resolve?chapterId=${encodeURIComponent(
+                        json.chapterQuest.chapter_id
+                    )}&adventureQuestId=${encodeURIComponent(next.next_adventure_quest_id)}`,
+                    { cache: "no-store" }
+                );
+                const j = await r.json().catch(() => null);
+                if (r.ok) setNextCqId(j?.chapterQuestId ?? null);
+            }
         } finally {
             setLoading(false);
         }
@@ -266,6 +296,47 @@ export default function QuestClient() {
                                         <Pill>⏱️ {quest.estimate_min} min</Pill>
                                     ) : null}
                                 </div>
+
+                                {chainNext?.next_adventure_quest_id ? (
+                                    <div className="mt-3 rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
+                                                    Chaîne
+                                                </div>
+                                                <div className="mt-1 text-sm text-white/80 truncate">
+                                                    ⛓️ Suite:{" "}
+                                                    {chainNext.next_title ?? "Quête suivante"}
+                                                </div>
+                                            </div>
+
+                                            <ActionButton
+                                                variant="solid"
+                                                disabled={!nextCqId}
+                                                onClick={() => {
+                                                    if (!nextCqId) return;
+                                                    router.push(
+                                                        `/quest?cq=${encodeURIComponent(nextCqId)}`
+                                                    );
+                                                }}
+                                                // title={
+                                                //     !nextCqId
+                                                //         ? "La quête suivante n’est pas dans ce chapitre"
+                                                //         : undefined
+                                                // }
+                                            >
+                                                ➡️ Aller
+                                            </ActionButton>
+                                        </div>
+
+                                        {!nextCqId ? (
+                                            <div className="mt-2 text-xs text-white/45">
+                                                La suite existe, mais elle n’est pas affectée au
+                                                chapitre courant.
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                ) : null}
                             </div>
                         </Panel>
 
@@ -323,6 +394,23 @@ export default function QuestClient() {
                                             ▶️ Démarrer la quête
                                         </ActionButton>
 
+                                        <ActionButton
+                                            onClick={() => {
+                                                // TODO: ouvrira la modal "questCreate" en mode "chained"
+                                                // ex: openModal("questCreate", { mode: "chain", parentQuestId: quest.id, ... })
+                                                console.log("chain quest from", quest?.id);
+
+                                                openModal("questCreate", {
+                                                    mode: "chain",
+                                                    parent_chapter_quest_id: chapterQuest.id,
+                                                    parent_adventure_quest_id: quest.id,
+                                                });
+                                            }}
+                                            disabled={busy}
+                                        >
+                                            ⛓️ Ajouter une quête chainée
+                                        </ActionButton>
+
                                         <ActionButton onClick={() => router.push("/adventure")}>
                                             ↩️ Retour
                                         </ActionButton>
@@ -345,6 +433,24 @@ export default function QuestClient() {
                                             disabled={busy}
                                         >
                                             ✨ Demander un encouragement
+                                        </ActionButton>
+
+                                        {/* ✅ NEW: Chain quest */}
+                                        <ActionButton
+                                            onClick={() => {
+                                                // TODO: ouvrira la modal "questCreate" en mode "chained"
+                                                // ex: openModal("questCreate", { mode: "chain", parentQuestId: quest.id, ... })
+                                                console.log("chain quest from", quest?.id);
+
+                                                openModal("questCreate", {
+                                                    mode: "chain",
+                                                    parent_chapter_quest_id: chapterQuest.id,
+                                                    parent_adventure_quest_id: quest.id,
+                                                });
+                                            }}
+                                            disabled={busy}
+                                        >
+                                            ⛓️ Ajouter une quête chainée
                                         </ActionButton>
 
                                         <ActionButton onClick={() => router.push("/adventure")}>
@@ -486,6 +592,12 @@ export default function QuestClient() {
                       document.body
                   )
                 : null}
+            <QuestCreateModal
+                onCreated={() => {
+                    if (!chapterQuestId) return;
+                    void load();
+                }}
+            />
         </RpgShell>
     );
 }

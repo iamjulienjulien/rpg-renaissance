@@ -22,6 +22,8 @@ import type {
     CreateAdventureQuestInput,
     AdventureRoom,
     RoomTemplate,
+    QuestChain,
+    QuestChainItem,
 } from "@/types/game";
 
 /* ============================================================================
@@ -40,7 +42,9 @@ export type ReloadKey =
     | "backlog"
     | "rooms"
     | "roomTemplates"
-    | "chaptersByAdventure";
+    | "chaptersByAdventure"
+    | "questChains"
+    | "questChainItems";
 
 export type ReloadInput = ReloadKey | ReloadKey[];
 
@@ -278,6 +282,42 @@ type GameStore = {
         chapterQuestId: string,
         quest?: QuestLite | null
     ) => Promise<boolean>;
+
+    /* ------------------------- 🔗 QUEST CHAINS -------------------------- */
+
+    // cache: chains par aventure
+    questChainsByAdventureId: Record<string, QuestChain[]>;
+    questChainsLoadingByAdventureId: Record<string, boolean | undefined>;
+
+    getQuestChainsByAdventure: (
+        adventureId: string,
+        opts?: { force?: boolean }
+    ) => Promise<QuestChain[]>;
+
+    createQuestChain: (input: {
+        adventure_id: string;
+        title?: string | null;
+        description?: string | null;
+    }) => Promise<QuestChain | null>;
+
+    updateQuestChain: (
+        chainId: string,
+        input: { title?: string | null; description?: string | null }
+    ) => Promise<QuestChain | null>;
+
+    deleteQuestChain: (chainId: string) => Promise<boolean>;
+
+    // cache: items par chain
+    questChainItemsByChainId: Record<string, QuestChainItem[]>;
+    questChainItemsLoadingByChainId: Record<string, boolean | undefined>;
+
+    getQuestChainItems: (chainId: string, opts?: { force?: boolean }) => Promise<QuestChainItem[]>;
+
+    addQuestToChain: (chainId: string, adventureQuestId: string) => Promise<boolean>;
+
+    reorderQuestChainItem: (itemId: string, position: number) => Promise<boolean>;
+
+    removeQuestFromChain: (itemId: string) => Promise<boolean>;
 
     /* ---------------------------- ⭐ RENOMMÉE ---------------------------- */
     renown: Renown | null;
@@ -1079,9 +1119,10 @@ export const useGameStore = create<GameStore>((set, get) => {
                 let rooms: AdventureRoom[] = [];
                 let templates: RoomTemplate[] = [];
                 let adventureBacklog: AdventureQuestWithStatus[] = [];
+                let questChainsByAdventureId: Record<string, QuestChain[]> = {};
 
                 if (chapter?.id) {
-                    const [advRes, questsRes, roomsRes, templatesRes, backlogRes] =
+                    const [advRes, questsRes, roomsRes, templatesRes, backlogRes, chainsRes] =
                         await Promise.allSettled([
                             chapter.adventure_id
                                 ? fetch(
@@ -1109,6 +1150,14 @@ export const useGameStore = create<GameStore>((set, get) => {
                             chapter.adventure_id
                                 ? fetch(
                                       `/api/adventure-quests?adventureId=${encodeURIComponent(
+                                          chapter.adventure_id
+                                      )}`,
+                                      { cache: "no-store" }
+                                  )
+                                : Promise.resolve(null as any),
+                            chapter.adventure_id
+                                ? fetch(
+                                      `/api/quest-chains?adventureId=${encodeURIComponent(
                                           chapter.adventure_id
                                       )}`,
                                       { cache: "no-store" }
@@ -1151,6 +1200,16 @@ export const useGameStore = create<GameStore>((set, get) => {
                             adventureBacklog = Array.isArray(list) ? list : [];
                         }
                     }
+
+                    if (chainsRes.status === "fulfilled" && chainsRes.value) {
+                        const cJson = await fetchJson(chainsRes.value);
+                        if (chainsRes.value.ok) {
+                            const list = (cJson?.chains ?? []) as QuestChain[];
+                            questChainsByAdventureId = chapter.adventure_id
+                                ? { [chapter.adventure_id]: Array.isArray(list) ? list : [] }
+                                : {};
+                        }
+                    }
                 }
 
                 set({
@@ -1167,7 +1226,7 @@ export const useGameStore = create<GameStore>((set, get) => {
                     currentAdventure,
                     currentChapterQuests,
                     currentQuests,
-
+                    questChainsByAdventureId,
                     adventureBacklog,
 
                     renown,
@@ -1225,9 +1284,13 @@ export const useGameStore = create<GameStore>((set, get) => {
             }
             if (requested.has("adventure")) {
                 requested.add("chaptersByAdventure");
+                requested.add("questChains");
             }
             if (requested.has("session")) {
                 requested.add("renown");
+            }
+            if (requested.has("questChains")) {
+                requested.add("questChainItems"); // ✅ optionnel si tu veux auto-charger items du chain actif (voir note)
             }
 
             if (!silent) {
@@ -1393,6 +1456,19 @@ export const useGameStore = create<GameStore>((set, get) => {
                             });
                         }
                     }
+                }
+
+                if (requested.has("questChains")) {
+                    const advId = get().currentAdventure?.id ?? adventureId ?? null;
+                    if (!advId) return;
+
+                    void get().getQuestChainsByAdventure(advId, { force: true });
+                }
+
+                if (requested.has("questChainItems")) {
+                    // ⚠️ ici, on ne charge pas “tout”, car on n’a pas un chainId unique.
+                    // => l’UI doit appeler getQuestChainItems(chainId) au moment opportun.
+                    // (on garde ce ReloadKey pour permettre un “refresh” ciblé côté UI)
                 }
 
                 if (requested.has("backlog")) {
@@ -1681,9 +1757,11 @@ export const useGameStore = create<GameStore>((set, get) => {
                 description: input.description ?? null,
                 difficulty: input.difficulty ?? 2,
                 estimate_min: input.estimate_min ?? null,
-
-                // ✅ NEW
                 urgency: input.urgency ?? "normal",
+
+                // 🔗 (optionnel) si ton API les accepte un jour, tu pourras aussi les envoyer
+                // parent_chapter_quest_id: input.parent_chapter_quest_id ?? null,
+                // parent_adventure_quest_id: input.parent_adventure_quest_id ?? null,
             });
 
             if (!res.ok) {
@@ -1697,10 +1775,90 @@ export const useGameStore = create<GameStore>((set, get) => {
                 return null;
             }
 
+            // ✅ UX de base
             toast.success("Quête créée", `📜 ${quest.title}`);
 
-            // ✅ refresh backlog (et éventuellement chapitreQuests si écran chapitre ouvert)
+            // ✅ refresh backlog (best-effort)
             void get().reload(["backlog"], { silent: true });
+
+            /* ---------------------------------------------------------------------
+    🔗 CHAIN MODE (best-effort)
+    - On crée / retrouve une chaîne si on a les 2 parents
+    --------------------------------------------------------------------- */
+            const parentChapterQuestId = (input as any)?.parent_chapter_quest_id ?? null;
+            const parentAdventureQuestId = (input as any)?.parent_adventure_quest_id ?? null;
+
+            const shouldChain =
+                typeof parentChapterQuestId === "string" &&
+                parentChapterQuestId.trim().length > 0 &&
+                typeof parentAdventureQuestId === "string" &&
+                parentAdventureQuestId.trim().length > 0;
+
+            if (!shouldChain) return quest;
+
+            const parentAQ = parentAdventureQuestId.trim();
+
+            try {
+                // 1) charger les chains de l'aventure (cache ok)
+                const chains = await get().getQuestChainsByAdventure(adventure_id, {
+                    force: false,
+                });
+
+                // 2) retrouver une chaîne qui contient le parent (via items)
+                let targetChainId: string | null = null;
+
+                for (const ch of chains) {
+                    const items = await get().getQuestChainItems(ch.id, { force: false });
+                    const hasParent = (items ?? []).some(
+                        (it: any) => (it?.adventure_quest_id ?? it?.quest_id) === parentAQ
+                    );
+
+                    if (hasParent) {
+                        targetChainId = ch.id;
+                        break;
+                    }
+                }
+
+                // 3) si aucune chaîne existante: on en crée une, puis on ajoute le parent
+                if (!targetChainId) {
+                    const chainTitle = (input as any)?.parent_title?.trim?.()
+                        ? `Chaîne: ${(input as any).parent_title.trim()}`
+                        : "Chaîne de quêtes";
+
+                    const created = await get().createQuestChain({
+                        adventure_id,
+                        title: chainTitle,
+                        description: null,
+                    });
+
+                    if (!created?.id) {
+                        // si on ne peut pas créer la chaîne, on ne bloque pas la création de quête
+                        return quest;
+                    }
+
+                    targetChainId = created.id;
+
+                    // Ajouter le parent en 1er (best-effort)
+                    await get().addQuestToChain(targetChainId, parentAQ);
+
+                    toast.success("Chaîne créée", "Le parent a été lié à la chaîne.");
+                }
+
+                // 4) ajouter la nouvelle quête à la chaîne
+                const ok = await get().addQuestToChain(targetChainId, quest.id);
+
+                if (ok) {
+                    toast.success("Quête enchaînée", "Ajoutée à la chaîne.");
+                }
+
+                // 5) refresh des items pour que l'UI voie direct la mise à jour
+                void get().getQuestChainItems(targetChainId, { force: true });
+                void get().getQuestChainsByAdventure(adventure_id, { force: true });
+            } catch (e) {
+                // best-effort: on ne casse jamais la création de quête
+                console.error("Chain creation failed", e);
+                toast.error("Chaîne", "Impossible de lier la quête à la chaîne (création OK).");
+            }
 
             return quest;
         },
@@ -1813,6 +1971,333 @@ export const useGameStore = create<GameStore>((set, get) => {
                 toast.error("Unassign failed", "Network error");
                 return false;
             }
+        },
+
+        /* =========================================================================
+        🔗 QUEST CHAINS
+        ========================================================================= */
+
+        questChainsByAdventureId: {},
+        questChainsLoadingByAdventureId: {},
+
+        getQuestChainsByAdventure: async (adventureId: string, opts) => {
+            const id = (adventureId ?? "").trim();
+            if (!id) return [];
+
+            const force = !!opts?.force;
+
+            const cached = get().questChainsByAdventureId[id];
+            if (!force && cached?.length) return cached;
+
+            set((s) => ({
+                questChainsLoadingByAdventureId: {
+                    ...s.questChainsLoadingByAdventureId,
+                    [id]: true,
+                },
+            }));
+
+            try {
+                const res = await apiGet<{ chains: QuestChain[] }>(
+                    `/api/quest-chains?adventureId=${encodeURIComponent(id)}`
+                );
+
+                if (!res.ok) return [];
+
+                const list = (res.data as any)?.chains ?? [];
+                const chains = Array.isArray(list) ? list : [];
+
+                set((s) => ({
+                    questChainsByAdventureId: {
+                        ...s.questChainsByAdventureId,
+                        [id]: chains,
+                    },
+                }));
+
+                return chains;
+            } finally {
+                set((s) => ({
+                    questChainsLoadingByAdventureId: {
+                        ...s.questChainsLoadingByAdventureId,
+                        [id]: false,
+                    },
+                }));
+            }
+        },
+
+        createQuestChain: async (input) => {
+            const toast = useToastStore.getState();
+
+            const adventure_id = (input?.adventure_id ?? "").trim();
+            if (!adventure_id) return null;
+
+            const res = await apiPost<{ chain: QuestChain | null }>("/api/quest-chains", {
+                adventure_id,
+                title: input.title ?? null,
+                description: input.description ?? null,
+            });
+
+            if (!res.ok) {
+                toast.error("Chaîne", res.error ?? "Création impossible");
+                return null;
+            }
+
+            const chain = (res.data as any)?.chain ?? null;
+            if (!chain?.id) return null;
+
+            toast.success("Chaîne créée", chain.title ?? "Nouvelle chaîne");
+
+            // ✅ refresh cache (best-effort)
+            void get().getQuestChainsByAdventure(adventure_id, { force: true });
+
+            return chain;
+        },
+
+        updateQuestChain: async (chainId, input) => {
+            const toast = useToastStore.getState();
+
+            const id = (chainId ?? "").trim();
+            if (!id) return null;
+
+            // PATCH: on ne passe que les champs présents (cohérent côté API)
+            const payload: Record<string, any> = {};
+            if ("title" in input) payload.title = input.title ?? null;
+            if ("description" in input) payload.description = input.description ?? null;
+
+            try {
+                const res = await fetch(`/api/quest-chains/${encodeURIComponent(id)}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+
+                const json = await fetchJson(res);
+
+                if (!res.ok) {
+                    toast.error("Chaîne", json?.error ?? "Mise à jour impossible");
+                    return null;
+                }
+
+                const chain = json?.chain ?? null;
+                if (!chain?.id) return null;
+
+                toast.success("Chaîne mise à jour", chain.title ?? undefined);
+
+                // ✅ Réconcilier cache local: on patch l’item dans la liste (si on le retrouve)
+                set((s) => {
+                    const next = { ...s.questChainsByAdventureId };
+
+                    // on ne connaît pas adventure_id ici avec certitude: on le cherche
+                    for (const advId of Object.keys(next)) {
+                        const list = next[advId] ?? [];
+                        const idx = list.findIndex((c) => c.id === id);
+                        if (idx >= 0) {
+                            const patched = list.slice();
+                            patched[idx] = { ...patched[idx], ...chain };
+                            next[advId] = patched;
+                            break;
+                        }
+                    }
+
+                    return { questChainsByAdventureId: next };
+                });
+
+                return chain as QuestChain;
+            } catch {
+                toast.error("Chaîne", "Erreur réseau");
+                return null;
+            }
+        },
+
+        deleteQuestChain: async (chainId) => {
+            const toast = useToastStore.getState();
+            const id = (chainId ?? "").trim();
+            if (!id) return false;
+
+            const res = await apiDelete<{ ok: boolean }>(
+                `/api/quest-chains/${encodeURIComponent(id)}`
+            );
+            if (!res.ok) {
+                toast.error("Chaîne", res.error ?? "Suppression impossible");
+                return false;
+            }
+
+            toast.success("Chaîne supprimée", undefined);
+
+            // ✅ purge caches
+            set((s) => {
+                const nextChains = { ...s.questChainsByAdventureId };
+                for (const advId of Object.keys(nextChains)) {
+                    nextChains[advId] = (nextChains[advId] ?? []).filter((c) => c.id !== id);
+                }
+
+                const nextItems = { ...s.questChainItemsByChainId };
+                delete nextItems[id];
+
+                const nextItemsLoading = { ...s.questChainItemsLoadingByChainId };
+                delete nextItemsLoading[id];
+
+                return {
+                    questChainsByAdventureId: nextChains,
+                    questChainItemsByChainId: nextItems,
+                    questChainItemsLoadingByChainId: nextItemsLoading,
+                };
+            });
+
+            return true;
+        },
+
+        questChainItemsByChainId: {},
+        questChainItemsLoadingByChainId: {},
+
+        getQuestChainItems: async (chainId: string, opts) => {
+            const id = (chainId ?? "").trim();
+            if (!id) return [];
+
+            const force = !!opts?.force;
+
+            const cached = get().questChainItemsByChainId[id];
+            if (!force && cached?.length) return cached;
+
+            set((s) => ({
+                questChainItemsLoadingByChainId: {
+                    ...s.questChainItemsLoadingByChainId,
+                    [id]: true,
+                },
+            }));
+
+            try {
+                const res = await apiGet<{ items: QuestChainItem[] }>(
+                    `/api/quest-chains/${encodeURIComponent(id)}/items`
+                );
+
+                if (!res.ok) return [];
+
+                const list = (res.data as any)?.items ?? [];
+                const items = Array.isArray(list) ? list : [];
+
+                set((s) => ({
+                    questChainItemsByChainId: {
+                        ...s.questChainItemsByChainId,
+                        [id]: items,
+                    },
+                }));
+
+                return items;
+            } finally {
+                set((s) => ({
+                    questChainItemsLoadingByChainId: {
+                        ...s.questChainItemsLoadingByChainId,
+                        [id]: false,
+                    },
+                }));
+            }
+        },
+
+        addQuestToChain: async (chainId, adventureQuestId) => {
+            const toast = useToastStore.getState();
+
+            const cid = (chainId ?? "").trim();
+            const qid = (adventureQuestId ?? "").trim();
+            if (!cid || !qid) return false;
+
+            const res = await apiPost<{ item?: any }>(
+                `/api/quest-chains/${encodeURIComponent(cid)}/items`,
+                { adventure_quest_id: qid }
+            );
+
+            if (!res.ok) {
+                toast.error("Chaîne", res.error ?? "Ajout impossible");
+                return false;
+            }
+
+            toast.success("Quête ajoutée", "Ajoutée à la chaîne");
+
+            // ✅ refresh items (best-effort)
+            void get().getQuestChainItems(cid, { force: true });
+
+            return true;
+        },
+
+        reorderQuestChainItem: async (itemId, position) => {
+            const toast = useToastStore.getState();
+
+            const id = (itemId ?? "").trim();
+            if (!id) return false;
+
+            const pos = Number(position);
+            if (!Number.isInteger(pos) || pos < 1) return false;
+
+            try {
+                const res = await fetch(`/api/quest-chain-items/${encodeURIComponent(id)}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ position: pos }),
+                });
+
+                const json = await fetchJson(res);
+
+                if (!res.ok) {
+                    toast.error("Chaîne", json?.error ?? "Réorganisation impossible");
+                    return false;
+                }
+
+                // ✅ patch optimiste local: on remonte l’item dans le cache s’il existe
+                set((s) => {
+                    const next = { ...s.questChainItemsByChainId };
+
+                    for (const chainId of Object.keys(next)) {
+                        const list = next[chainId] ?? [];
+                        const idx = list.findIndex((it) => it.id === id);
+                        if (idx < 0) continue;
+
+                        const updated = { ...list[idx], position: pos };
+
+                        const without = list.filter((it) => it.id !== id);
+                        const withUpdated = [...without, updated].sort(
+                            (a, b) => (a.position ?? 0) - (b.position ?? 0)
+                        );
+
+                        next[chainId] = withUpdated;
+                        break;
+                    }
+
+                    return { questChainItemsByChainId: next };
+                });
+
+                return true;
+            } catch {
+                toast.error("Chaîne", "Erreur réseau");
+                return false;
+            }
+        },
+
+        removeQuestFromChain: async (itemId) => {
+            const toast = useToastStore.getState();
+
+            const id = (itemId ?? "").trim();
+            if (!id) return false;
+
+            const res = await apiDelete<{ ok: boolean }>(
+                `/api/quest-chain-items/${encodeURIComponent(id)}`
+            );
+
+            if (!res.ok) {
+                toast.error("Chaîne", res.error ?? "Suppression impossible");
+                return false;
+            }
+
+            toast.success("Retirée de la chaîne", undefined);
+
+            // ✅ purge dans tous les caches (on ne connaît pas chain_id forcément)
+            set((s) => {
+                const next = { ...s.questChainItemsByChainId };
+                for (const chainId of Object.keys(next)) {
+                    next[chainId] = (next[chainId] ?? []).filter((it) => it.id !== id);
+                }
+                return { questChainItemsByChainId: next };
+            });
+
+            return true;
         },
 
         /* =========================================================================

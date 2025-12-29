@@ -203,3 +203,69 @@ export type CreateAdventureQuestInput = {
     // priority non éditable pour l’instant => absent ici
     urgency?: QuestUrgency;
 };
+
+/* ============================================================================
+🔗 QUEST CHAINS (chaînes de quêtes)
+============================================================================ */
+
+/**
+ * Une chaîne regroupe des quêtes (adventure_quests) dans un ordre.
+ * Exemple: "Routine du soir", "Préparer la sortie vélo", etc.
+ */
+export type QuestChain = {
+    id: string;
+    adventure_id: string;
+    title: string | null;
+    description: string | null;
+
+    // métadonnées
+    created_at: string;
+    updated_at?: string | null;
+
+    // scope multi-tenant
+    session_id: string | null;
+};
+
+/**
+ * Un item de chaîne: référence une quête et porte un ordre (position).
+ * L’API peut renvoyer l’objet enrichi avec la quête jointe.
+ */
+export type QuestChainItem = {
+    id: string;
+    quest_chain_id: string;
+    adventure_quest_id: string;
+
+    /**
+     * Ordre dans la chaîne (1..n)
+     * On garde un integer simple, facile à trier / reorder.
+     */
+    position: number;
+
+    // métadonnées
+    created_at: string;
+    updated_at?: string | null;
+
+    // scope multi-tenant
+    session_id: string | null;
+
+    /**
+     * Join optionnelle (quand tu fais une jointure côté API)
+     * Permet d’afficher directement la quête dans l’UI.
+     */
+    adventure_quest?: {
+        id: string;
+        adventure_id: string;
+        room_code: string | null;
+        title: string;
+        description: string | null;
+
+        difficulty: number | null;
+        estimate_min: number | null;
+
+        urgency?: QuestUrgency | null;
+        priority?: QuestPriority | null;
+
+        created_at: string;
+        session_id: string | null;
+    } | null;
+};

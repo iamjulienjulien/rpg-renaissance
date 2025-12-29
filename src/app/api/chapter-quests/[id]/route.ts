@@ -79,11 +79,71 @@ export async function GET(_req: NextRequest, context: Ctx) {
         session_id: data.session_id,
     };
 
+    /* ------------------------------------------------------------------------
+    🔗 Chain next (si la quête est dans une chaîne et possède un item suivant)
+    ------------------------------------------------------------------------ */
+    let chain_next: null | {
+        chain_id: string;
+        next_adventure_quest_id: string;
+        next_title: string | null;
+        next_position: number | null;
+    } = null;
+
+    const adventureQuestId = quest?.id ?? null;
+
+    if (adventureQuestId) {
+        // 1) item courant (unique par adventure_quest_id)
+        const { data: currentItem, error: curErr } = await supabase
+            .from("quest_chain_items")
+            .select("id, chain_id, position")
+            .eq("session_id", session.id)
+            .eq("adventure_quest_id", adventureQuestId)
+            .maybeSingle();
+
+        if (!curErr && currentItem?.chain_id && typeof currentItem.position === "number") {
+            // 2) item suivant
+            const { data: nextItem, error: nextErr } = await supabase
+                .from("quest_chain_items")
+                .select(
+                    `
+                    id,
+                    chain_id,
+                    position,
+                    adventure_quests (
+                        id,
+                        title
+                    )
+                `
+                )
+                .eq("session_id", session.id)
+                .eq("chain_id", currentItem.chain_id)
+                .eq("position", currentItem.position + 1)
+                .maybeSingle();
+
+            if (!nextErr && nextItem?.adventure_quests) {
+                const aq = Array.isArray(nextItem.adventure_quests)
+                    ? nextItem.adventure_quests[0]
+                    : nextItem.adventure_quests;
+
+                if (aq?.id) {
+                    chain_next = {
+                        chain_id: nextItem.chain_id,
+                        next_adventure_quest_id: aq.id,
+                        next_title: aq.title ?? null,
+                        next_position:
+                            typeof nextItem.position === "number" ? nextItem.position : null,
+                    };
+                }
+            }
+        }
+    }
+
     return NextResponse.json({
         chapterQuest,
         quest,
         mission, // ✅ contient mission_md
         mission_md: mission?.mission_md ?? null, // ✅ shortcut pratique
+        chain_next, // ✅ NEW
         session_id: session.id,
     });
 }

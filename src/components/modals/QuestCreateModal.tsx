@@ -14,6 +14,7 @@ type Props = {
     defaultAdventureId?: string | null;
     defaultRoomCode?: string | null;
     defaultTarget?: "backlog" | "chapter";
+    onCreated?: () => void;
 };
 
 type Difficulty = 1 | 2 | 3;
@@ -39,9 +40,26 @@ function priorityLabel(p: QuestPriority) {
     return "🏁 principale";
 }
 
+/**
+ * 🧳 Context attendu pour questCreate (optionnel)
+ * On reste permissif: la modal doit fonctionner sans contexte.
+ */
+type QuestCreateModalContext =
+    | {
+          mode?: "default";
+      }
+    | {
+          mode: "chain";
+          parent_chapter_quest_id?: string | null;
+          parent_adventure_quest_id?: string | null;
+          parent_title?: string | null;
+          parent_room_code?: string | null;
+      };
+
 export default function QuestCreateModal(props: Props) {
     const isOpen = useUiStore((s) => s.isModalOpen("questCreate"));
     const closeModal = useUiStore((s) => s.closeModal);
+    const modalCtx = useUiStore((s) => s.getModalContext<QuestCreateModalContext>("questCreate"));
 
     const rooms = useGameStore((s) => s.rooms);
     const currentChapter = useGameStore((s) => s.currentChapter);
@@ -52,6 +70,16 @@ export default function QuestCreateModal(props: Props) {
 
     const adventureId = currentAdventure?.id ?? props.defaultAdventureId ?? null;
     const canAssignToChapter = !!currentChapter?.id;
+
+    // 🔗 chain mode (UI)
+    const isChainMode = modalCtx?.mode === "chain";
+
+    // 🔗 garde le contexte en state local (pratique pour l'étape suivante)
+    const [chainParentChapterQuestId, setChainParentChapterQuestId] = useState<string | null>(null);
+    const [chainParentAdventureQuestId, setChainParentAdventureQuestId] = useState<string | null>(
+        null
+    );
+    const [chainParentTitle, setChainParentTitle] = useState<string | null>(null);
 
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
@@ -65,20 +93,38 @@ export default function QuestCreateModal(props: Props) {
     const [target, setTarget] = useState<Target>(props.defaultTarget ?? "backlog");
     const [busy, setBusy] = useState(false);
 
-    // reset defaults when open
+    // reset defaults when open (+ applique contexte)
     useEffect(() => {
         if (!isOpen) return;
 
+        // base reset
         setTitle("");
         setDescription("");
         setRoomCode(props.defaultRoomCode ?? "");
         setDifficulty(2);
         setEstimateMin("");
-
         setUrgency("normal");
-        // priority: non modifiable, reste "main"
-
         setTarget(props.defaultTarget ?? "backlog");
+
+        // chain reset
+        setChainParentChapterQuestId(null);
+        setChainParentAdventureQuestId(null);
+        setChainParentTitle(null);
+
+        // ✅ appliquer le contexte si présent
+        if (modalCtx?.mode === "chain") {
+            setChainParentChapterQuestId(modalCtx.parent_chapter_quest_id ?? null);
+            setChainParentAdventureQuestId(modalCtx.parent_adventure_quest_id ?? null);
+            setChainParentTitle(modalCtx.parent_title ?? null);
+
+            // UX simple: une quête enchaînée est faite pour le chapitre courant
+            setTarget("chapter");
+
+            // optionnel: si on a une pièce parent, on peut pré-sélectionner
+            if (modalCtx.parent_room_code) {
+                setRoomCode(modalCtx.parent_room_code);
+            }
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
 
@@ -113,14 +159,22 @@ export default function QuestCreateModal(props: Props) {
                 difficulty,
                 estimate_min: safeEst,
                 urgency, // ✅ NEW
-                // priority est gérée serveur pour l’instant => pas envoyée
-            });
+                // priority: gérée serveur pour l’instant (ou bientôt)
+                //
+                // 🔗 chain: on ne l'envoie pas encore tant que la BDD/routes ne sont pas prêtes.
+                parent_chapter_quest_id: chainParentChapterQuestId,
+                parent_adventure_quest_id: chainParentAdventureQuestId,
+            } as any);
 
             if (!quest?.id) return;
 
-            if (target === "chapter" && canAssignToChapter) {
+            // mode chain: target forcée chapter si possible
+            const wantChapter = isChainMode ? true : target === "chapter";
+
+            if (wantChapter && canAssignToChapter) {
                 await assignQuestToCurrentChapter(quest.id);
             }
+            props.onCreated?.();
 
             onClose();
         } finally {
@@ -128,14 +182,18 @@ export default function QuestCreateModal(props: Props) {
         }
     };
 
-    const disableSubmit = !adventureId || !title.trim() || busy;
+    const disableSubmit =
+        !adventureId || !title.trim() || busy || (isChainMode && !canAssignToChapter);
+
+    const eyebrow = isChainMode ? "⛓️ Chaîne de quêtes" : "📜 Quête";
+    const modalTitle = isChainMode ? "Enchaîner une quête" : "Créer une nouvelle quête";
 
     return (
         <UiModal
             id="questCreate"
             maxWidth="lg"
-            eyebrow="📜 Quête"
-            title="Créer une nouvelle quête"
+            eyebrow={eyebrow}
+            title={modalTitle}
             closeOnBackdrop
             closeOnEscape
             footer={
@@ -146,7 +204,7 @@ export default function QuestCreateModal(props: Props) {
                         disabled={disableSubmit}
                         onClick={() => void onSubmit()}
                     >
-                        {busy ? "⏳ Création…" : "✅ Créer"}
+                        {busy ? "⏳ Création…" : isChainMode ? "✅ Enchaîner" : "✅ Créer"}
                     </ActionButton>
                 </div>
             }
@@ -155,8 +213,38 @@ export default function QuestCreateModal(props: Props) {
                 <div className="rounded-2xl bg-black/25 p-4 ring-1 ring-white/10 text-sm text-white/60">
                     ⚠️ Aucune aventure active. Lance une aventure pour créer une quête.
                 </div>
+            ) : isChainMode && !canAssignToChapter ? (
+                <div className="rounded-2xl bg-black/25 p-4 ring-1 ring-white/10 text-sm text-white/60">
+                    ⚠️ Impossible d’enchaîner: aucun chapitre actif.
+                </div>
             ) : (
                 <div className="grid gap-3 mt-2">
+                    {/* 🔗 Bandeau chain (simple, informatif) */}
+                    {isChainMode ? (
+                        <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
+                            <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
+                                Contexte
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                                <Pill>⛓️ Quête enchaînée</Pill>
+                                <Pill>📘 Chapitre courant</Pill>
+                                {chainParentAdventureQuestId ? <Pill>🧬 Parent OK</Pill> : null}
+                                {chainParentChapterQuestId ? (
+                                    <Pill>🪝 Lien chapitre OK</Pill>
+                                ) : null}
+                            </div>
+
+                            {chainParentTitle?.trim() ? (
+                                <div className="mt-2 text-sm text-white/70">
+                                    Parent:{" "}
+                                    <span className="text-white/90 font-semibold">
+                                        {chainParentTitle}
+                                    </span>
+                                </div>
+                            ) : null}
+                        </div>
+                    ) : null}
+
                     {/* Résumé rapide */}
                     <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
                         <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
@@ -164,7 +252,9 @@ export default function QuestCreateModal(props: Props) {
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2">
                             <Pill>
-                                {target === "chapter" ? "📘 Chapitre courant" : "🧺 Backlog"}
+                                {isChainMode || target === "chapter"
+                                    ? "📘 Chapitre courant"
+                                    : "🧺 Backlog"}
                             </Pill>
                             <Pill>
                                 🚪{" "}
@@ -177,7 +267,7 @@ export default function QuestCreateModal(props: Props) {
                             <Pill>🔒 {priorityLabel(priority)}</Pill>
                         </div>
 
-                        {!canAssignToChapter ? (
+                        {!canAssignToChapter && !isChainMode ? (
                             <div className="mt-2 text-xs text-white/45">
                                 📘 Chapitre courant indisponible: aucun chapitre actif.
                             </div>
@@ -189,36 +279,47 @@ export default function QuestCreateModal(props: Props) {
                         <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
                             Destination
                         </div>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setTarget("backlog")}
-                                className={cn(
-                                    "rounded-full px-3 py-1 text-xs ring-1 transition",
-                                    target === "backlog"
-                                        ? "bg-white/10 text-white ring-white/15"
-                                        : "bg-white/5 text-white/70 ring-white/10 hover:bg-white/10"
-                                )}
-                            >
-                                🧺 Backlog
-                            </button>
 
-                            <button
-                                type="button"
-                                disabled={!canAssignToChapter}
-                                onClick={() => setTarget("chapter")}
-                                className={cn(
-                                    "rounded-full px-3 py-1 text-xs ring-1 transition",
-                                    target === "chapter"
-                                        ? "bg-white/10 text-white ring-white/15"
-                                        : "bg-white/5 text-white/70 ring-white/10 hover:bg-white/10",
-                                    !canAssignToChapter && "opacity-50 cursor-not-allowed"
-                                )}
-                                title={!canAssignToChapter ? "Aucun chapitre actif" : undefined}
-                            >
-                                📘 Chapitre courant
-                            </button>
-                        </div>
+                        {isChainMode ? (
+                            <div className="mt-2 text-sm text-white/70">
+                                🔒 Une quête enchaînée est ajoutée au{" "}
+                                <span className="text-white/90 font-semibold">
+                                    chapitre courant
+                                </span>
+                                .
+                            </div>
+                        ) : (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setTarget("backlog")}
+                                    className={cn(
+                                        "rounded-full px-3 py-1 text-xs ring-1 transition",
+                                        target === "backlog"
+                                            ? "bg-white/10 text-white ring-white/15"
+                                            : "bg-white/5 text-white/70 ring-white/10 hover:bg-white/10"
+                                    )}
+                                >
+                                    🧺 Backlog
+                                </button>
+
+                                <button
+                                    type="button"
+                                    disabled={!canAssignToChapter}
+                                    onClick={() => setTarget("chapter")}
+                                    className={cn(
+                                        "rounded-full px-3 py-1 text-xs ring-1 transition",
+                                        target === "chapter"
+                                            ? "bg-white/10 text-white ring-white/15"
+                                            : "bg-white/5 text-white/70 ring-white/10 hover:bg-white/10",
+                                        !canAssignToChapter && "opacity-50 cursor-not-allowed"
+                                    )}
+                                    title={!canAssignToChapter ? "Aucun chapitre actif" : undefined}
+                                >
+                                    📘 Chapitre courant
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Room + Difficulty */}
@@ -301,7 +402,11 @@ export default function QuestCreateModal(props: Props) {
                         onKeyDown={(e) => {
                             if (e.key === "Enter") void onSubmit();
                         }}
-                        placeholder="Ex: Ranger la table basse (5 min)…"
+                        placeholder={
+                            isChainMode
+                                ? "Ex: Ensuite… vider le lave-vaisselle (5 min)…"
+                                : "Ex: Ranger la table basse (5 min)…"
+                        }
                         className={cn(
                             "w-full rounded-2xl bg-black/30 px-4 py-3 text-sm text-white/90",
                             "ring-1 ring-white/10 outline-none placeholder:text-white/40",

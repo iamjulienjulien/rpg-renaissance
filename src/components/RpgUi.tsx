@@ -143,7 +143,7 @@ export function ActionButton(props: {
                         "hover:bg-[hsl(var(--bg)/0.68)]"
                     )}
                 >
-                    <span>{props.children}</span>
+                    <span className="m-auto">{props.children}</span>
 
                     {props.hint ? (
                         <span
