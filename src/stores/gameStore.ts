@@ -24,6 +24,8 @@ import type {
     RoomTemplate,
     QuestChain,
     QuestChainItem,
+    PhotoCategory,
+    PhotoRow,
 } from "@/types/game";
 
 /* ============================================================================
@@ -44,7 +46,8 @@ export type ReloadKey =
     | "roomTemplates"
     | "chaptersByAdventure"
     | "questChains"
-    | "questChainItems";
+    | "questChainItems"
+    | "questPhotos";
 
 export type ReloadInput = ReloadKey | ReloadKey[];
 
@@ -82,6 +85,28 @@ async function apiPost<T>(
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
+        });
+
+        const json = await fetchJson(res);
+
+        if (!res.ok) {
+            return { ok: false, error: json?.error ?? res.statusText ?? "Request failed" };
+        }
+
+        return { ok: true, data: json as T };
+    } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : "Network error" };
+    }
+}
+
+async function apiPostForm<T>(
+    url: string,
+    form: FormData
+): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
+    try {
+        const res = await fetch(url, {
+            method: "POST",
+            body: form,
         });
 
         const json = await fetchJson(res);
@@ -367,6 +392,31 @@ type GameStore = {
     getChapterStory: (chapterId: string) => Promise<ChapterStoryRow | null>;
     generateChapterStory: (chapterId: string, force?: boolean) => Promise<ChapterStoryRow | null>;
     clearChapterStory: (chapterId: string) => void;
+
+    /* --------------------------- 📸 PHOTOS (quêtes) --------------------------- */
+
+    questPhotosByChapterQuestId: Record<string, PhotoRow[] | undefined>;
+    questPhotosLoadingByChapterQuestId: Record<string, boolean | undefined>;
+    questPhotosErrorByChapterQuestId: Record<string, string | null | undefined>;
+
+    fetchQuestPhotos: (chapterQuestId: string, opts?: { force?: boolean }) => Promise<PhotoRow[]>;
+    refreshQuestPhotos: (chapterQuestId: string) => Promise<PhotoRow[]>;
+    clearQuestPhotos: (chapterQuestId: string) => void;
+
+    getQuestPhotosByCategory: (chapterQuestId: string, category: PhotoCategory) => PhotoRow[];
+
+    uploadQuestPhoto: (input: {
+        chapter_quest_id: string;
+        file: File;
+        category?: PhotoCategory;
+        caption?: string | null;
+        sort?: number;
+        is_cover?: boolean;
+        width?: number | null;
+        height?: number | null;
+    }) => Promise<PhotoRow | null>;
+
+    deletePhoto: (photoId: string, chapterQuestId?: string | null) => Promise<boolean>;
 };
 
 export const useGameStore = create<GameStore>((set, get) => {
@@ -2618,6 +2668,248 @@ export const useGameStore = create<GameStore>((set, get) => {
                     chapterStoryLoadingById: { ...s.chapterStoryLoadingById, [chapterId]: false },
                 }));
             }
+        },
+
+        /* =========================================================================
+📸 PHOTOS (quêtes)
+======================================================================== */
+
+        questPhotosByChapterQuestId: {},
+        questPhotosLoadingByChapterQuestId: {},
+        questPhotosErrorByChapterQuestId: {},
+
+        clearQuestPhotos: (chapterQuestId) =>
+            set((s) => {
+                const id = (chapterQuestId ?? "").trim();
+                if (!id) return s;
+
+                const next = { ...s.questPhotosByChapterQuestId };
+                delete next[id];
+
+                const nextL = { ...s.questPhotosLoadingByChapterQuestId };
+                delete nextL[id];
+
+                const nextE = { ...s.questPhotosErrorByChapterQuestId };
+                delete nextE[id];
+
+                return {
+                    questPhotosByChapterQuestId: next,
+                    questPhotosLoadingByChapterQuestId: nextL,
+                    questPhotosErrorByChapterQuestId: nextE,
+                };
+            }),
+
+        fetchQuestPhotos: async (chapterQuestId, opts) => {
+            const id = (chapterQuestId ?? "").trim();
+            if (!id) return [];
+
+            const force = !!opts?.force;
+
+            const cached = get().questPhotosByChapterQuestId[id];
+            if (!force && cached?.length) return cached;
+
+            set((s) => ({
+                questPhotosLoadingByChapterQuestId: {
+                    ...s.questPhotosLoadingByChapterQuestId,
+                    [id]: true,
+                },
+                questPhotosErrorByChapterQuestId: {
+                    ...s.questPhotosErrorByChapterQuestId,
+                    [id]: null,
+                },
+            }));
+
+            try {
+                const res = await apiGet<{ rows: PhotoRow[] }>(
+                    `/api/photos?chapterQuestId=${encodeURIComponent(id)}`
+                );
+
+                if (!res.ok) {
+                    set((s) => ({
+                        questPhotosErrorByChapterQuestId: {
+                            ...s.questPhotosErrorByChapterQuestId,
+                            [id]: res.error ?? "Failed to fetch photos",
+                        },
+                    }));
+                    return [];
+                }
+
+                const rows = Array.isArray((res.data as any)?.rows)
+                    ? ((res.data as any).rows as PhotoRow[])
+                    : [];
+
+                set((s) => ({
+                    questPhotosByChapterQuestId: {
+                        ...s.questPhotosByChapterQuestId,
+                        [id]: rows,
+                    },
+                }));
+
+                return rows;
+            } finally {
+                set((s) => ({
+                    questPhotosLoadingByChapterQuestId: {
+                        ...s.questPhotosLoadingByChapterQuestId,
+                        [id]: false,
+                    },
+                }));
+            }
+        },
+
+        refreshQuestPhotos: async (chapterQuestId) => {
+            return await get().fetchQuestPhotos(chapterQuestId, { force: true });
+        },
+
+        getQuestPhotosByCategory: (chapterQuestId, category) => {
+            const id = (chapterQuestId ?? "").trim();
+            if (!id) return [];
+
+            const rows = get().questPhotosByChapterQuestId[id] ?? [];
+            return (rows ?? [])
+                .filter((p) => p?.category === category)
+                .sort((a, b) => {
+                    // tri stable: sort ASC, puis created_at DESC
+                    const sa = a?.sort ?? 0;
+                    const sb = b?.sort ?? 0;
+                    if (sa !== sb) return sa - sb;
+                    return String(b?.created_at ?? "").localeCompare(String(a?.created_at ?? ""));
+                });
+        },
+
+        uploadQuestPhoto: async (input) => {
+            const toast = useToastStore.getState();
+
+            const chapter_quest_id = (input?.chapter_quest_id ?? "").trim();
+            if (!chapter_quest_id) return null;
+
+            if (!(input.file instanceof File)) {
+                toast.error("Photo", "Fichier manquant.");
+                return null;
+            }
+
+            const category = (input.category ?? "other") as any;
+
+            const form = new FormData();
+            form.set("chapter_quest_id", chapter_quest_id);
+            form.set("category", category);
+            form.set("file", input.file);
+
+            if (input.caption != null) form.set("caption", String(input.caption));
+            if (input.sort != null) form.set("sort", String(input.sort));
+            if (input.is_cover != null) form.set("is_cover", String(!!input.is_cover));
+            if (input.width != null) form.set("width", String(input.width));
+            if (input.height != null) form.set("height", String(input.height));
+
+            // UI: on peut afficher un loader par CQ
+            set((s) => ({
+                questPhotosLoadingByChapterQuestId: {
+                    ...s.questPhotosLoadingByChapterQuestId,
+                    [chapter_quest_id]: true,
+                },
+                questPhotosErrorByChapterQuestId: {
+                    ...s.questPhotosErrorByChapterQuestId,
+                    [chapter_quest_id]: null,
+                },
+            }));
+
+            try {
+                const res = await apiPostForm<{ photo: PhotoRow; signed_url: string | null }>(
+                    "/api/photos",
+                    form
+                );
+
+                if (!res.ok) {
+                    toast.error("Upload", res.error ?? "Upload impossible");
+                    set((s) => ({
+                        questPhotosErrorByChapterQuestId: {
+                            ...s.questPhotosErrorByChapterQuestId,
+                            [chapter_quest_id]: res.error ?? "Upload failed",
+                        },
+                    }));
+                    return null;
+                }
+
+                const photo = (res.data as any)?.photo ?? null;
+                const signed_url = (res.data as any)?.signed_url ?? null;
+
+                const enriched: PhotoRow | null = photo ? ({ ...photo, signed_url } as any) : null;
+
+                // patch optimiste: on ajoute en tête
+                if (enriched?.id) {
+                    set((s) => {
+                        const prev = s.questPhotosByChapterQuestId[chapter_quest_id] ?? [];
+                        return {
+                            questPhotosByChapterQuestId: {
+                                ...s.questPhotosByChapterQuestId,
+                                [chapter_quest_id]: [enriched, ...prev],
+                            },
+                        };
+                    });
+
+                    toast.success(
+                        "Photo ajoutée",
+                        category === "initial"
+                            ? "📸 Initiale"
+                            : category === "final"
+                              ? "🏁 Finale"
+                              : "📎 Autre"
+                    );
+                }
+
+                return enriched;
+            } finally {
+                set((s) => ({
+                    questPhotosLoadingByChapterQuestId: {
+                        ...s.questPhotosLoadingByChapterQuestId,
+                        [chapter_quest_id]: false,
+                    },
+                }));
+            }
+        },
+
+        deletePhoto: async (photoId, chapterQuestId) => {
+            const toast = useToastStore.getState();
+            const id = (photoId ?? "").trim();
+            if (!id) return false;
+
+            // optimiste: enlever de la liste si on connait la CQ
+            let snapshot: PhotoRow[] | null = null;
+            if (chapterQuestId) {
+                const cqId = chapterQuestId.trim();
+                snapshot = (get().questPhotosByChapterQuestId[cqId] ?? []).slice();
+
+                set((s) => ({
+                    questPhotosByChapterQuestId: {
+                        ...s.questPhotosByChapterQuestId,
+                        [cqId]: (s.questPhotosByChapterQuestId[cqId] ?? []).filter(
+                            (p) => p.id !== id
+                        ),
+                    },
+                }));
+            }
+
+            const res = await apiDelete<{ ok: boolean }>(
+                `/api/photos?id=${encodeURIComponent(id)}`
+            );
+
+            if (!res.ok) {
+                // rollback si snapshot
+                if (chapterQuestId && snapshot) {
+                    const cqId = chapterQuestId.trim();
+                    set((s) => ({
+                        questPhotosByChapterQuestId: {
+                            ...s.questPhotosByChapterQuestId,
+                            [cqId]: snapshot ?? [],
+                        },
+                    }));
+                }
+
+                toast.error("Suppression", res.error ?? "Impossible de supprimer");
+                return false;
+            }
+
+            toast.success("Photo supprimée", undefined);
+            return true;
         },
     };
 });

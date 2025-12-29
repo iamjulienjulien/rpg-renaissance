@@ -10,9 +10,9 @@ export type QuestStatus = "todo" | "doing" | "done";
  * Label textuel du statut
  */
 export function questStatusLabel(status: QuestStatus): string {
-    if (status === "doing") return "En cours";
-    if (status === "done") return "Terminée";
-    return "À faire";
+    if (status === "doing") return "En progression";
+    if (status === "done") return "Accomplie";
+    return "En attente";
 }
 
 /**
@@ -20,7 +20,7 @@ export function questStatusLabel(status: QuestStatus): string {
  */
 export function questStatusEmoji(status: QuestStatus): string {
     if (status === "doing") return "⚔️";
-    if (status === "done") return "✅";
+    if (status === "done") return "🏆";
     return "🕯️";
 }
 

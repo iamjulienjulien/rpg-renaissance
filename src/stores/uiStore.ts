@@ -15,6 +15,7 @@ export type UiModalId =
     | "chapterConfig"
     | "renownGain"
     | "questCreate"
+    | "questPhotoUpload"
     // extensible
     | (string & {});
 

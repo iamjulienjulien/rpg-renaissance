@@ -99,16 +99,11 @@ function AdventureBlock(props: {
 
     return (
         <Panel
-            title="Aventure"
-            emoji="🧭"
-            subtitle="Contexte global (éditable)."
+            title="L'Aventure"
+            emoji="🌌"
+            subtitle="Le fil rouge de ton épopée actuelle."
             right={
-                <div className="flex items-center gap-2">
-                    <ActionButton variant="soft" onClick={onGoPrepare}>
-                        🗺️ Préparation
-                    </ActionButton>
-                    <ActionButton onClick={onOpenAdventureConfig}>🛠️ Configurer</ActionButton>
-                </div>
+                <ActionButton onClick={onOpenAdventureConfig}>⚙️ Ajuster le destin</ActionButton>
             }
         >
             <div className="rounded-2xl bg-black/30 p-5 ring-1 ring-white/10">
@@ -123,9 +118,7 @@ function AdventureBlock(props: {
                         </div>
 
                         <div className="mt-4 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
-                            <div className="text-white/85 font-semibold">
-                                🧠 Contexte d’aventure
-                            </div>
+                            <div className="text-white/85 font-semibold">📖 Prologue</div>
                             <div className="mt-2 whitespace-pre-line rpg-rpg-text-sm text-white/60">
                                 {adventure?.context_text?.trim()
                                     ? adventure.context_text
@@ -134,13 +127,13 @@ function AdventureBlock(props: {
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
+                    {/* <div className="flex flex-wrap gap-2">
                         <Pill>📘 Chapitre: {chapter.title}</Pill>
                         <Pill>
                             {paceEmoji(chapter.pace)} {chapter.pace}
                         </Pill>
                         <Pill>📍 {chapter.status}</Pill>
-                    </div>
+                    </div> */}
                 </div>
             </div>
         </Panel>
@@ -178,12 +171,14 @@ function ChapterBlock(props: {
     return (
         <div className={cn("transition-transform", pulse ? "scale-[1.01]" : "scale-100")}>
             <Panel
-                title="Chapitre"
+                title="Chapitres"
                 emoji="📚"
-                subtitle="Quêtes jouées du chapitre, classées par pièces."
+                subtitle="Les actes de cette aventure, organisés par territoires."
                 right={
                     <div className="flex items-center gap-2">
-                        <ActionButton onClick={onOpenChapterConfig}>🛠️ Configurer</ActionButton>
+                        <ActionButton onClick={onOpenChapterConfig}>
+                            ⚙️ Ordonner les chapitres
+                        </ActionButton>
                     </div>
                 }
             >
@@ -200,7 +195,7 @@ function ChapterBlock(props: {
                     </div>
 
                     <div className="mt-4 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
-                        <div className="text-white/85 font-semibold">🎯 Contexte du chapitre</div>
+                        <div className="text-white/85 font-semibold">🗺️ Mise en scène</div>
                         <div className="mt-2 whitespace-pre-line rpg-rpg-text-sm text-white/60">
                             {(chapter as any)?.context_text?.trim()
                                 ? (chapter as any).context_text
@@ -224,7 +219,9 @@ function ChapterBlock(props: {
                                     <div className="text-white/90 font-semibold">
                                         {questRoomEmoji(roomTitle)} {questRoomLabel(roomTitle)}
                                     </div>
-                                    <Pill>{arr.length} quêtes</Pill>
+                                    <Pill>
+                                        {arr.length} quête{arr.length > 1 ? "s" : ""}
+                                    </Pill>
                                 </div>
 
                                 <div className="space-y-2 px-3 pb-3">
@@ -254,20 +251,17 @@ function ChapterBlock(props: {
                                                         unassigningId === cq.id
                                                     }
                                                     onClick={() => onUnassignFromChapter(cq, q)}
-                                                    hint={
-                                                        cq.status !== "todo"
-                                                            ? "Only TODO"
-                                                            : undefined
-                                                    }
                                                 >
-                                                    {unassigningId === cq.id ? "⏳" : "➖ Retirer"}
+                                                    {unassigningId === cq.id
+                                                        ? "⏳"
+                                                        : "⏸️ Mettre en attente"}
                                                 </ActionButton>
 
                                                 <ActionButton
                                                     variant="solid"
                                                     onClick={() => onOpenQuest(cq.id)}
                                                 >
-                                                    👁️ Voir
+                                                    ▶️ Entrer dans la quête
                                                 </ActionButton>
                                             </div>
                                         </div>
@@ -284,7 +278,7 @@ function ChapterBlock(props: {
                         onClick={onOpenTransition}
                         className="w-full text-center"
                     >
-                        🏁 Clôturer ce chapitre et préparer le suivant
+                        🏁 Clore l’acte et préparer la suite
                     </ActionButton>
                 </div>
             </Panel>
@@ -306,14 +300,14 @@ function BacklogBlock(props: {
 
     return (
         <Panel
-            title="Quêtes"
-            emoji="📜"
-            subtitle="Backlog: quêtes non affectées au chapitre (prêtes à être sélectionnées)."
+            title="Quêtes en réserve"
+            emoji="🧺"
+            subtitle="Des missions en attente d’un moment propice."
             right={
                 <div className="flex items-center gap-2">
-                    <Pill>🧺 {backlog.length} en backlog</Pill>
+                    {/* <Pill>🧺 {backlog.length} en backlog</Pill> */}
                     <ActionButton variant="solid" onClick={onOpenCreate}>
-                        ➕ Nouvelle quête
+                        ✨ Forger une nouvelle quête
                     </ActionButton>
                 </div>
             }
@@ -338,8 +332,8 @@ function BacklogBlock(props: {
                                     {q.title}
                                 </div>
                                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                                    <QuestDifficultyPill difficulty={q.difficulty ?? 2} />
                                     <QuestRoomPill roomCode={q.room_code ?? null} />
+                                    <QuestDifficultyPill difficulty={q.difficulty ?? 2} />
                                 </div>
                             </div>
 
@@ -349,9 +343,7 @@ function BacklogBlock(props: {
                                     disabled={assigningId === q.id}
                                     onClick={() => onAssign(q)}
                                 >
-                                    {assigningId === q.id
-                                        ? "⏳ Affectation…"
-                                        : "➕ Affecter à ce chapitre"}
+                                    {assigningId === q.id ? "⏳" : "➕ Lier à cet acte"}
                                 </ActionButton>
                             </div>
                         </div>
@@ -708,7 +700,10 @@ export default function AdventurePage() {
     ========================================================================= */
 
     return (
-        <RpgShell title="Aventure">
+        <RpgShell
+            title="Aventure en cours"
+            subtitle="🪄 Le monde attend. Une pièce après l’autre. 🏠"
+        >
             {pageLoading ? (
                 <div className="rounded-2xl bg-black/30 p-4 rpg-rpg-text-sm text-white/60 ring-1 ring-white/10">
                     ⏳ Chargement…

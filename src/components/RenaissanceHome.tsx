@@ -200,7 +200,7 @@ export default function RenaissanceHome() {
 
                                         <div className="mt-2 inline-flex max-w-[320px] items-center gap-3 rounded-2xl text-right">
                                             {/* 🧾 Infos */}
-                                            <div className="min-w-0 text-left">
+                                            <div className="min-w-0 text-right">
                                                 <div className="truncate text- font-semibold text-white/80">
                                                     {activeCharacter?.emoji ?? "🧙"}{" "}
                                                     {activeCharacter?.name ?? "Aucun personnage"}
@@ -208,7 +208,7 @@ export default function RenaissanceHome() {
 
                                                 <div className="mt-0.5 truncate textx] text-white/60 text-right">
                                                     {activeCharacter && (
-                                                        <div className="mt-1 text-xs text-white/70 line-clamp-2">
+                                                        <div className="text-xs text-white/70 line-clamp-2">
                                                             {activeCharacter.vibe}
                                                         </div>
                                                     )}

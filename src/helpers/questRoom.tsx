@@ -28,7 +28,7 @@ export type Room = {
  */
 export function questRoomLabel(roomCode: string | null | undefined): string {
     const code = typeof roomCode === "string" ? roomCode.trim() : "";
-    if (!code) return "sans pièce";
+    if (!code) return "Hors territoire";
 
     const rooms = useGameStore.getState().rooms as AdventureRoom[] | undefined;
     if (!rooms || rooms.length === 0) return code;
@@ -42,7 +42,7 @@ export function questRoomLabel(roomCode: string | null | undefined): string {
  */
 export function questRoomEmoji(roomCode: string | null | undefined): string {
     const code = typeof roomCode === "string" ? roomCode.trim() : "";
-    if (!code) return "🗺️";
+    if (!code) return "🌫️";
 
     const { templates } = useGameStore.getState();
 

@@ -25,6 +25,7 @@ import { QuestUrgencyPill } from "@/helpers/questUrgency";
 import { getCurrentCharacterEmoji, getCurrentCharacterName } from "@/helpers/adventure";
 import { useUiStore } from "@/stores/uiStore";
 import QuestCreateModal from "@/components/modals/QuestCreateModal";
+import QuestPhotoUploadModal from "@/components/modals/QuestPhotoUploadModal";
 
 type Quest = {
     id: string;
@@ -52,6 +53,20 @@ type ChainNext = {
     next_title: string | null;
     next_position: number | null;
 } | null;
+
+type QuestPhoto = {
+    id: string;
+    created_at: string;
+    category: "initial" | "final" | "other";
+    signed_url: string | null;
+
+    caption: string | null;
+    width: number | null;
+    height: number | null;
+
+    is_cover: boolean;
+    sort: number;
+};
 
 export default function QuestClient() {
     const router = useRouter();
@@ -92,6 +107,9 @@ export default function QuestClient() {
 
     const { openModal } = useUiStore();
 
+    const [photosLoading, setPhotosLoading] = useState(false);
+    const [photos, setPhotos] = useState<QuestPhoto[]>([]);
+
     const load = async () => {
         if (!chapterQuestId) return;
 
@@ -131,13 +149,54 @@ export default function QuestClient() {
         }
     };
 
+    const loadPhotos = async (cqId: string) => {
+        if (!cqId) return;
+
+        setPhotosLoading(true);
+        try {
+            const res = await fetch(`/api/photos?chapterQuestId=${encodeURIComponent(cqId)}`, {
+                cache: "no-store",
+            });
+            const json = await res.json().catch(() => null);
+
+            if (!res.ok) {
+                console.error(json?.error ?? "Failed to load photos");
+                setPhotos([]);
+                return;
+            }
+
+            const rows = Array.isArray(json?.rows) ? json.rows : [];
+
+            // tri: cover d’abord, puis sort, puis date
+            rows.sort((a: any, b: any) => {
+                const ac = a?.is_cover ? 1 : 0;
+                const bc = b?.is_cover ? 1 : 0;
+                if (ac !== bc) return bc - ac;
+
+                const as = Number(a?.sort ?? 0);
+                const bs = Number(b?.sort ?? 0);
+                if (as !== bs) return as - bs;
+
+                const ad = String(a?.created_at ?? "");
+                const bd = String(b?.created_at ?? "");
+                return ad < bd ? 1 : -1;
+            });
+
+            setPhotos(rows);
+        } finally {
+            setPhotosLoading(false);
+        }
+    };
+
     useEffect(() => {
         void bootstrap();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
+        if (!chapterQuestId) return;
         void load();
+        void loadPhotos(chapterQuestId);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [chapterQuestId]);
 
@@ -396,10 +455,6 @@ export default function QuestClient() {
 
                                         <ActionButton
                                             onClick={() => {
-                                                // TODO: ouvrira la modal "questCreate" en mode "chained"
-                                                // ex: openModal("questCreate", { mode: "chain", parentQuestId: quest.id, ... })
-                                                console.log("chain quest from", quest?.id);
-
                                                 openModal("questCreate", {
                                                     mode: "chain",
                                                     parent_chapter_quest_id: chapterQuest.id,
@@ -409,6 +464,18 @@ export default function QuestClient() {
                                             disabled={busy}
                                         >
                                             ⛓️ Ajouter une quête chainée
+                                        </ActionButton>
+
+                                        <ActionButton
+                                            onClick={() => {
+                                                openModal("questPhotoUpload", {
+                                                    chapter_quest_id: chapterQuest.id,
+                                                    quest_title: quest?.title ?? null,
+                                                });
+                                            }}
+                                            disabled={busy}
+                                        >
+                                            📷 Envoyer une photo
                                         </ActionButton>
 
                                         <ActionButton onClick={() => router.push("/adventure")}>
@@ -469,6 +536,93 @@ export default function QuestClient() {
                                 )}
                             </div>
                         </Panel>
+                        {photosLoading ? (
+                            <Panel
+                                title="Photos"
+                                emoji="🖼️"
+                                subtitle="Chargement…"
+                                right={<Pill>⏳</Pill>}
+                            >
+                                <div className="rounded-2xl bg-black/30 p-4 rpg-text-sm text-white/60 ring-1 ring-white/10">
+                                    ⏳ Chargement des photos…
+                                </div>
+                            </Panel>
+                        ) : photos.length > 0 ? (
+                            <Panel
+                                title="Photos"
+                                emoji="🖼️"
+                                subtitle="Traces visuelles de cette quête."
+                                right={<Pill>{photos.length}</Pill>}
+                            >
+                                <div className="grid gap-2">
+                                    {/* petite légende catégories */}
+                                    <div className="flex flex-wrap gap-2">
+                                        {photos.some((p) => p.category === "initial") ? (
+                                            <Pill>🟦 initial</Pill>
+                                        ) : null}
+                                        {photos.some((p) => p.category === "final") ? (
+                                            <Pill>🟩 final</Pill>
+                                        ) : null}
+                                        {photos.some((p) => p.category === "other") ? (
+                                            <Pill>🟪 autre</Pill>
+                                        ) : null}
+                                    </div>
+
+                                    {/* grille */}
+                                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                        {photos.map((p) => {
+                                            const label =
+                                                p.category === "initial"
+                                                    ? "🟦 initial"
+                                                    : p.category === "final"
+                                                      ? "🟩 final"
+                                                      : "🟪 autre";
+
+                                            return (
+                                                <div
+                                                    key={p.id}
+                                                    className="group relative overflow-hidden rounded-2xl bg-black/25 ring-1 ring-white/10"
+                                                >
+                                                    {p.signed_url ? (
+                                                        // eslint-disable-next-line @next/next/no-img-element
+                                                        <img
+                                                            src={p.signed_url}
+                                                            alt={p.caption ?? `Photo ${label}`}
+                                                            className="aspect-square w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                                                            loading="lazy"
+                                                        />
+                                                    ) : (
+                                                        <div className="aspect-square grid place-items-center text-white/50 text-sm">
+                                                            Image indisponible
+                                                        </div>
+                                                    )}
+
+                                                    {/* overlay */}
+                                                    <div className="pointer-events-none absolute inset-x-0 bottom-0 p-2">
+                                                        <div className="flex items-end justify-between gap-2">
+                                                            <div className="min-w-0">
+                                                                <div className="text-[11px] text-white/80">
+                                                                    {label}
+                                                                </div>
+                                                                {p.caption ? (
+                                                                    <div className="truncate text-[12px] text-white/90 font-semibold">
+                                                                        {p.caption}
+                                                                    </div>
+                                                                ) : null}
+                                                            </div>
+
+                                                            {p.is_cover ? (
+                                                                <Pill>⭐ cover</Pill>
+                                                            ) : null}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </Panel>
+                        ) : null}
                         <Panel
                             title="Journal de quête"
                             emoji="📓"
@@ -596,6 +750,12 @@ export default function QuestClient() {
                 onCreated={() => {
                     if (!chapterQuestId) return;
                     void load();
+                }}
+            />
+            <QuestPhotoUploadModal
+                onCreated={() => {
+                    if (!chapterQuestId) return;
+                    void loadPhotos(chapterQuestId);
                 }}
             />
         </RpgShell>

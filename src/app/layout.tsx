@@ -10,9 +10,15 @@ import { UiMotionConfig } from "@/components/motion/UiMotion";
 
 import "./globals.css";
 
-export const metadata: Metadata = {
-    title: "RPG Renaissance",
-    description: "🛡️ Ton RPG du quotidien, à la lame douce 🗡️",
+export const metadata = {
+    title: "RPG Renaissance — Le jeu dont tu es le héros",
+    description:
+        "Chaque action compte. Chaque pièce est un champ de bataille. RPG Renaissance transforme ton quotidien en aventure et t’aide à avancer, une victoire après l’autre.",
+    icons: {
+        icon: "/favicon.ico",
+        shortcut: "/favicon-32x32.png",
+        apple: "/apple-touch-icon.png",
+    },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

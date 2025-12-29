@@ -269,3 +269,30 @@ export type QuestChainItem = {
         session_id: string | null;
     } | null;
 };
+
+export type PhotoCategory = "initial" | "final" | "other";
+
+export type PhotoRow = {
+    id: string;
+    created_at: string;
+    category: PhotoCategory;
+
+    bucket: string; // "photos"
+    path: string;
+
+    mime_type: string | null;
+    size: number | null;
+    width: number | null;
+    height: number | null;
+
+    caption: string | null;
+    is_cover: boolean;
+    sort: number;
+
+    chapter_quest_id: string;
+    adventure_quest_id: string | null;
+    session_id: string;
+    user_id: string;
+
+    signed_url?: string | null; // renvoyé par GET
+};
