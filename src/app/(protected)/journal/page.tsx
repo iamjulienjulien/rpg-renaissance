@@ -10,7 +10,8 @@ import MasterCard from "@/components/ui/MasterCard";
 
 // Stores
 import { useJournalStore } from "@/stores/journalStore";
-import { useGameStore, type ChapterStoryRow } from "@/stores/gameStore";
+import { useGameStore } from "@/stores/gameStore";
+import { type ChapterStoryRow } from "@/types/game";
 
 // Interfaces
 type Entry = {

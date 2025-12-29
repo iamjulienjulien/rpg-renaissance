@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel } from "@/components/RpgUi";
-import { useGameStore, type Character } from "@/stores/gameStore";
+import { useGameStore } from "@/stores/gameStore";
+import { type Character } from "@/types/game";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");

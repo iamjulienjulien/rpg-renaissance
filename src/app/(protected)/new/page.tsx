@@ -8,9 +8,11 @@ import { ChevronRight, X, ScrollText } from "lucide-react";
 import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
 
-import { useGameStore, type Character } from "@/stores/gameStore";
+import { useGameStore } from "@/stores/gameStore";
 import MasterCard from "@/components/ui/MasterCard";
 import { UiAnimatePresence, UiMotionDiv } from "@/components/motion/UiMotion";
+
+import { type Character } from "@/types/game";
 
 type AdventureCard = {
     code: string;

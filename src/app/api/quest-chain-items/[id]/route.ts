@@ -2,10 +2,14 @@ import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getActiveSessionOrThrow } from "@/lib/sessions/getActiveSession";
 
-export async function PATCH(req: Request, ctx: { params: { id: string } }) {
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function PATCH(req: Request, context: Ctx) {
     const supabase = await supabaseServer();
     const session = await getActiveSessionOrThrow();
     const body = await req.json().catch(() => null);
+
+    const { id } = await context.params;
 
     const position = Number(body?.position);
     if (!Number.isInteger(position) || position < 1) {
@@ -15,7 +19,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     const { data, error } = await supabase
         .from("quest_chain_items")
         .update({ position })
-        .eq("id", ctx.params.id)
+        .eq("id", id)
         .eq("session_id", session.id)
         .select()
         .single();
