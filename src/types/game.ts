@@ -296,3 +296,19 @@ export type PhotoRow = {
 
     signed_url?: string | null; // renvoyé par GET
 };
+
+export type QuestPhoto = {
+    id: string;
+    created_at: string;
+    category: "initial" | "final" | "other";
+    signed_url: string | null;
+
+    caption: string | null;
+    width: number | null;
+    height: number | null;
+
+    is_cover: boolean;
+    sort: number;
+};
+
+// export type PhotoCategory = "initial" | "final" | "other";

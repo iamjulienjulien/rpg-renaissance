@@ -10,6 +10,7 @@ export type JournalKind =
     | "quest_started"
     | "quest_done"
     | "quest_reopened"
+    | "quest_photo_added"
     | "note";
 
 export type JournalEntry = {
@@ -22,6 +23,7 @@ export type JournalEntry = {
     adventure_quest_id?: string | null;
     session_id?: string | null;
     created_at: string;
+    meta?: Record<string, any> | null;
 };
 
 type CreateInput = {
@@ -32,6 +34,7 @@ type CreateInput = {
     quest_id?: string | null;
     session_id?: string | null;
     adventure_quest_id?: string | null;
+    meta?: Record<string, any> | null;
 };
 
 type JournalStore = {

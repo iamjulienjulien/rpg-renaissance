@@ -9,6 +9,7 @@ import ReactMarkdown from "react-markdown";
 // Stores
 import { useGameStore } from "@/stores/gameStore";
 import { useJournalStore } from "@/stores/journalStore";
+import { useUiStore } from "@/stores/uiStore";
 
 // Components
 import RpgShell from "@/components/RpgShell";
@@ -17,6 +18,8 @@ import MasterCard from "@/components/ui/MasterCard";
 import { UiAnimatePresence, UiMotionDiv } from "@/components/motion/UiMotion";
 import UiTooltip from "@/components/ui/UiTooltip";
 import UiLightbox, { type UiLightboxItem } from "@/components/ui/UiLightbox";
+import QuestCreateModal from "@/components/modals/QuestCreateModal";
+import QuestPhotoUploadModal from "@/components/modals/QuestPhotoUploadModal";
 
 // Helpers
 import { QuestDifficultyPill } from "@/helpers/questDifficulty";
@@ -25,9 +28,8 @@ import { QuestStatusPill } from "@/helpers/questStatus";
 import { QuestPriorityPill } from "@/helpers/questPriority";
 import { QuestUrgencyPill } from "@/helpers/questUrgency";
 import { getCurrentCharacterEmoji, getCurrentCharacterName } from "@/helpers/adventure";
-import { useUiStore } from "@/stores/uiStore";
-import QuestCreateModal from "@/components/modals/QuestCreateModal";
-import QuestPhotoUploadModal from "@/components/modals/QuestPhotoUploadModal";
+import { journalKindLabel } from "@/helpers/journalKind";
+import { formatJournalTime } from "@/helpers/dateTime";
 
 type Quest = {
     id: string;
@@ -329,17 +331,6 @@ export default function QuestClient() {
             mission_md: missionMd ?? null,
         });
     };
-
-    function formatTime(iso: string) {
-        const d = new Date(iso);
-        if (Number.isNaN(d.getTime())) return "";
-        return d.toLocaleString("fr-FR", {
-            day: "2-digit",
-            month: "2-digit",
-            hour: "2-digit",
-            minute: "2-digit",
-        });
-    }
 
     if (!chapterQuestId) {
         return (
@@ -772,9 +763,9 @@ export default function QuestClient() {
                             </Panel>
                         ) : null}
                         <Panel
-                            title="Journal de quête"
+                            title="Chronique de quête"
                             emoji="📓"
-                            subtitle="Les dernières traces laissées pendant cette quête."
+                            subtitle="Tout ce qui s’écrit… et tout ce qui se prouve."
                             right={<Pill>{journalLoading ? "⏳" : `${questJournal.length}`}</Pill>}
                         >
                             {journalLoading ? (
@@ -788,33 +779,25 @@ export default function QuestClient() {
                                 </div>
                             ) : (
                                 <div className="space-y-2">
-                                    {questJournal.map((e) => (
-                                        <div
-                                            key={e.id}
-                                            className="rounded-2xl bg-black/25 p-4 ring-1 ring-white/10"
-                                        >
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="min-w-0">
+                                    {questJournal.map((e) => {
+                                        const k = journalKindLabel(e.kind, e.meta);
+                                        return (
+                                            <div
+                                                key={e.id}
+                                                className="rounded-2xl bg-black/25 p-4 ring-1 ring-white/10"
+                                            >
+                                                <div className="flex items-start justify-between gap-3">
                                                     <div className="truncate text-sm font-semibold text-white/90">
-                                                        {e.title}
+                                                        {k.emoji} {k.label}
                                                     </div>
-                                                    {e.content ? (
-                                                        <div className="mt-1 whitespace-pre-line rpg-text-sm text-white/70">
-                                                            {e.content}
-                                                        </div>
-                                                    ) : null}
-                                                </div>
 
-                                                <div className="shrink-0 text-[11px] text-white/45">
-                                                    {formatTime(e.created_at)}
+                                                    <div className="shrink-0 text-[11px] text-white/45">
+                                                        {formatJournalTime(e.created_at)}
+                                                    </div>
                                                 </div>
                                             </div>
-
-                                            <div className="mt-2 flex flex-wrap gap-2">
-                                                <Pill>🏷️ {e.kind}</Pill>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </Panel>
@@ -904,6 +887,7 @@ export default function QuestClient() {
                 onCreated={() => {
                     if (!chapterQuestId) return;
                     void loadPhotos(chapterQuestId);
+                    void loadJournal(120);
                 }}
             />
             <UiLightbox

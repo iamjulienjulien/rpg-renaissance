@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     let query = supabase
         .from("journal_entries")
         .select(
-            "id,kind,title,content,chapter_id,quest_id,adventure_quest_id,session_id,created_at"
+            "id,kind,title,content,chapter_id,quest_id,adventure_quest_id,session_id,created_at,meta"
         )
         .eq("session_id", session.id) // ✅ clé multi-partie
         .order("created_at", { ascending: false })

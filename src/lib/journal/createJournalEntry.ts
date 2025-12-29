@@ -8,6 +8,7 @@ export type JournalKind =
     | "quest_started"
     | "quest_done"
     | "quest_reopened"
+    | "quest_photo_added"
     | "note";
 
 export async function createJournalEntry(input: {
@@ -18,6 +19,7 @@ export async function createJournalEntry(input: {
     chapter_id?: string | null;
     quest_id?: string | null;
     adventure_quest_id?: string | null;
+    meta?: Record<string, any> | null;
 }) {
     const supabase = await supabaseServer();
 
@@ -40,14 +42,15 @@ export async function createJournalEntry(input: {
         title: input.title,
         content: input.content ?? null,
         chapter_id: input.chapter_id ?? null,
-        quest_id: input.chapter_id ?? null,
+        quest_id: input.quest_id ?? null,
         adventure_quest_id: input.adventure_quest_id ?? null,
+        meta: input.meta ?? null,
     };
 
     const { data, error } = await supabase
         .from("journal_entries")
         .insert(payload)
-        .select("id, session_id, kind, title, created_at")
+        .select("id, session_id, kind, title, created_at, meta")
         .maybeSingle();
 
     if (error) {

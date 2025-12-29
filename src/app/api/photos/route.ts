@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getActiveSessionOrThrow } from "@/lib/sessions/getActiveSession";
+import { createJournalEntry } from "@/lib/journal/createJournalEntry";
+import { type PhotoCategory } from "@/types/game";
 
 /* ============================================================================
 🧰 HELPERS
@@ -49,6 +51,12 @@ async function getUserIdOrThrow(supabase: any) {
     const uid = data?.user?.id;
     if (!uid) throw new Error("Unauthorized");
     return uid;
+}
+
+function categoryEmoji(c: PhotoCategory) {
+    if (c === "initial") return "🌅";
+    if (c === "final") return "🏁";
+    return "✨";
 }
 
 /* ============================================================================
@@ -154,7 +162,7 @@ export async function POST(req: NextRequest) {
     // + récupère adventure_quest_id (parent canonique pour la contrainte single_parent)
     const { data: cq, error: cqErr } = await supabase
         .from("chapter_quests")
-        .select("id,session_id,adventure_quest_id")
+        .select("id,session_id,adventure_quest_id,chapter_id")
         .eq("id", chapterQuestId)
         .eq("session_id", session.id)
         .maybeSingle();
@@ -218,6 +226,20 @@ export async function POST(req: NextRequest) {
     const { data: signed } = await supabase.storage
         .from(BUCKET)
         .createSignedUrl(objectPath, 60 * 30);
+
+    await createJournalEntry({
+        session_id: sessionId,
+        kind: "quest_photo_added",
+        title: `${categoryEmoji(category as any)} Preuve ajoutée`,
+        content: caption ? `🗒️ ${caption}` : null,
+        chapter_id: cq.chapter_id ?? null,
+        adventure_quest_id: adventureQuestId ?? null,
+        meta: {
+            photo_id: photoId,
+            photo_category: category, // "initial" | "final" | "other"
+            chapter_quest_id: chapterQuestId,
+        },
+    });
 
     return NextResponse.json({
         photo: {
