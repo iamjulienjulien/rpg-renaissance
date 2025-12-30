@@ -54,7 +54,8 @@ export type ReloadKey =
     | "questChainItems"
     | "questPhotos"
     | "questThreads"
-    | "questMessages";
+    | "questMessages"
+    | "questMission";
 
 export type ReloadInput = ReloadKey | ReloadKey[];
 
@@ -462,6 +463,15 @@ type GameStore = {
         meta?: QuestMessageMeta | null;
         photo_id?: string | null;
     }) => Promise<QuestMessageRow | null>;
+
+    /* ------------------------ 📜 QUEST MISSION (brief MJ) ------------------------ */
+
+    questMissionByChapterQuestId: Record<string, any | undefined>;
+    questMissionLoadingById: Record<string, boolean | undefined>;
+
+    getQuestMission: (chapterQuestId: string) => Promise<any | null>;
+    generateQuestMission: (chapterQuestId: string, force?: boolean) => Promise<any | null>;
+    clearQuestMission: (chapterQuestId: string) => void;
 };
 
 export const useGameStore = create<GameStore>((set, get) => {
@@ -1621,6 +1631,13 @@ export const useGameStore = create<GameStore>((set, get) => {
                 if (requested.has("chaptersByAdventure")) {
                     const advId = get().currentAdventure?.id ?? adventureId ?? null;
                     if (advId) void get().getChaptersByAdventure(advId);
+                }
+
+                if (requested.has("questMission")) {
+                    const cqs = get().currentChapterQuests ?? [];
+                    await Promise.all(
+                        cqs.map((cq) => (cq?.id ? get().getQuestMission(cq.id) : Promise.resolve()))
+                    );
                 }
             } catch (e) {
                 const msg = e instanceof Error ? e.message : "Reload failed";
@@ -3242,6 +3259,110 @@ export const useGameStore = create<GameStore>((set, get) => {
             });
 
             return message;
+        },
+
+        /* =========================================================================
+📜 QUEST MISSION (brief MJ)
+======================================================================== */
+
+        questMissionByChapterQuestId: {},
+        questMissionLoadingById: {},
+
+        clearQuestMission: (chapterQuestId) =>
+            set((s) => {
+                const next = { ...s.questMissionByChapterQuestId };
+                delete next[chapterQuestId];
+                return { questMissionByChapterQuestId: next };
+            }),
+
+        getQuestMission: async (chapterQuestId: string) => {
+            if (!chapterQuestId) return null;
+
+            set((s) => ({
+                questMissionLoadingById: {
+                    ...s.questMissionLoadingById,
+                    [chapterQuestId]: true,
+                },
+            }));
+
+            try {
+                const res = await apiGet<{ mission: any | null }>(
+                    `/api/quest-mission?chapterQuestId=${encodeURIComponent(chapterQuestId)}`
+                );
+
+                if (!res.ok) return null;
+
+                const mission = res.data?.mission ?? null;
+
+                if (mission) {
+                    set((s) => ({
+                        questMissionByChapterQuestId: {
+                            ...s.questMissionByChapterQuestId,
+                            [chapterQuestId]: mission,
+                        },
+                    }));
+                }
+
+                return mission;
+            } finally {
+                set((s) => ({
+                    questMissionLoadingById: {
+                        ...s.questMissionLoadingById,
+                        [chapterQuestId]: false,
+                    },
+                }));
+            }
+        },
+
+        generateQuestMission: async (chapterQuestId: string, force = false) => {
+            if (!chapterQuestId) return null;
+
+            set((s) => ({
+                questMissionLoadingById: {
+                    ...s.questMissionLoadingById,
+                    [chapterQuestId]: true,
+                },
+            }));
+
+            try {
+                const url = `/api/quest-mission${force ? "?force=true" : ""}`;
+
+                const res = await apiPost<{ mission: any | null; cached?: boolean }>(url, {
+                    chapterQuestId,
+                });
+
+                if (!res.ok) {
+                    useToastStore.getState().error("Mission", res.error ?? "Génération impossible");
+                    return null;
+                }
+
+                const mission = (res.data as any)?.mission ?? null;
+
+                if (mission) {
+                    set((s) => ({
+                        questMissionByChapterQuestId: {
+                            ...s.questMissionByChapterQuestId,
+                            [chapterQuestId]: mission,
+                        },
+                    }));
+
+                    useToastStore
+                        .getState()
+                        .success(
+                            "Mission reçue",
+                            res.data?.cached ? "Depuis les archives" : "Le Maître du Jeu a parlé"
+                        );
+                }
+
+                return mission;
+            } finally {
+                set((s) => ({
+                    questMissionLoadingById: {
+                        ...s.questMissionLoadingById,
+                        [chapterQuestId]: false,
+                    },
+                }));
+            }
         },
     };
 });

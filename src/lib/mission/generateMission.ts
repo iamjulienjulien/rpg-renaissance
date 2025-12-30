@@ -3,6 +3,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { openai } from "@/lib/openai";
 import { createAiGenerationLog } from "@/lib/logs/createAiGenerationLog";
 import { createJournalEntry } from "@/lib/journal/createJournalEntry";
+import { buildMjContext } from "@/lib/context/buildMjContext";
 
 /* ============================================================================
 🧠 TYPES
@@ -35,6 +36,7 @@ type PlayerContext = {
     character: CharacterStyle | null;
 };
 
+/** ✅ plus de context aventure/chapitre dans QuestContext: maintenant via buildMjContext */
 type QuestContext = {
     title: string;
     description: string;
@@ -42,8 +44,6 @@ type QuestContext = {
     difficulty: number;
     estimate_min: number | null;
     status: string;
-    adventure_context: string;
-    chapter_context: string;
 };
 
 /* ============================================================================
@@ -142,43 +142,119 @@ function buildSystemText(input: {
     style: string;
     verbosity: string;
     rules: { maxIntroLines: number; stepsMin: number; stepsMax: number };
-    adventureContext: string | null;
-    chapterContext: string | null;
+    mjContext?: {
+        user?: {
+            self?: string | null;
+            family?: string | null;
+            home?: string | null;
+            routine?: string | null;
+            challenges?: string | null;
+        };
+        adventure?: {
+            title?: string | null;
+            context?: string | null;
+        };
+        chapter?: {
+            title?: string | null;
+            context?: string | null;
+        };
+    } | null;
+    quest: {
+        title: string;
+        description: string;
+        room_code?: string | null;
+        difficulty: number;
+        estimate_min: number | null;
+        status: string;
+    };
 }) {
-    const {
-        playerName,
-        character,
-        tone,
-        style,
-        verbosity,
-        rules,
-        adventureContext,
-        chapterContext,
-    } = input;
+    const { playerName, character, tone, style, verbosity, rules, mjContext, quest } = input;
+
+    const ctx = mjContext ?? {};
+
+    const difficulty =
+        quest.difficulty <= 1 ? "facile" : quest.difficulty === 2 ? "standard" : "difficile";
 
     return [
         `Tu es le Maître du Jeu de Renaissance.`,
-        `Tu écris un ordre de mission RPG, concret, actionnable.`,
-        `Le rendu FINAL sera assemblé côté code.`,
-        `Emojis sobres.`,
-        character
-            ? `Voix: ${character.emoji ?? "🧙"} ${character.name}. Tone=${tone}, style=${style}, verbosity=${verbosity}.`
-            : `Voix: neutre.`,
-        playerName
-            ? `Le joueur s'appelle "${playerName}". Utilise son nom 0 à 2 fois max.`
-            : `Le joueur n'a pas de nom affiché.`,
+        `Tu écris un ORDRE DE MISSION RPG, concret, actionnable, destiné à être exécuté dans le monde réel.`,
+        `Ce texte doit guider l’action, clarifier les priorités et donner envie d’agir.`,
 
-        // ✅ Contextes (hiérarchie explicite)
-        adventureContext
-            ? `CONTEXTE GLOBAL D’AVENTURE:\n${adventureContext}`
-            : `CONTEXTE GLOBAL D’AVENTURE: (aucun).`,
-        chapterContext
-            ? `CONTEXTE SPÉCIFIQUE DU CHAPITRE:\n${chapterContext}`
-            : `CONTEXTE SPÉCIFIQUE DU CHAPITRE: (aucun).`,
-        `Règle d’or: le contexte global prime, le chapitre affine.`,
-        character?.motto ? `Serment (à refléter sans citer): ${character.motto}` : null,
-        `Contraintes: intro ≤ ${rules.maxIntroLines} lignes. Étapes ${rules.stepsMin}-${rules.stepsMax}.`,
-        `Interdit: meta, disclaimers, "en tant qu'IA".`,
+        ``,
+        `════════════════════════════════════`,
+        `🎯 QUÊTE À ACCOMPLIR`,
+        `════════════════════════════════════`,
+        `Titre: ${quest.title}`,
+        quest.description ? `Description: ${quest.description}` : null,
+        quest.room_code ? `Zone concernée: ${quest.room_code}` : null,
+        `Difficulté: ${difficulty}`,
+        quest.estimate_min
+            ? `Temps estimé: environ ${quest.estimate_min} minutes`
+            : `Temps estimé: non précisé`,
+        `État actuel de la quête: ${quest.status}`,
+
+        ``,
+        `Ta mission: transformer cette quête en un ordre clair, motivant et structuré.`,
+        `Le joueur doit savoir exactement quoi faire, dans quel ordre, et comment reconnaître la réussite.`,
+
+        ``,
+        `════════════════════════════════════`,
+        `🧠 CONTEXTE DU JOUEUR (à respecter en priorité)`,
+        `════════════════════════════════════`,
+        ctx.user?.self ? `👤 Joueur: ${ctx.user.self}` : null,
+        ctx.user?.family ? `👨‍👩‍👧 Famille: ${ctx.user.family}` : null,
+        ctx.user?.home ? `🏠 Foyer: ${ctx.user.home}` : null,
+        ctx.user?.routine ? `⏱️ Quotidien: ${ctx.user.routine}` : null,
+        ctx.user?.challenges ? `⚠️ Défis actuels: ${ctx.user.challenges}` : null,
+
+        ``,
+        `════════════════════════════════════`,
+        `🌍 CONTEXTE GLOBAL D’AVENTURE`,
+        `════════════════════════════════════`,
+        ctx.adventure?.title ? `Aventure: ${ctx.adventure.title}` : null,
+        ctx.adventure?.context ? ctx.adventure.context : null,
+
+        ``,
+        `════════════════════════════════════`,
+        `📖 CONTEXTE DU CHAPITRE`,
+        `════════════════════════════════════`,
+        ctx.chapter?.title ? `Chapitre: ${ctx.chapter.title}` : null,
+        ctx.chapter?.context ? ctx.chapter.context : null,
+
+        ``,
+        `Règle d’or:`,
+        `1) Le contexte du joueur prime toujours.`,
+        `2) Le contexte d’aventure donne la direction.`,
+        `3) Le chapitre affine l’angle et le ton.`,
+
+        ``,
+        `════════════════════════════════════`,
+        `🎭 STYLE DU MAÎTRE DU JEU`,
+        `════════════════════════════════════`,
+        character ? `Voix: ${character.emoji ?? "🧙"} ${character.name}` : `Voix: neutre`,
+        `Tone: ${tone}`,
+        `Style: ${style}`,
+        `Verbosité: ${verbosity}`,
+        character?.motto ? `Serment du MJ (à refléter sans citer): ${character.motto}` : null,
+        playerName
+            ? `Nom du joueur: "${playerName}" (à utiliser 0 à 2 fois maximum)`
+            : `Le joueur n’a pas de nom affiché.`,
+
+        ``,
+        `════════════════════════════════════`,
+        `📐 CONTRAINTES DE FORME`,
+        `════════════════════════════════════`,
+        `- Introduction: maximum ${rules.maxIntroLines} lignes.`,
+        `- Étapes: entre ${rules.stepsMin} et ${rules.stepsMax} étapes concrètes.`,
+        `- Style direct, orienté action, sans blabla.`,
+
+        ``,
+        `Interdictions strictes:`,
+        `- Pas de meta, pas de mentions d’IA.`,
+        `- Pas d’hésitations ni de conditionnel mou.`,
+        `- Pas de conseils vagues.`,
+
+        ``,
         `La sortie doit respecter STRICTEMENT le schéma JSON demandé.`,
     ]
         .filter(Boolean)
@@ -197,15 +273,6 @@ function buildUserText(questContext: QuestContext) {
 🗺️ MAIN
 ============================================================================ */
 
-/**
- * ✅ Ordre de mission IA pour une chapter_quest
- * - Prend en compte 2 contextes:
- *   - adventures.context_text = contexte global
- *   - chapters.context_text   = contexte spécifique du chapitre
- * - Cache scopé par session_id
- * - ✅ Log BDD (ai_generations) pour debug/dev
- * - ✅ Journal entry (journal_entries) pour trace gameplay (best-effort)
- */
 export async function generateMissionForChapterQuest(
     chapterQuestId: string,
     force: boolean = false
@@ -249,41 +316,7 @@ export async function generateMissionForChapterQuest(
     const sessionId = cq.session_id as string;
     const q = Array.isArray(cq.adventure_quests) ? cq.adventure_quests[0] : cq.adventure_quests;
 
-    // 1) Contexte global (aventure) + spécifique (chapitre)
-    let adventureId: string | null = null;
-    let adventureContext: string | null = null;
-    let chapterContext: string | null = null;
-
-    if (cq.chapter_id) {
-        const { data: ch, error: chErr } = await supabase
-            .from("chapters")
-            .select("context_text, adventure_id")
-            .eq("id", cq.chapter_id)
-            .maybeSingle();
-
-        if (chErr) {
-            console.warn("generateMission: chapters warning:", chErr.message);
-        } else {
-            const ctx = safeTrim((ch as any)?.context_text);
-            chapterContext = ctx.length ? ctx : null;
-            adventureId = (ch as any)?.adventure_id ?? null;
-        }
-
-        if (adventureId) {
-            const { data: adv, error: advErr } = await supabase
-                .from("adventures")
-                .select("context_text")
-                .eq("id", adventureId)
-                .maybeSingle();
-
-            if (advErr) {
-                console.warn("generateMission: adventures warning:", advErr.message);
-            } else {
-                const advCtx = safeTrim((adv as any)?.context_text);
-                adventureContext = advCtx.length ? advCtx : null;
-            }
-        }
-    }
+    const chapterId = (cq as any)?.chapter_id ?? null;
 
     const questContext: QuestContext = {
         title: q.title,
@@ -292,9 +325,10 @@ export async function generateMissionForChapterQuest(
         difficulty: q.difficulty ?? 2,
         estimate_min: q.estimate_min ?? null,
         status: cq.status,
-        adventure_context: adventureContext ?? "",
-        chapter_context: chapterContext ?? "",
     };
+
+    // ✅ Nouveau: contexte MJ unifié (user + adventure(active session) + chapter(chapterId))
+    const mjContext = chapterId ? await buildMjContext({ chapterId }) : null;
 
     // 2) Cache (scopé session) si pas force
     if (!force) {
@@ -313,13 +347,13 @@ export async function generateMissionForChapterQuest(
                     kind: "note",
                     title: "🧠 Mission (cache)",
                     content: `Mission récupérée depuis le cache pour "${safeTrim(q.title) || "Quête"}".`,
-                    chapter_id: cq.chapter_id ?? null,
+                    chapter_id: chapterId ?? null,
                     quest_id: chapterQuestId,
                     adventure_quest_id: q.id ?? null,
                 });
             } catch {}
 
-            // ✅ Log best-effort (cache hit = utile debug)
+            // ✅ Log best-effort (cache hit)
             try {
                 await createAiGenerationLog({
                     session_id: sessionId,
@@ -330,13 +364,13 @@ export async function generateMissionForChapterQuest(
                     model: (existing as any)?.model ?? "unknown",
                     status: "success",
                     chapter_quest_id: chapterQuestId,
-                    chapter_id: cq.chapter_id ?? null,
-                    adventure_id: adventureId,
+                    chapter_id: chapterId ?? null,
                     request_json: {
                         cached: true,
                         force: false,
                         quest_context: questContext,
                     },
+                    context_json: { mj: mjContext, quest: questContext },
                     response_json: null,
                     output_text: null,
                     parsed_json: (existing as any)?.mission_json ?? null,
@@ -365,6 +399,33 @@ export async function generateMissionForChapterQuest(
     // 4) Génération OpenAI (+ log complet)
     const model = "gpt-4.1";
 
+    const mjContextForPrompt = mjContext
+        ? {
+              user: mjContext.user
+                  ? {
+                        self: mjContext.user.self ?? null,
+                        family: mjContext.user.family ?? null,
+                        home: mjContext.user.home ?? null,
+                        routine: mjContext.user.routine ?? null,
+                        challenges: mjContext.user.challenges ?? null,
+                    }
+                  : undefined,
+              adventure: mjContext.adventure
+                  ? {
+                        title: (mjContext.adventure as any)?.title ?? null,
+                        context: (mjContext.adventure as any)?.text ?? null,
+                    }
+                  : undefined,
+              chapter: mjContext.chapter
+                  ? {
+                        title: (mjContext.chapter as any)?.title ?? null,
+                        context: (mjContext.chapter as any)?.text ?? null,
+                    }
+                  : undefined,
+          }
+        : null;
+
+    // ✅ NEW: passer la quête (et le mjContext unifié) à buildSystemText
     const systemText = buildSystemText({
         playerName,
         character,
@@ -372,21 +433,25 @@ export async function generateMissionForChapterQuest(
         style,
         verbosity,
         rules,
-        adventureContext,
-        chapterContext,
+        mjContext: mjContextForPrompt, // ✅ NEW (au lieu de adventureContext/chapterContext)
+        quest: {
+            title: questContext.title,
+            description: questContext.description ?? "",
+            room_code: questContext.room_code ?? null,
+            difficulty: questContext.difficulty ?? 2,
+            estimate_min: questContext.estimate_min ?? null,
+            status: questContext.status ?? "todo",
+        },
     });
 
+    // (optionnel) tu peux alléger le userText maintenant que la quête est dans le system prompt
     const userText = buildUserText(questContext);
 
-    // ✅ Requête OpenAI (gardée “telle quelle” pour les logs)
     const requestPayload = {
         model,
         input: [
             { role: "system", content: [{ type: "input_text", text: systemText }] },
-            {
-                role: "user",
-                content: [{ type: "input_text", text: userText }],
-            },
+            { role: "user", content: [{ type: "input_text", text: userText }] },
         ],
         text: {
             format: {
@@ -397,8 +462,6 @@ export async function generateMissionForChapterQuest(
                     additionalProperties: false,
                     properties: {
                         title: { type: "string" },
-                        estimated_time: { type: "string" },
-                        difficulty_label: { type: "string" },
                         intro: { type: "string" },
                         objectives_paragraph: { type: "string" },
                         steps: {
@@ -411,8 +474,6 @@ export async function generateMissionForChapterQuest(
                     },
                     required: [
                         "title",
-                        "estimated_time",
-                        "difficulty_label",
                         "intro",
                         "objectives_paragraph",
                         "steps",
@@ -432,22 +493,9 @@ export async function generateMissionForChapterQuest(
 
     try {
         response = await openai.responses.create(requestPayload as any);
-
-        // ⚠️ output_text est attendu ici car on utilise text.format=json_schema
         missionJson = JSON.parse(response.output_text);
 
-        // 5) Ajustements (post-process côté code)
-        missionJson.estimated_time =
-            formatEstimate(questContext.estimate_min) ??
-            missionJson.estimated_time ??
-            "Temps estimé: ?";
-        missionJson.difficulty_label = difficultyLabel(questContext.difficulty);
-
-        // 6) Markdown final (affichage UI)
         missionMd = [
-            `⏱️ ${missionJson.estimated_time}`,
-            `💪 ${missionJson.difficulty_label}`,
-            ``,
             missionJson.intro,
             ``,
             `**🎯 Objectifs**`,
@@ -466,7 +514,6 @@ export async function generateMissionForChapterQuest(
         const finishedAt = new Date();
         const durationMs = Date.now() - t0;
 
-        // ✅ Log BDD (error) best-effort
         try {
             await createAiGenerationLog({
                 session_id: sessionId,
@@ -477,28 +524,24 @@ export async function generateMissionForChapterQuest(
                 model,
                 status: "error",
                 chapter_quest_id: chapterQuestId,
-                chapter_id: cq.chapter_id ?? null,
-                adventure_id: adventureId,
+                chapter_id: chapterId ?? null,
                 started_at: startedAt,
                 finished_at: finishedAt,
                 duration_ms: durationMs,
                 request_json: requestPayload,
                 system_text: systemText,
                 user_input_text: userText,
-                context_json: questContext,
+                context_json: { mj: mjContext, quest: questContext },
                 response_json: null,
                 output_text: null,
                 parsed_json: null,
                 parse_error: null,
                 rendered_md: null,
                 error_message: err?.message ? String(err.message) : "Unknown error",
-                metadata: {
-                    quest_title: safeTrim(q.title) || null,
-                },
+                metadata: { quest_title: safeTrim(q.title) || null },
             });
         } catch {}
 
-        // ✅ Journal entry best-effort (error)
         try {
             await createJournalEntry({
                 session_id: sessionId,
@@ -507,7 +550,7 @@ export async function generateMissionForChapterQuest(
                 content:
                     `Échec génération mission pour "${safeTrim(q.title) || "Quête"}".\n` +
                     `Erreur: ${err?.message ? String(err.message) : "Unknown error"}`,
-                chapter_id: cq.chapter_id ?? null,
+                chapter_id: chapterId ?? null,
                 quest_id: chapterQuestId,
                 adventure_quest_id: q.id ?? null,
             });
@@ -536,7 +579,6 @@ export async function generateMissionForChapterQuest(
         .single();
 
     if (saveErr) {
-        // ✅ Log best-effort si la génération a réussi mais la sauvegarde échoue
         try {
             await createAiGenerationLog({
                 session_id: sessionId,
@@ -547,15 +589,14 @@ export async function generateMissionForChapterQuest(
                 model,
                 status: "error",
                 chapter_quest_id: chapterQuestId,
-                chapter_id: cq.chapter_id ?? null,
-                adventure_id: adventureId,
+                chapter_id: chapterId ?? null,
                 started_at: startedAt,
                 finished_at: finishedAt,
                 duration_ms: durationMs,
                 request_json: requestPayload,
                 system_text: systemText,
                 user_input_text: userText,
-                context_json: questContext,
+                context_json: { mj: mjContext, quest: questContext },
                 response_json: response,
                 output_text: response?.output_text ?? null,
                 parsed_json: missionJson,
@@ -579,15 +620,14 @@ export async function generateMissionForChapterQuest(
             model,
             status: "success",
             chapter_quest_id: chapterQuestId,
-            chapter_id: cq.chapter_id ?? null,
-            adventure_id: adventureId,
+            chapter_id: chapterId ?? null,
             started_at: startedAt,
             finished_at: finishedAt,
             duration_ms: durationMs,
             request_json: requestPayload,
             system_text: systemText,
             user_input_text: userText,
-            context_json: questContext,
+            context_json: { mj: mjContext, quest: questContext },
             response_json: response,
             output_text: response?.output_text ?? null,
             parsed_json: missionJson,
@@ -604,6 +644,10 @@ export async function generateMissionForChapterQuest(
 
     // ✅ Journal entry best-effort (success)
     try {
+        const hasUser = !!(mjContext as any)?.user;
+        const hasAdv = !!(mjContext as any)?.adventure;
+        const hasCh = !!(mjContext as any)?.chapter;
+
         await createJournalEntry({
             session_id: sessionId,
             kind: "note",
@@ -611,8 +655,8 @@ export async function generateMissionForChapterQuest(
             content:
                 `Le MJ a forgé un ordre de mission pour "${safeTrim(q.title) || "Quête"}".\n` +
                 `Modèle: ${model}\n` +
-                `Contexte: ${adventureContext ? "aventure" : "—"} / ${chapterContext ? "chapitre" : "—"}`,
-            chapter_id: cq.chapter_id ?? null,
+                `Contexte: user=${hasUser ? "✓" : "—"} / adventure=${hasAdv ? "✓" : "—"} / chapter=${hasCh ? "✓" : "—"}`,
+            chapter_id: chapterId ?? null,
             quest_id: chapterQuestId,
             adventure_quest_id: q.id ?? null,
         });

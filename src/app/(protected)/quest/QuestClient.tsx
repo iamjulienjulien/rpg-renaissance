@@ -31,6 +31,7 @@ import { getCurrentCharacterEmoji, getCurrentCharacterName } from "@/helpers/adv
 import { journalKindLabel } from "@/helpers/journalKind";
 import { formatJournalTime } from "@/helpers/dateTime";
 import QuestMjThreadCard from "./QuestMjThreadCard";
+import { useDevStore } from "@/stores/devStore";
 
 type Quest = {
     id: string;
@@ -108,6 +109,8 @@ export default function QuestClient() {
     const journalLoading = useJournalStore((s) => s.loading);
     const loadJournal = useJournalStore((s) => s.load);
 
+    const { enabled: devModeEnabled } = useDevStore();
+
     // ✅ actions centralisées store (toast + journal + renown)
     const startQuest = useGameStore((s) => s.startQuest);
     const finishQuest = useGameStore((s) => s.finishQuest);
@@ -129,6 +132,7 @@ export default function QuestClient() {
     const encouragement = chapterQuestId ? encouragementById[chapterQuestId] : undefined;
 
     const { openModal } = useUiStore();
+    const { generateQuestMission } = useGameStore();
 
     const [photosLoading, setPhotosLoading] = useState(false);
     const [photos, setPhotos] = useState<QuestPhoto[]>([]);
@@ -241,6 +245,21 @@ export default function QuestClient() {
         }
     };
 
+    const reloadMission = async () => {
+        if (!chapterQuestId) return;
+        const res = await fetch(`/api/chapter-quests/${encodeURIComponent(chapterQuestId)}`, {
+            cache: "no-store",
+        });
+        const json = await res.json();
+
+        if (!res.ok) {
+            console.error(json?.error ?? "Load failed");
+            return;
+        }
+
+        setMissionMd(json.mission_md ?? json.mission?.mission_md ?? null);
+    };
+
     useEffect(() => {
         void bootstrap();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -333,6 +352,13 @@ export default function QuestClient() {
         });
     };
 
+    const onRegenerateMission = async () => {
+        if (!chapterQuestId) return;
+
+        await generateQuestMission(chapterQuestId, devModeEnabled);
+        await reloadMission();
+    };
+
     if (!chapterQuestId) {
         return (
             <RpgShell title="Quête">
@@ -346,7 +372,11 @@ export default function QuestClient() {
     }
 
     return (
-        <RpgShell title="Quête" returnButton={false}>
+        <RpgShell
+            title="Quête"
+            subtitle="✨ Chronique d’un acte héroïque ordinaire ✨"
+            returnButton={false}
+        >
             {loading || !quest || !chapterQuest ? (
                 <div className="rounded-2xl bg-black/30 p-4 rpg-text-sm text-white/60 ring-1 ring-white/10">
                     ⏳ Chargement de la quête…
@@ -668,6 +698,16 @@ export default function QuestClient() {
                                             ▶️ Démarrer la quête
                                         </ActionButton>
 
+                                        {(!missionMd || devModeEnabled) && (
+                                            <ActionButton
+                                                variant="master"
+                                                onClick={onRegenerateMission}
+                                                disabled={busy}
+                                            >
+                                                ✨ Générer l'ordre de mission
+                                            </ActionButton>
+                                        )}
+
                                         <ActionButton
                                             onClick={() => {
                                                 openModal("questCreate", {
@@ -716,6 +756,16 @@ export default function QuestClient() {
                                         >
                                             ✨ Demander un encouragement
                                         </ActionButton>
+
+                                        {(!missionMd || devModeEnabled) && (
+                                            <ActionButton
+                                                variant="master"
+                                                onClick={onRegenerateMission}
+                                                disabled={busy}
+                                            >
+                                                ✨ Générer l'ordre de mission
+                                            </ActionButton>
+                                        )}
 
                                         {/* ✅ NEW: Chain quest */}
                                         <ActionButton
