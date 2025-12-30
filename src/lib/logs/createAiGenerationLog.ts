@@ -2,6 +2,10 @@
 
 import { supabaseServer } from "@/lib/supabase/server";
 
+// ✅ system logs
+import { Log } from "@/lib/systemLog/Log";
+import { patchRequestContext } from "@/lib/systemLog/requestContext";
+
 /* ============================================================================
 🧠 TYPES
 ============================================================================ */
@@ -13,16 +17,16 @@ export type AiGenerationInput = {
     session_id: string;
     user_id?: string | null;
 
-    // 🎯 Lien fonctionnel (optionnel mais recommandé)
-    generation_type: string; // ex: "mission_order"
-    source?: string | null; // ex: "generateMissionForChapterQuest"
+    // 🎯 Lien fonctionnel
+    generation_type: string;
+    source?: string | null;
 
     chapter_quest_id?: string | null;
     chapter_id?: string | null;
     adventure_id?: string | null;
 
     // 🤖 Modèle
-    provider?: string; // default: "openai"
+    provider?: string;
     model: string;
 
     // 🧾 Statut
@@ -47,39 +51,104 @@ export type AiGenerationInput = {
     parsed_json?: any;
     parse_error?: string | null;
 
-    // 🧩 Rendu final (si applicable)
+    // 🧩 Rendu
     rendered_md?: string | null;
 
-    // 📊 Usage / debug
+    // 📊 Debug
     usage_json?: any;
     tags?: string[] | null;
     metadata?: any;
 };
 
 /* ============================================================================
+🧰 HELPERS
+============================================================================ */
+
+function safeTrim(x: unknown): string {
+    return typeof x === "string" ? x.trim() : "";
+}
+
+function toIsoOrNull(x?: string | Date | null) {
+    if (!x) return null;
+    const d = new Date(x);
+    return Number.isFinite(d.getTime()) ? d.toISOString() : null;
+}
+
+function msSince(t0: number) {
+    return Math.max(0, Date.now() - t0);
+}
+
+/* ============================================================================
 🧰 MAIN
 ============================================================================ */
 
 export async function createAiGenerationLog(input: AiGenerationInput) {
-    const supabase = await supabaseServer();
+    const startedAtMs = Date.now();
+    const timer = Log.timer("createAiGenerationLog", {
+        source: "src/lib/logs/createAiGenerationLog.ts",
+        metadata: {
+            generation_type: input.generation_type,
+            status: input.status,
+            model: input.model,
+        },
+    });
 
-    const session_id = typeof input.session_id === "string" ? input.session_id.trim() : "";
+    const session_id = safeTrim(input.session_id);
 
+    // 🛑 Validations strictes
     if (!session_id) {
+        Log.error("ai_log.missing.session_id", undefined);
+        timer.endError("ai_log.missing.session_id");
         throw new Error("Missing session_id");
     }
 
     if (!input.generation_type) {
+        Log.error("ai_log.missing.generation_type", undefined, {
+            metadata: { session_id },
+        });
+        timer.endError("ai_log.missing.generation_type");
         throw new Error("Missing generation_type");
     }
 
     if (!input.model) {
+        Log.error("ai_log.missing.model", undefined, {
+            metadata: { session_id, generation_type: input.generation_type },
+        });
+        timer.endError("ai_log.missing.model");
         throw new Error("Missing model");
     }
 
     if (!input.request_json) {
+        Log.error("ai_log.missing.request_json", undefined, {
+            metadata: { session_id, generation_type: input.generation_type },
+        });
+        timer.endError("ai_log.missing.request_json");
         throw new Error("Missing request_json");
     }
+
+    // 🔗 Patch request context (global logs)
+    patchRequestContext({
+        session_id,
+        user_id: input.user_id ?? undefined,
+        chapter_id: input.chapter_id ?? undefined,
+        chapter_quest_id: input.chapter_quest_id ?? undefined,
+        adventure_id: input.adventure_id ?? undefined,
+    });
+
+    Log.debug("ai_log.prepare", {
+        metadata: {
+            session_id,
+            generation_type: input.generation_type,
+            source: input.source ?? null,
+            status: input.status,
+            model: input.model,
+            has_error: input.status === "error",
+            has_output: !!input.output_text,
+            has_parsed: !!input.parsed_json,
+            has_rendered_md: !!input.rendered_md,
+            tags: input.tags ?? [],
+        },
+    });
 
     const payload = {
         // Scope
@@ -103,8 +172,8 @@ export async function createAiGenerationLog(input: AiGenerationInput) {
         error_code: input.error_code ?? null,
 
         // Timing
-        started_at: input.started_at ? new Date(input.started_at).toISOString() : undefined,
-        finished_at: input.finished_at ? new Date(input.finished_at).toISOString() : undefined,
+        started_at: toIsoOrNull(input.started_at),
+        finished_at: toIsoOrNull(input.finished_at),
         duration_ms: input.duration_ms ?? null,
 
         // Request
@@ -128,6 +197,9 @@ export async function createAiGenerationLog(input: AiGenerationInput) {
         metadata: input.metadata ?? null,
     };
 
+    const supabase = await supabaseServer();
+
+    const d0 = Date.now();
     const { data, error } = await supabase
         .from("ai_generations")
         .insert(payload)
@@ -135,8 +207,39 @@ export async function createAiGenerationLog(input: AiGenerationInput) {
         .maybeSingle();
 
     if (error) {
+        Log.error("ai_log.insert.error", error, {
+            metadata: {
+                session_id,
+                generation_type: input.generation_type,
+                status: input.status,
+                model: input.model,
+                duration_ms: msSince(d0),
+            },
+        });
+
+        timer.endError("ai_log.insert.failed", error, {
+            metadata: { total_ms: msSince(startedAtMs) },
+        });
+
         throw new Error(`AI generation log insert failed: ${error.message}`);
     }
+
+    Log.success("ai_log.insert.ok", {
+        metadata: {
+            ms: msSince(d0),
+            id: data?.id ?? null,
+            generation_type: data?.generation_type,
+            status: data?.status,
+            model: data?.model,
+        },
+    });
+
+    timer.endSuccess("ai_log.success", {
+        metadata: {
+            total_ms: msSince(startedAtMs),
+            id: data?.id ?? null,
+        },
+    });
 
     return data;
 }
