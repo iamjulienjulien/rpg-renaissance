@@ -5,6 +5,8 @@ import ReactMarkdown from "react-markdown";
 
 import { useGameStore } from "@/stores/gameStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { getCurrentCharacterEmoji, getCurrentCharacterName } from "@/helpers/adventure";
+import { Panel } from "@/components/RpgUi";
 
 type QuestThread = {
     id: string;
@@ -272,27 +274,22 @@ export default function QuestMjThreadCard({ chapterQuestId }: Props) {
     const visibleMessages = expanded ? messages : messages.slice(-2);
 
     return (
-        <GradientFrame className="">
+        <Panel>
+            {/* // <GradientFrame className=""> */}
             {/* Header */}
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                     <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
                         🎭 Discussion
                     </div>
-                    <div className="mt-1 text-base text-white/90 font-semibold">
-                        Le Maître du Jeu
+                    <div className="mt-2 text-base text-white/90 font-semibold">
+                        {getCurrentCharacterEmoji() + " " + getCurrentCharacterName()}
                     </div>
-                    <div className="mt-1 text-xs text-white/55">
-                        {thread ? (
-                            <>
-                                Thread: <span className="text-white/70">{thread.id}</span>
-                            </>
-                        ) : threadLoading ? (
-                            "Ouverture du fil…"
-                        ) : (
-                            "Aucun fil"
-                        )}
-                    </div>
+                    {!thread && (
+                        <div className="mt-1 text-xs text-white/55">
+                            {threadLoading ? "Ouverture du fil…" : "Aucun fil"}
+                        </div>
+                    )}
                 </div>
 
                 <button
@@ -358,6 +355,7 @@ export default function QuestMjThreadCard({ chapterQuestId }: Props) {
                     </button>
                 </div>
             </div>
-        </GradientFrame>
+            {/* </GradientFrame> */}
+        </Panel>
     );
 }

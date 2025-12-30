@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getActiveSessionOrThrow } from "@/lib/sessions/getActiveSession";
+import { evaluateAchievements } from "@/lib/achievements/evaluateAchievements";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -151,6 +153,18 @@ export async function GET(_req: NextRequest, context: Ctx) {
 export async function PATCH(req: NextRequest, context: Ctx) {
     const supabase = await supabaseServer();
     const session = await getActiveSessionOrThrow();
+
+    const { data: gs, error: gsErr } = await supabase
+        .from("game_sessions")
+        .select("user_id")
+        .eq("id", session.id)
+        .maybeSingle();
+
+    if (gsErr || !gs?.user_id) {
+        return NextResponse.json({ error: "Invalid session user" }, { status: 500 });
+    }
+
+    const userId = gs.user_id;
     const { id } = await context.params;
 
     const body = await req.json().catch(() => null);
@@ -175,6 +189,30 @@ export async function PATCH(req: NextRequest, context: Ctx) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    const adventureQuest = normalizeOne((data as any).adventure_quests);
+
+    // 🎉 ACHIEVEMENTS — quest completed
+    if (status === "done") {
+        try {
+            const admin = supabaseAdmin();
+
+            await evaluateAchievements(admin, "quest_completed", {
+                user_id: userId,
+                session_id: session.id,
+                chapter_id: data.chapter_id,
+                chapter_quest_id: data.id,
+                adventure_id: normalizeOne((data as any).adventure_quests)?.adventure_id ?? null,
+                request_id: req.headers.get("x-request-id") ?? null,
+                payload: {
+                    difficulty: adventureQuest?.difficulty ?? null,
+                },
+            });
+        } catch (e) {
+            // ⚠️ IMPORTANT: on ne bloque JAMAIS la requête principale
+            console.error("evaluateAchievements failed", e);
+        }
+    }
 
     const mission = normalizeOne((data as any).quest_mission_orders);
 

@@ -3,12 +3,13 @@ import type { Metadata } from "next";
 import ThemeHydrator from "@/components/ThemeHydrator";
 import AppHotkeys from "@/components/AppHotKeys";
 import CommandPalette from "@/components/CommandPalette";
-import Toasts from "@/components/Toasts";
+import Toasts from "@/components/toasts/Toasts";
 import DevHud from "@/components/DevHud";
 import SettingsApplier from "@/components/ui/SettingsApplier";
 import { UiMotionConfig } from "@/components/motion/UiMotion";
 
 import "./globals.css";
+import ToastEngine from "@/components/toasts/ToastEngine";
 
 export const metadata = {
     title: "RPG Renaissance — Le jeu dont tu es le héros",
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <SettingsApplier />
                 <AppHotkeys />
                 <CommandPalette />
+                <ToastEngine />
                 <Toasts />
                 <DevHud />
                 <UiMotionConfig>{children}</UiMotionConfig>

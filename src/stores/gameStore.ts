@@ -1839,13 +1839,6 @@ export const useGameStore = create<GameStore>((set, get) => {
                     questId: quest?.id ?? null,
                 });
 
-                const delta = renownDeltaForDifficulty(quest?.difficulty ?? null);
-                void get().addRenown(
-                    delta,
-                    line ? `Quête: ${line}` : "Quête terminée",
-                    chapterQuestId
-                );
-
                 return cq;
             } catch (e) {
                 console.error(e);

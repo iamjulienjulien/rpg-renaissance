@@ -13,6 +13,7 @@ export type RequestLogContext = {
     adventure_id?: string | null;
     chapter_quest_id?: string | null;
     adventure_quest_id?: string | null;
+    trace_id?: string | null;
 
     started_at_ms?: number | null;
 };

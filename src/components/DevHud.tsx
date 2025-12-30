@@ -2,6 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useDevStore } from "@/stores/devStore";
+import { useToastStore } from "@/stores/toastStore";
+import { ActionButton } from "./RpgUi";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -17,6 +19,8 @@ export default function DevHud(props: DevHudProps) {
     const overlays = useDevStore((s) => s.overlays);
     const logsVerbose = useDevStore((s) => s.logsVerbose);
     const apiLatencyMs = useDevStore((s) => s.apiLatencyMs);
+
+    const { replayLastDbToast } = useToastStore();
 
     // ✅ init safe (évite un setState immédiat “gratuit”)
     const [href, setHref] = useState<string>(() =>
@@ -109,7 +113,7 @@ export default function DevHud(props: DevHudProps) {
     if (!show) return null;
 
     return (
-        <div className="pointer-events-none fixed bottom-4 left-4 z-[9999] w-[360px] max-w-[calc(100vw-32px)]">
+        <div className="pointer-events-none fixed bottom-20 left-4 z-[9999] w-[360px] max-w-[calc(100vw-32px)]">
             <div
                 className={cn(
                     "pointer-events-auto rounded-2xl bg-black/60 p-4 ring-1 ring-white/15 backdrop-blur",
@@ -131,16 +135,20 @@ export default function DevHud(props: DevHudProps) {
                     </div>
 
                     <div className="shrink-0 text-right">
-                        <div className="text-[11px] text-white/45">⌘⇧D</div>
+                        {/* <div className="text-[11px] text-white/45">⌘⇧D</div> */}
                         <div className="text-[11px] text-white/45">⌘⇧O</div>
                     </div>
                 </div>
 
                 <div className="mt-3 grid gap-2">
                     <div className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
-                        <div className="text-xs text-white/60">Toggles</div>
+                        {/* <div className="text-xs text-white/60">Toggles</div> */}
                         <div className="mt-1 flex flex-wrap gap-2">
-                            <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-white/70 ring-1 ring-white/10">
+                            <ActionButton onClick={() => replayLastDbToast()}>
+                                🍞 Rejouer Toast
+                            </ActionButton>
+
+                            {/* <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-white/70 ring-1 ring-white/10">
                                 {devEnabled ? "🧪 DEV ON" : "DEV OFF"}
                             </span>
                             <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-white/70 ring-1 ring-white/10">
@@ -148,7 +156,7 @@ export default function DevHud(props: DevHudProps) {
                             </span>
                             <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-white/70 ring-1 ring-white/10">
                                 {apiLatencyMs > 0 ? `🦖 ${apiLatencyMs}ms` : "latency OFF"}
-                            </span>
+                            </span> */}
                         </div>
                     </div>
 
@@ -162,9 +170,9 @@ export default function DevHud(props: DevHudProps) {
                     ) : null}
                 </div>
 
-                <div className="mt-3 text-[11px] text-white/45">
+                {/* <div className="mt-3 text-[11px] text-white/45">
                     Tip: ⌘⇧D active/désactive DEV. ⌘⇧O affiche/masque l’overlay.
-                </div>
+                </div> */}
             </div>
         </div>
     );

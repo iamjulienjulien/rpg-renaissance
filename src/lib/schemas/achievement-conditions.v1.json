@@ -1,0 +1,119 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://renaissance.app/schemas/achievement-conditions.v1.json",
+    "title": "AchievementConditionsV1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["operator", "rules"],
+    "properties": {
+        "operator": {
+            "type": "string",
+            "enum": ["AND", "OR"]
+        },
+        "rules": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/Node" }
+        }
+    },
+    "$defs": {
+        "Scope": {
+            "type": "string",
+            "enum": ["global", "session", "adventure", "chapter", "any"]
+        },
+
+        "Node": {
+            "oneOf": [{ "$ref": "#/$defs/Group" }, { "$ref": "#/$defs/Rule" }]
+        },
+
+        "Group": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["operator", "rules"],
+            "properties": {
+                "operator": { "type": "string", "enum": ["AND", "OR"] },
+                "rules": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": { "$ref": "#/$defs/Node" }
+                }
+            }
+        },
+
+        "Rule": {
+            "oneOf": [
+                { "$ref": "#/$defs/QuestCompletedCount" },
+                { "$ref": "#/$defs/ChapterCompletedCount" },
+                { "$ref": "#/$defs/AdventureCompleted" },
+                { "$ref": "#/$defs/PhotoUploaded" },
+                { "$ref": "#/$defs/RenownLevelReached" },
+                { "$ref": "#/$defs/SessionStarted" }
+            ]
+        },
+
+        "QuestCompletedCount": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "value"],
+            "properties": {
+                "type": { "const": "quest_completed_count" },
+                "scope": { "$ref": "#/$defs/Scope" },
+                "value": { "type": "integer", "minimum": 1 }
+            }
+        },
+
+        "ChapterCompletedCount": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "value"],
+            "properties": {
+                "type": { "const": "chapter_completed_count" },
+                "scope": { "$ref": "#/$defs/Scope" },
+                "value": { "type": "integer", "minimum": 1 }
+            }
+        },
+
+        "AdventureCompleted": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type"],
+            "properties": {
+                "type": { "const": "adventure_completed" },
+                "scope": { "$ref": "#/$defs/Scope" }
+            }
+        },
+
+        "PhotoUploaded": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "value"],
+            "properties": {
+                "type": { "const": "photo_uploaded" },
+                "scope": { "$ref": "#/$defs/Scope" },
+                "value": { "type": "integer", "minimum": 1 }
+            }
+        },
+
+        "RenownLevelReached": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "value"],
+            "properties": {
+                "type": { "const": "renown_level_reached" },
+                "scope": { "$ref": "#/$defs/Scope" },
+                "value": { "type": "integer", "minimum": 1 }
+            }
+        },
+
+        "SessionStarted": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "value"],
+            "properties": {
+                "type": { "const": "session_started" },
+                "scope": { "$ref": "#/$defs/Scope" },
+                "value": { "type": "integer", "minimum": 1 }
+            }
+        }
+    }
+}
