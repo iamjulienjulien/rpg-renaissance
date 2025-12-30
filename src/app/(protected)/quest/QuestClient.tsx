@@ -132,7 +132,7 @@ export default function QuestClient() {
     const encouragement = chapterQuestId ? encouragementById[chapterQuestId] : undefined;
 
     const { openModal } = useUiStore();
-    const { generateQuestMission } = useGameStore();
+    const { generateQuestMission, refreshQuestMessages, currentQuestThreadId } = useGameStore();
 
     const [photosLoading, setPhotosLoading] = useState(false);
     const [photos, setPhotos] = useState<QuestPhoto[]>([]);
@@ -278,10 +278,6 @@ export default function QuestClient() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    useEffect(() => {
-        console.log("quest", quest);
-    }, [quest]);
-
     const questJournal = React.useMemo(() => {
         if (!quest?.id) return [];
 
@@ -350,6 +346,8 @@ export default function QuestClient() {
             difficulty: quest.difficulty ?? null,
             mission_md: missionMd ?? null,
         });
+
+        void refreshQuestMessages(currentQuestThreadId ?? "");
     };
 
     const onRegenerateMission = async () => {
@@ -940,6 +938,7 @@ export default function QuestClient() {
                     if (!chapterQuestId) return;
                     void loadPhotos(chapterQuestId);
                     void loadJournal(120);
+                    void refreshQuestMessages(currentQuestThreadId ?? "");
                 }}
             />
             <UiLightbox

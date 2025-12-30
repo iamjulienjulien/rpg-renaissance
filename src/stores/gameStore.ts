@@ -428,6 +428,9 @@ type GameStore = {
 
     /* --------------------------- 💬 QUEST THREADS --------------------------- */
 
+    currentQuestThreadId: string | null;
+    setCurrentQuestThreadId: (currentQuestThreadId: string | null) => void;
+
     questThreadsByChapterQuestId: Record<string, QuestThreadRow | undefined>;
     questThreadsLoadingByChapterQuestId: Record<string, boolean | undefined>;
     questThreadsErrorByChapterQuestId: Record<string, string | null | undefined>;
@@ -2998,6 +3001,11 @@ export const useGameStore = create<GameStore>((set, get) => {
         /* =========================================================================
 💬 QUEST THREADS
 ======================================================================== */
+
+        currentQuestThreadId: null,
+        setCurrentQuestThreadId: (currentQuestThreadId: string | null) => {
+            currentQuestThreadId ? set({ currentQuestThreadId }) : "";
+        },
 
         questThreadsByChapterQuestId: {},
         questThreadsLoadingByChapterQuestId: {},

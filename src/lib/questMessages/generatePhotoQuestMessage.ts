@@ -916,6 +916,35 @@ export async function generatePhotoQuestMessageForQuest(input: GeneratePhotoQues
                 Log.success("photo_mj.thread.message.created", {
                     metadata: { ms: msSince(msg0), thread_id: threadId, photo_id: photoId },
                 });
+
+                const aiDescription = safeTrim(parsed.description) || null;
+
+                if (photoId && aiDescription) {
+                    const u0 = Date.now();
+
+                    const { error: updErr } = await supabase
+                        .from("photos")
+                        .update({ ai_description: aiDescription })
+                        .eq("id", photoId);
+
+                    if (updErr) {
+                        Log.warning("photo_mj.photo.update_ai_description.error", {
+                            metadata: {
+                                ms: msSince(u0),
+                                photo_id: photoId,
+                                error: updErr.message,
+                            },
+                        });
+                    } else {
+                        Log.success("photo_mj.photo.update_ai_description.ok", {
+                            metadata: {
+                                ms: msSince(u0),
+                                photo_id: photoId,
+                                len: aiDescription.length,
+                            },
+                        });
+                    }
+                }
             } else {
                 Log.warning("photo_mj.thread.message.skipped.no_thread", {
                     metadata: { session_id: ctx.session_id, chapter_quest_id: chapterQuestId },

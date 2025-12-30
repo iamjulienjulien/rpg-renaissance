@@ -62,78 +62,6 @@ function GradientFrame({ children, className }: { children: React.ReactNode; cla
 }
 
 // -----------------------------------------------------------------------------
-// FAKES (respect du schéma)
-// -----------------------------------------------------------------------------
-function makeFakeThread(chapterQuestId: string): QuestThread {
-    return {
-        id: "thread_fake_001",
-        session_id: "session_fake_001",
-        chapter_quest_id: chapterQuestId,
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-        updated_at: new Date().toISOString(),
-    };
-}
-
-function makeFakeMessages(thread: QuestThread): QuestMessage[] {
-    return [
-        {
-            id: "m_001",
-            session_id: thread.session_id,
-            thread_id: thread.id,
-            chapter_quest_id: thread.chapter_quest_id,
-            role: "system",
-            kind: "system_event",
-            title: "Fil scellé",
-            content: "Un fil de discussion a été ouvert avec le Maître du Jeu.",
-            meta: { source: "fake" },
-            photo_id: null,
-            created_at: new Date(Date.now() - 1000 * 60 * 55).toISOString(),
-        },
-        {
-            id: "m_002",
-            session_id: thread.session_id,
-            thread_id: thread.id,
-            chapter_quest_id: thread.chapter_quest_id,
-            role: "mj",
-            kind: "message",
-            title: "Le MJ murmure",
-            content:
-                "Je vois ton pas hésiter.\n\n**Choisis un geste simple** qui ouvre la voie.\n\n- Un objet à remettre en place\n- Une tâche à commencer sans perfection\n\nQuand tu l’as fait, reviens me dire *ce que tu as ressenti*.",
-            meta: { mood: "encouraging", source: "fake" },
-            photo_id: null,
-            created_at: new Date(Date.now() - 1000 * 60 * 40).toISOString(),
-        },
-        {
-            id: "m_003",
-            session_id: thread.session_id,
-            thread_id: thread.id,
-            chapter_quest_id: thread.chapter_quest_id,
-            role: "user",
-            kind: "message",
-            title: null,
-            content: "Ok. Je commence par 5 minutes. Juste le premier pas.",
-            meta: { source: "fake" },
-            photo_id: null,
-            created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-        },
-        {
-            id: "m_004",
-            session_id: thread.session_id,
-            thread_id: thread.id,
-            chapter_quest_id: thread.chapter_quest_id,
-            role: "mj",
-            kind: "message",
-            title: "Très bien.",
-            content:
-                "Parfait. **Cinq minutes, c’est une brèche dans le mur.**\n\nJe garde la porte ouverte. Ramène-moi un détail concret:\n\n> Qu’est-ce qui a été le plus facile à démarrer ?",
-            meta: { mood: "praise", source: "fake" },
-            photo_id: null,
-            created_at: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
-        },
-    ].sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")));
-}
-
-// -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 function roleLabel(role: string) {
@@ -275,6 +203,7 @@ export default function QuestMjThreadCard({ chapterQuestId }: Props) {
         questMessagesLoadingByThreadId,
         ensureQuestThread,
         fetchQuestMessages,
+        setCurrentQuestThreadId,
     } = useGameStore();
 
     const sessionId = useSessionStore((s) => s.activeSessionId);
@@ -284,8 +213,9 @@ export default function QuestMjThreadCard({ chapterQuestId }: Props) {
 
     const messages = thread ? (questMessagesByThreadId[thread.id] ?? []) : [];
     const messagesLoading = thread ? questMessagesLoadingByThreadId[thread.id] : false;
+    // const messagesLoading = true;
 
-    const [expanded, setExpanded] = React.useState(false);
+    const [expanded, setExpanded] = React.useState(true);
 
     // 🔌 Ensure thread + messages
     React.useEffect(() => {
@@ -295,28 +225,32 @@ export default function QuestMjThreadCard({ chapterQuestId }: Props) {
             const t = await ensureQuestThread(chapterQuestId);
             if (t?.id) {
                 await fetchQuestMessages(t.id);
+                await setCurrentQuestThreadId(t.id);
             }
         })();
     }, [chapterQuestId, ensureQuestThread, fetchQuestMessages]);
 
-    const visibleMessages = expanded ? messages : messages.slice(-2);
+    const toOrderMessages = expanded ? messages : messages.slice(-2);
+    const visibleMessages = [...toOrderMessages];
+    visibleMessages.reverse();
 
     return (
         <Panel
             title="Discussion"
             emoji="🎭"
-            right={
-                <button
-                    type="button"
-                    onClick={() => setExpanded((v) => !v)}
-                    className={cn(
-                        "rounded-full px-2 py-1 text-[11px] text-white/80",
-                        "bg-white/10 ring-1 ring-white/15 hover:bg-white/15 transition"
-                    )}
-                >
-                    {expanded ? "Réduire" : "Voir tout"}
-                </button>
-            }
+            subtitle="Chaque message éclaire ton chemin."
+            // right={
+            //     <button
+            //         type="button"
+            //         onClick={() => setExpanded((v) => !v)}
+            //         className={cn(
+            //             "rounded-full px-2 py-1 text-[11px] text-white/80",
+            //             "bg-white/10 ring-1 ring-white/15 hover:bg-white/15 transition"
+            //         )}
+            //     >
+            //         {expanded ? "Réduire" : "Voir tout"}
+            //     </button>
+            // }
         >
             {/* // <GradientFrame className=""> */}
             {/* Header */}
@@ -348,16 +282,19 @@ export default function QuestMjThreadCard({ chapterQuestId }: Props) {
             </div> */}
 
             {/* Messages */}
-            <div className="mt-5 grid gap-2">
+            <div className="mt-3 grid gap-2">
                 {messagesLoading && (
-                    <div className="text-xs text-white/40 italic">
-                        Le Maître du Jeu rassemble ses pensées…
+                    <div className="mb-2 text-xs italic text-center">
+                        <span className="bg-gradient-to-r from-cyan-300 via-violet-400 to-emerald-300 bg-clip-text text-transparent">
+                            Le Maître du Jeu rassemble ses pensées… 💬
+                        </span>
                     </div>
                 )}
-
-                {visibleMessages.map((m) => (
-                    <Bubble key={m.id} msg={m} />
-                ))}
+                <div className="grid gap-5">
+                    {visibleMessages.map((m) => (
+                        <Bubble key={m.id} msg={m} />
+                    ))}
+                </div>
 
                 {!messagesLoading && visibleMessages.length === 0 && (
                     <div className="text-xs text-white/40 italic">
@@ -369,11 +306,12 @@ export default function QuestMjThreadCard({ chapterQuestId }: Props) {
             {/* Footer (fake actions) */}
             <div className="mt-4 flex items-center justify-between gap-3">
                 <div className="text-[11px] text-white/45">
-                    {messages.length} message{messages.length > 1 ? "s" : ""} ·{" "}
-                    {expanded ? "Tout le fil" : "Aperçu"}
+                    {messages.length} message{messages.length > 1 ? "s" : ""}
+                    {/* ·{" "} */}
+                    {/* {expanded ? "Tout le fil" : "Aperçu"} */}
                 </div>
 
-                <div className="flex items-center gap-2">
+                {/* <div className="flex items-center gap-2">
                     <button
                         type="button"
                         disabled
@@ -396,7 +334,7 @@ export default function QuestMjThreadCard({ chapterQuestId }: Props) {
                     >
                         📎 Joindre
                     </button>
-                </div>
+                </div> */}
             </div>
             {/* </GradientFrame> */}
         </Panel>
