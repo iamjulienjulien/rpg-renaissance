@@ -269,7 +269,7 @@ async function createQuestMessageRow(input: {
         thread_id: input.thread_id,
         chapter_quest_id: input.chapter_quest_id,
         role: "mj",
-        kind: "message",
+        kind: "encouragement",
         title: input.title,
         content: input.content,
     });
