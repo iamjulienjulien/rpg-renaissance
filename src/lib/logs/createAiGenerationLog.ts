@@ -1,6 +1,7 @@
 // src/lib/logs/createAiGenerationLog.ts
 
-import { supabaseServer } from "@/lib/supabase/server";
+// import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 // ✅ system logs
 import { Log } from "@/lib/systemLog/Log";
@@ -197,7 +198,7 @@ export async function createAiGenerationLog(input: AiGenerationInput) {
         metadata: input.metadata ?? null,
     };
 
-    const supabase = await supabaseServer();
+    const supabase = await supabaseAdmin();
 
     const d0 = Date.now();
     const { data, error } = await supabase

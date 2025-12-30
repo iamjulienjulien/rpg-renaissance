@@ -238,3 +238,56 @@ comment on table public.quest_threads is
 
 comment on table public.quest_messages is
 'Messages liés à un thread de quête. role=mj|user|system, meta JSONB pour rendu riche, photo_id optionnel.';
+
+
+
+-- system_logs table
+create table if not exists public.system_logs (
+    id uuid primary key default gen_random_uuid(),
+
+    created_at timestamptz not null default now(),
+
+    level text not null check (level in ('debug','info','success','warning','error')),
+    message text not null,
+
+    -- request trace
+    request_id uuid,
+    trace_id uuid, -- optionnel (si tu veux grouper plusieurs request_id dans une “opération”)
+
+    -- http context
+    route text,
+    method text,
+    status_code int,
+    duration_ms int,
+
+    -- app/game context
+    session_id uuid,
+    user_id uuid,
+    chapter_id uuid,
+    adventure_id uuid,
+    chapter_quest_id uuid,
+    adventure_quest_id uuid,
+
+    -- origin
+    source text,     -- ex: "app/api/photos/route.ts"
+    file text,       -- best-effort (stack)
+    line int,        -- best-effort (stack)
+    function_name text,
+
+    -- error details
+    error_name text,
+    error_message text,
+    stack text,
+
+    -- payloads
+    metadata jsonb not null default '{}'::jsonb
+);
+
+create index if not exists system_logs_created_at_idx on public.system_logs (created_at desc);
+create index if not exists system_logs_level_idx on public.system_logs (level);
+create index if not exists system_logs_request_id_idx on public.system_logs (request_id);
+create index if not exists system_logs_session_id_idx on public.system_logs (session_id);
+create index if not exists system_logs_user_id_idx on public.system_logs (user_id);
+create index if not exists system_logs_route_idx on public.system_logs (route);
+
+-- (optionnel) purge facile par policy / cron: delete where created_at < now() - interval '30 days'

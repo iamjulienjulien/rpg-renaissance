@@ -282,7 +282,7 @@ async function loadStoryInputs(chapterId: string): Promise<{
         const t1 = Date.now();
         const { data: adv, error: advErr } = await supabase
             .from("adventures")
-            .select("title, code, context_text")
+            .select("title, instance_code, context_text")
             .eq("id", chapter.adventure_id)
             .maybeSingle();
 
@@ -297,7 +297,7 @@ async function loadStoryInputs(chapterId: string): Promise<{
         } else if (adv) {
             adventure = {
                 title: safeTrim((adv as any)?.title) || null,
-                code: safeTrim((adv as any)?.code) || null,
+                code: safeTrim((adv as any)?.instance_code) || null,
                 context_text: (adv as any)?.context_text ?? null,
             };
 
