@@ -338,10 +338,10 @@ export default function QuestClient() {
         if (!chapterQuestId || !quest) return;
 
         // On ouvre la modal tout de suite (style “invocation du MJ”)
-        setEncOpen(true);
+        // setEncOpen(true);
 
         // Si déjà en cache store, on ne regen pas forcément
-        if (encouragement?.message) return;
+        // if (encouragement?.message) return;
 
         await askEncouragement(chapterQuestId, {
             chapter_quest_id: chapterQuestId,

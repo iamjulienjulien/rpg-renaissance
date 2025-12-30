@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { generateEncouragementForQuest } from "@/lib/encouragement/generateEncouragement";
+import { generateEncouragementQuestMessage } from "@/lib/questMessages/generateEncouragementQuestMessage";
 
 export async function POST(req: Request) {
     const body = await req.json().catch(() => null);
@@ -23,12 +24,8 @@ export async function POST(req: Request) {
     }
 
     try {
-        const data = await generateEncouragementForQuest({
+        const data = await generateEncouragementQuestMessage({
             chapter_quest_id,
-            quest_title,
-            room_code,
-            difficulty,
-            mission_md,
         });
 
         if (!chapter_quest_id || !quest_title) {

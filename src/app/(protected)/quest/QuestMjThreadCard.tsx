@@ -163,19 +163,47 @@ function Bubble({ msg }: { msg: QuestMessage }) {
     const isUser = msg.role === "user";
     const isSystem = msg.role === "system";
 
+    function getMessageKindLabel(label: string) {
+        if (label === "photo_recognition") {
+            return "Analyse de photo";
+        }
+        if (label === "encouragement") {
+            return "Encouragement";
+        }
+        return "";
+    }
+
+    function getMessageKindEmoji(label: string) {
+        if (label === "photo_recognition") {
+            return "📸";
+        }
+        if (label === "encouragement") {
+            return "💪";
+        }
+        return "";
+    }
+
     const contentNode = (
         <>
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                        <span className="text-sm">{roleEmoji(msg.role)}</span>
+                        <span className="text-sm">
+                            {isMJ ? getCurrentCharacterEmoji() : roleEmoji(msg.role)}
+                        </span>
                         <div className="text-xs tracking-[0.22em] uppercase text-white/55">
-                            {roleLabel(msg.role)}
+                            {isMJ ? getCurrentCharacterName() : roleLabel(msg.role)}
                         </div>
                     </div>
 
+                    {isMJ && msg?.kind && (
+                        <div className="mt-2 font-semibold text-white/90">
+                            {getMessageKindEmoji(msg.kind) + " " + getMessageKindLabel(msg.kind)}
+                        </div>
+                    )}
+
                     {msg.title ? (
-                        <div className="mt-1 text-sm font-semibold text-white/90 truncate">
+                        <div className="mt-2 text-sm font-semibold text-white/90 truncate">
                             {msg.title}
                         </div>
                     ) : null}
@@ -274,10 +302,25 @@ export default function QuestMjThreadCard({ chapterQuestId }: Props) {
     const visibleMessages = expanded ? messages : messages.slice(-2);
 
     return (
-        <Panel>
+        <Panel
+            title="Discussion"
+            emoji="🎭"
+            right={
+                <button
+                    type="button"
+                    onClick={() => setExpanded((v) => !v)}
+                    className={cn(
+                        "rounded-full px-2 py-1 text-[11px] text-white/80",
+                        "bg-white/10 ring-1 ring-white/15 hover:bg-white/15 transition"
+                    )}
+                >
+                    {expanded ? "Réduire" : "Voir tout"}
+                </button>
+            }
+        >
             {/* // <GradientFrame className=""> */}
             {/* Header */}
-            <div className="flex items-start justify-between gap-3">
+            {/* <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                     <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
                         🎭 Discussion
@@ -302,10 +345,10 @@ export default function QuestMjThreadCard({ chapterQuestId }: Props) {
                 >
                     {expanded ? "Réduire" : "Voir tout"}
                 </button>
-            </div>
+            </div> */}
 
             {/* Messages */}
-            <div className="mt-4 grid gap-2">
+            <div className="mt-5 grid gap-2">
                 {messagesLoading && (
                     <div className="text-xs text-white/40 italic">
                         Le Maître du Jeu rassemble ses pensées…

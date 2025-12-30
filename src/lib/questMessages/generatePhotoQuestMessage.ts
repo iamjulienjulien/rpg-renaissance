@@ -900,7 +900,7 @@ export async function generatePhotoQuestMessageForQuest(input: GeneratePhotoQues
                     kind: "photo_recognition",
                     title: safeTrim(parsed.title) || "Preuve reçue",
                     content:
-                        `${safeTrim(parsed.description)}\n\n` +
+                        // `${safeTrim(parsed.description)}\n\n` +
                         `${safeTrim(parsed.message)}`.trim(),
                     meta: {
                         photo_id: photoId,
