@@ -41,25 +41,30 @@ export async function GET(req: Request) {
         .from("adventure_quests")
         .select(
             `
-            id,
-            adventure_id,
-            room_code,
-            title,
-            description,
-            difficulty,
-            estimate_min,
-            urgency,
-            priority,
-            created_at,
-            chapter_quests:chapter_quests!chapter_quests_adventure_quest_id_fkey (
-                status
-            )
+        id,
+        adventure_id,
+        room_code,
+        title,
+        description,
+        difficulty,
+        estimate_min,
+        urgency,
+        priority,
+        created_at,
+        chapter_quests:chapter_quests!chapter_quests_adventure_quest_id_fkey (
+            status,
+            created_at
+        )
         `
         )
         .eq("adventure_id", adventureId)
         .eq("session_id", session.id) // ✅ RLS
         .eq("chapter_quests.session_id", session.id) // ✅ limite le join à la session active
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .order("created_at", {
+            foreignTable: "chapter_quests",
+            ascending: true, // ou false selon ton besoin
+        });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
