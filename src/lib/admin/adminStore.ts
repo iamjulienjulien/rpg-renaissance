@@ -202,6 +202,62 @@ export type AdminQuestsFilters = {
     offset?: number;
 };
 
+export type SystemLogLevel = "debug" | "info" | "success" | "warning" | "error";
+
+export type SystemLogRow = {
+    id: string;
+    created_at: string;
+
+    level: SystemLogLevel;
+    message: string;
+
+    request_id: string | null;
+    trace_id: string | null;
+
+    route: string | null;
+    method: string | null;
+    status_code: number | null;
+    duration_ms: number | null;
+
+    session_id: string | null;
+    user_id: string | null;
+    chapter_id: string | null;
+    adventure_id: string | null;
+    chapter_quest_id: string | null;
+    adventure_quest_id: string | null;
+
+    source: string | null;
+
+    file: string | null;
+    line: number | null;
+    function_name: string | null;
+
+    error_name: string | null;
+    error_message: string | null;
+
+    // stack est “full”, tu le verras surtout au détail
+    stack?: string | null;
+
+    metadata: Record<string, any>;
+};
+
+export type SystemLogsFilters = {
+    q?: string;
+    level?: SystemLogLevel | "all";
+    route?: string;
+    method?: string;
+    statusCode?: string; // string pour input, cast côté API
+    source?: string;
+
+    userId?: string;
+    sessionId?: string;
+    requestId?: string;
+    traceId?: string;
+
+    limit?: number;
+    offset?: number;
+};
+
 type AdminState = {
     // KPIs
     kpis: AdminKpis | null;
@@ -285,6 +341,26 @@ type AdminState = {
 
     setQuestsFilters: (patch: Partial<AdminQuestsFilters>) => void;
     fetchQuests: (opts?: { reset?: boolean }) => Promise<void>;
+
+    // System logs list
+    systemLogs: SystemLogRow[];
+    systemLogsCount: number | null;
+    systemLogsLoading: boolean;
+    systemLogsError: string | null;
+    systemLogsFilters: SystemLogsFilters;
+
+    setSystemLogsFilters: (patch: Partial<SystemLogsFilters>) => void;
+    fetchSystemLogs: (opts?: { reset?: boolean }) => Promise<void>;
+
+    // Drawer selection (detail)
+    selectedSystemLogId: string | null;
+    selectedSystemLogFull: Record<string, any> | null;
+    selectedSystemLogLoading: boolean;
+    selectedSystemLogError: string | null;
+
+    openSystemLog: (id: string) => void;
+    closeSystemLog: () => void;
+    fetchSystemLogById: (id: string) => Promise<void>;
 };
 
 /* ============================================================================
@@ -359,6 +435,27 @@ function toQuestsQueryString(filters: AdminQuestsFilters) {
     if (filters.chapterId) params.set("chapterId", filters.chapterId);
 
     if (filters.status && filters.status !== "all") params.set("status", filters.status);
+
+    params.set("limit", String(filters.limit ?? 25));
+    params.set("offset", String(filters.offset ?? 0));
+
+    return params.toString();
+}
+
+function toSystemLogsQueryString(filters: SystemLogsFilters) {
+    const params = new URLSearchParams();
+
+    if (filters.q) params.set("q", filters.q);
+    if (filters.level && filters.level !== "all") params.set("level", filters.level);
+    if (filters.route) params.set("route", filters.route);
+    if (filters.method) params.set("method", filters.method);
+    if (filters.statusCode) params.set("statusCode", filters.statusCode);
+    if (filters.source) params.set("source", filters.source);
+
+    if (filters.userId) params.set("userId", filters.userId);
+    if (filters.sessionId) params.set("sessionId", filters.sessionId);
+    if (filters.requestId) params.set("requestId", filters.requestId);
+    if (filters.traceId) params.set("traceId", filters.traceId);
 
     params.set("limit", String(filters.limit ?? 25));
     params.set("offset", String(filters.offset ?? 0));
@@ -863,6 +960,118 @@ export const useAdminStore = create<AdminState>((set, get) => ({
                 questsLoading: false,
                 questsError: e?.message || "Failed to fetch quests",
             });
+        }
+    },
+
+    // System logs
+    systemLogs: [],
+    systemLogsCount: null,
+    systemLogsLoading: false,
+    systemLogsError: null,
+    systemLogsFilters: {
+        q: "",
+        level: "all",
+        route: "",
+        method: "",
+        statusCode: "",
+        source: "",
+        userId: "",
+        sessionId: "",
+        requestId: "",
+        traceId: "",
+        limit: 25,
+        offset: 0,
+    },
+
+    setSystemLogsFilters: (patch) => {
+        set((s) => ({
+            systemLogsFilters: { ...(s as any).systemLogsFilters, ...patch },
+        }));
+    },
+
+    fetchSystemLogs: async (opts) => {
+        const reset = !!opts?.reset;
+
+        const filters = (get() as any).systemLogsFilters as any;
+        const nextFilters = reset ? { ...filters, offset: 0 } : filters;
+
+        if (reset) set({ systemLogsFilters: nextFilters } as any);
+
+        set({ systemLogsLoading: true, systemLogsError: null } as any);
+
+        try {
+            const qs = toSystemLogsQueryString(nextFilters);
+            const res = await fetch(`/api/admin/system-logs?${qs}`, {
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+                cache: "no-store",
+            });
+
+            const json = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+
+            set({
+                systemLogs: Array.isArray(json?.rows) ? json.rows : [],
+                systemLogsCount: typeof json?.count === "number" ? json.count : null,
+                systemLogsLoading: false,
+                systemLogsError: null,
+            } as any);
+        } catch (e: any) {
+            set({
+                systemLogsLoading: false,
+                systemLogsError: e?.message || "Failed to fetch system_logs",
+            } as any);
+        }
+    },
+
+    selectedSystemLogId: null,
+    selectedSystemLogFull: null,
+    selectedSystemLogLoading: false,
+    selectedSystemLogError: null,
+
+    openSystemLog: (id) => {
+        set({
+            selectedSystemLogId: id,
+            selectedSystemLogFull: null,
+            selectedSystemLogLoading: true,
+            selectedSystemLogError: null,
+        } as any);
+
+        void (get() as any).fetchSystemLogById(id);
+    },
+
+    closeSystemLog: () => {
+        set({
+            selectedSystemLogId: null,
+            selectedSystemLogFull: null,
+            selectedSystemLogLoading: false,
+            selectedSystemLogError: null,
+        } as any);
+    },
+
+    fetchSystemLogById: async (id) => {
+        set({ selectedSystemLogLoading: true, selectedSystemLogError: null } as any);
+
+        try {
+            const res = await fetch(`/api/admin/system-logs?id=${encodeURIComponent(id)}`, {
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+                cache: "no-store",
+            });
+
+            const json = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+
+            set({
+                selectedSystemLogFull: json?.row ?? null,
+                selectedSystemLogLoading: false,
+                selectedSystemLogError: null,
+            } as any);
+        } catch (e: any) {
+            set({
+                selectedSystemLogLoading: false,
+                selectedSystemLogError: e?.message || "Failed to fetch system_log row",
+            } as any);
         }
     },
 }));

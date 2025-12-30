@@ -270,6 +270,10 @@ export type QuestChainItem = {
     } | null;
 };
 
+/* =========================================================================
+📖 PHOTOS
+========================================================================= */
+
 export type PhotoCategory = "initial" | "final" | "other";
 
 export type PhotoRow = {
@@ -311,4 +315,83 @@ export type QuestPhoto = {
     sort: number;
 };
 
-// export type PhotoCategory = "initial" | "final" | "other";
+/* ============================================================================
+🧵 QUEST THREADS & MESSAGES (Maître du Jeu / Discussion de quête)
+============================================================================ */
+
+/**
+ * Rôle de l’auteur d’un message dans une quête
+ * - mj     : Maître du Jeu (IA / système narratif)
+ * - user   : Joueur (à venir)
+ * - system : Message technique / automatique
+ */
+export type QuestMessageRole = "mj" | "user" | "system";
+
+/**
+ * Type logique de message
+ * Permet de varier le rendu UI et la logique métier
+ */
+export type QuestMessageKind =
+    | "message" // message narratif standard
+    | "photo_recognition" // reconnaissance liée à une photo
+    | "system_event"; // futur (debug, auto-events, etc.)
+
+/**
+ * Données additionnelles optionnelles pour enrichir le rendu
+ * (souple par design)
+ */
+export type QuestMessageMeta = {
+    /** catégorie de photo associée (si applicable) */
+    photo_category?: "initial" | "final" | "other";
+
+    /** ids de photos concernées */
+    photo_ids?: string[];
+
+    /** tonalité narrative (futur usage) */
+    tone?: "recognition" | "encouragement" | "neutral";
+
+    /** libre, pour extensions futures */
+    [key: string]: unknown;
+};
+
+/**
+ * Thread de discussion autour d’une quête
+ * 1 thread = 1 chapter_quest
+ */
+export type QuestThread = {
+    id: string;
+
+    session_id: string;
+    chapter_quest_id: string;
+
+    created_at: string;
+    updated_at: string;
+};
+
+/**
+ * Message dans un thread de quête
+ */
+export type QuestMessage = {
+    id: string;
+
+    thread_id: string;
+    session_id: string;
+    chapter_quest_id: string;
+
+    role: QuestMessageRole;
+    kind: QuestMessageKind;
+
+    /** Contenu principal affiché */
+    content: string;
+
+    /** Titre optionnel (utile pour MJ / system) */
+    title?: string | null;
+
+    /** Données additionnelles pour le rendu */
+    meta?: QuestMessageMeta | null;
+
+    /** Lien optionnel vers une photo */
+    photo_id?: string | null;
+
+    created_at: string;
+};

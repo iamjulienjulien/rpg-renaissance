@@ -1,5 +1,6 @@
 // src/lib/sessions/getActiveSession.ts
 import { supabaseServer } from "@/lib/supabase/server";
+import { patchRequestContext } from "@/lib/systemLog/requestContext";
 
 export type ActiveSession = {
     id: string;
@@ -17,6 +18,9 @@ export async function getActiveSessionOrThrow(): Promise<ActiveSession> {
     const user = authData?.user ?? null;
     if (!user) throw new Error("Not authenticated");
 
+    // ✅ Auto-context (best-effort): user_id déjà patché par supabaseServer(), mais on sécurise.
+    patchRequestContext({ user_id: user.id });
+
     // 1) session active existante
     const { data: existing, error: sessErr } = await supabase
         .from("game_sessions")
@@ -26,7 +30,12 @@ export async function getActiveSessionOrThrow(): Promise<ActiveSession> {
         .maybeSingle();
 
     if (sessErr) throw new Error(sessErr.message);
-    if (existing) return existing as ActiveSession;
+
+    if (existing) {
+        // ✅ Auto-context
+        patchRequestContext({ session_id: (existing as any)?.id ?? null });
+        return existing as ActiveSession;
+    }
 
     // 2) sinon on crée une session ET on garantit l’unicité
     const { error: offErr } = await supabase
@@ -48,5 +57,9 @@ export async function getActiveSessionOrThrow(): Promise<ActiveSession> {
         .single();
 
     if (createErr) throw new Error(createErr.message);
+
+    // ✅ Auto-context
+    patchRequestContext({ session_id: (created as any)?.id ?? null });
+
     return created as ActiveSession;
 }

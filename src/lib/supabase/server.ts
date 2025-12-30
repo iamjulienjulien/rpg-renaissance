@@ -1,6 +1,6 @@
-// src/lib/supabase/server.ts
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { patchRequestContext } from "@/lib/systemLog/requestContext";
 
 export async function supabaseServer() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -8,7 +8,7 @@ export async function supabaseServer() {
 
     const cookieStore = await cookies();
 
-    return createServerClient(url, anon, {
+    const supabase = createServerClient(url, anon, {
         cookies: {
             getAll() {
                 return cookieStore.getAll();
@@ -24,4 +24,15 @@ export async function supabaseServer() {
             },
         },
     });
+
+    // ✅ Auto-injection user_id dans le request context (best-effort, jamais bloquant)
+    try {
+        const { data } = await supabase.auth.getUser();
+        const userId = data?.user?.id ?? null;
+        if (userId) patchRequestContext({ user_id: userId });
+    } catch {
+        // ignore
+    }
+
+    return supabase;
 }

@@ -30,6 +30,7 @@ import { QuestUrgencyPill } from "@/helpers/questUrgency";
 import { getCurrentCharacterEmoji, getCurrentCharacterName } from "@/helpers/adventure";
 import { journalKindLabel } from "@/helpers/journalKind";
 import { formatJournalTime } from "@/helpers/dateTime";
+import QuestMjThreadCard from "./QuestMjThreadCard";
 
 type Quest = {
     id: string;
@@ -478,117 +479,6 @@ export default function QuestClient() {
                                 </div>
                             )}
                         </MasterCard>
-                    </div>
-
-                    {/* RIGHT */}
-                    <div className="flex flex-col gap-4">
-                        <Panel title="Actions" emoji="⚔️">
-                            <div className="flex flex-col gap-3">
-                                {chapterQuest.status === "todo" && (
-                                    <>
-                                        <ActionButton
-                                            variant="solid"
-                                            onClick={onStart}
-                                            disabled={busy}
-                                        >
-                                            ▶️ Démarrer la quête
-                                        </ActionButton>
-
-                                        <ActionButton
-                                            onClick={() => {
-                                                openModal("questCreate", {
-                                                    mode: "chain",
-                                                    parent_chapter_quest_id: chapterQuest.id,
-                                                    parent_adventure_quest_id: quest.id,
-                                                });
-                                            }}
-                                            disabled={busy}
-                                        >
-                                            ⛓️ Ajouter une quête chainée
-                                        </ActionButton>
-
-                                        <ActionButton
-                                            onClick={() => {
-                                                openModal("questPhotoUpload", {
-                                                    chapter_quest_id: chapterQuest.id,
-                                                    quest_title: quest?.title ?? null,
-                                                });
-                                            }}
-                                            disabled={busy}
-                                        >
-                                            📷 Envoyer une photo
-                                        </ActionButton>
-
-                                        <ActionButton onClick={() => router.push("/adventure")}>
-                                            ↩️ Retour
-                                        </ActionButton>
-                                    </>
-                                )}
-
-                                {chapterQuest.status === "doing" && (
-                                    <>
-                                        <ActionButton
-                                            variant="solid"
-                                            onClick={onFinish}
-                                            disabled={busy}
-                                        >
-                                            ✅ Terminer la quête
-                                        </ActionButton>
-
-                                        <ActionButton
-                                            variant="master"
-                                            onClick={onEncourage}
-                                            disabled={busy}
-                                        >
-                                            ✨ Demander un encouragement
-                                        </ActionButton>
-
-                                        {/* ✅ NEW: Chain quest */}
-                                        <ActionButton
-                                            onClick={() => {
-                                                // TODO: ouvrira la modal "questCreate" en mode "chained"
-                                                // ex: openModal("questCreate", { mode: "chain", parentQuestId: quest.id, ... })
-                                                console.log("chain quest from", quest?.id);
-
-                                                openModal("questCreate", {
-                                                    mode: "chain",
-                                                    parent_chapter_quest_id: chapterQuest.id,
-                                                    parent_adventure_quest_id: quest.id,
-                                                });
-                                            }}
-                                            disabled={busy}
-                                        >
-                                            ⛓️ Ajouter une quête chainée
-                                        </ActionButton>
-
-                                        <ActionButton
-                                            onClick={() => {
-                                                openModal("questPhotoUpload", {
-                                                    chapter_quest_id: chapterQuest.id,
-                                                    quest_title: quest?.title ?? null,
-                                                });
-                                            }}
-                                            disabled={busy}
-                                        >
-                                            📷 Envoyer une photo
-                                        </ActionButton>
-
-                                        <ActionButton onClick={() => router.push("/adventure")}>
-                                            ↩️ Retour
-                                        </ActionButton>
-                                    </>
-                                )}
-
-                                {chapterQuest.status === "done" && (
-                                    <ActionButton
-                                        variant="solid"
-                                        onClick={() => router.push("/adventure")}
-                                    >
-                                        ↩️ Retour
-                                    </ActionButton>
-                                )}
-                            </div>
-                        </Panel>
                         {photosLoading ? (
                             <Panel
                                 title="Preuves de quête"
@@ -762,6 +652,117 @@ export default function QuestClient() {
                                 </div>
                             </Panel>
                         ) : null}
+                    </div>
+
+                    {/* RIGHT */}
+                    <div className="flex flex-col gap-4">
+                        <Panel title="Actions" emoji="⚔️">
+                            <div className="flex flex-col gap-3">
+                                {chapterQuest.status === "todo" && (
+                                    <>
+                                        <ActionButton
+                                            variant="solid"
+                                            onClick={onStart}
+                                            disabled={busy}
+                                        >
+                                            ▶️ Démarrer la quête
+                                        </ActionButton>
+
+                                        <ActionButton
+                                            onClick={() => {
+                                                openModal("questCreate", {
+                                                    mode: "chain",
+                                                    parent_chapter_quest_id: chapterQuest.id,
+                                                    parent_adventure_quest_id: quest.id,
+                                                });
+                                            }}
+                                            disabled={busy}
+                                        >
+                                            ⛓️ Ajouter une quête chainée
+                                        </ActionButton>
+
+                                        <ActionButton
+                                            onClick={() => {
+                                                openModal("questPhotoUpload", {
+                                                    chapter_quest_id: chapterQuest.id,
+                                                    quest_title: quest?.title ?? null,
+                                                });
+                                            }}
+                                            disabled={busy}
+                                        >
+                                            📷 Envoyer une photo
+                                        </ActionButton>
+
+                                        <ActionButton onClick={() => router.push("/adventure")}>
+                                            ↩️ Retour
+                                        </ActionButton>
+                                    </>
+                                )}
+
+                                {chapterQuest.status === "doing" && (
+                                    <>
+                                        <ActionButton
+                                            variant="solid"
+                                            onClick={onFinish}
+                                            disabled={busy}
+                                        >
+                                            ✅ Terminer la quête
+                                        </ActionButton>
+
+                                        <ActionButton
+                                            variant="master"
+                                            onClick={onEncourage}
+                                            disabled={busy}
+                                        >
+                                            ✨ Demander un encouragement
+                                        </ActionButton>
+
+                                        {/* ✅ NEW: Chain quest */}
+                                        <ActionButton
+                                            onClick={() => {
+                                                // TODO: ouvrira la modal "questCreate" en mode "chained"
+                                                // ex: openModal("questCreate", { mode: "chain", parentQuestId: quest.id, ... })
+                                                console.log("chain quest from", quest?.id);
+
+                                                openModal("questCreate", {
+                                                    mode: "chain",
+                                                    parent_chapter_quest_id: chapterQuest.id,
+                                                    parent_adventure_quest_id: quest.id,
+                                                });
+                                            }}
+                                            disabled={busy}
+                                        >
+                                            ⛓️ Ajouter une quête chainée
+                                        </ActionButton>
+
+                                        <ActionButton
+                                            onClick={() => {
+                                                openModal("questPhotoUpload", {
+                                                    chapter_quest_id: chapterQuest.id,
+                                                    quest_title: quest?.title ?? null,
+                                                });
+                                            }}
+                                            disabled={busy}
+                                        >
+                                            📷 Envoyer une photo
+                                        </ActionButton>
+
+                                        <ActionButton onClick={() => router.push("/adventure")}>
+                                            ↩️ Retour
+                                        </ActionButton>
+                                    </>
+                                )}
+
+                                {chapterQuest.status === "done" && (
+                                    <ActionButton
+                                        variant="solid"
+                                        onClick={() => router.push("/adventure")}
+                                    >
+                                        ↩️ Retour
+                                    </ActionButton>
+                                )}
+                            </div>
+                        </Panel>
                         <Panel
                             title="Chronique de quête"
                             emoji="📓"
@@ -801,6 +802,7 @@ export default function QuestClient() {
                                 </div>
                             )}
                         </Panel>
+                        <QuestMjThreadCard chapterQuestId={chapterQuest.id} />
                     </div>
                 </div>
             )}

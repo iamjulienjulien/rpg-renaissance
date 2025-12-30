@@ -8,6 +8,7 @@ import AdminSessionsPanel from "./AdminSessionsPanel";
 import AdminAdventuresPanel from "./AdminAdventuresPanel";
 import AdminChaptersPanel from "./AdminChaptersPanel";
 import AdminQuestsPanel from "./AdminQuestsPanel";
+import AdminSystemLogsPanel from "./AdminSystemLogsPanel";
 
 type Props = {
     searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -33,6 +34,9 @@ export default async function AdminPage(props: Props) {
     const userId = cleanParam(asString(sp.userId));
     const sessionId = cleanParam(asString(sp.sessionId));
     const adventureId = cleanParam(asString(sp.adventureId));
+    const requestId = cleanParam(asString(sp.requestId));
+    const traceId = cleanParam(asString(sp.traceId));
+    const route = cleanParam(asString(sp.route));
 
     return (
         <div className="space-y-10">
@@ -66,6 +70,16 @@ export default async function AdminPage(props: Props) {
                     sessionId={sessionId || null}
                     adventureId={adventureId || null}
                     chapterId={asString((sp as any).chapterId) || null}
+                />
+            ) : null}
+
+            {tab === "systemLogs" ? (
+                <AdminSystemLogsPanel
+                    userId={userId ?? null}
+                    sessionId={sessionId ?? null}
+                    requestId={requestId ?? null}
+                    traceId={traceId ?? null}
+                    route={route ?? null}
                 />
             ) : null}
 

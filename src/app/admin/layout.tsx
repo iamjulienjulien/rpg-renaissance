@@ -122,6 +122,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             { href: "/admin?tab=chapters", label: "Chapitres", emoji: "📚", active: true },
             { href: "/admin?tab=quests", label: "Quêtes", emoji: "📜", active: true },
             { href: "/admin?tab=journal", label: "Journal", emoji: "📝", active: false },
+            { href: "/admin?tab=systemLogs", label: "Logs Système", emoji: "🔭", active: true },
             { href: "/admin?tab=health", label: "Santé / Debug", emoji: "🛠️", active: false },
         ],
         []

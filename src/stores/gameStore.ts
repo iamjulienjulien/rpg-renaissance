@@ -26,6 +26,11 @@ import type {
     QuestChainItem,
     PhotoCategory,
     PhotoRow,
+    QuestMessageRole,
+    QuestMessageKind,
+    QuestMessageMeta,
+    QuestThread as QuestThreadRow,
+    QuestMessage as QuestMessageRow,
 } from "@/types/game";
 
 /* ============================================================================
@@ -47,7 +52,9 @@ export type ReloadKey =
     | "chaptersByAdventure"
     | "questChains"
     | "questChainItems"
-    | "questPhotos";
+    | "questPhotos"
+    | "questThreads"
+    | "questMessages";
 
 export type ReloadInput = ReloadKey | ReloadKey[];
 
@@ -417,6 +424,44 @@ type GameStore = {
     }) => Promise<PhotoRow | null>;
 
     deletePhoto: (photoId: string, chapterQuestId?: string | null) => Promise<boolean>;
+
+    /* --------------------------- 💬 QUEST THREADS --------------------------- */
+
+    questThreadsByChapterQuestId: Record<string, QuestThreadRow | undefined>;
+    questThreadsLoadingByChapterQuestId: Record<string, boolean | undefined>;
+    questThreadsErrorByChapterQuestId: Record<string, string | null | undefined>;
+
+    getQuestThread: (
+        chapterQuestId: string,
+        opts?: { force?: boolean }
+    ) => Promise<QuestThreadRow | null>;
+    ensureQuestThread: (chapterQuestId: string) => Promise<QuestThreadRow | null>;
+    clearQuestThread: (chapterQuestId: string) => void;
+
+    /* --------------------------- 📨 QUEST MESSAGES --------------------------- */
+
+    questMessagesByThreadId: Record<string, QuestMessageRow[] | undefined>;
+    questMessagesLoadingByThreadId: Record<string, boolean | undefined>;
+    questMessagesErrorByThreadId: Record<string, string | null | undefined>;
+
+    fetchQuestMessages: (
+        threadId: string,
+        opts?: { force?: boolean }
+    ) => Promise<QuestMessageRow[]>;
+    refreshQuestMessages: (threadId: string) => Promise<QuestMessageRow[]>;
+    clearQuestMessages: (threadId: string) => void;
+
+    createQuestMessage: (input: {
+        session_id: string;
+        thread_id: string;
+        chapter_quest_id: string;
+        role: QuestMessageRole;
+        kind: QuestMessageKind;
+        content: string;
+        title?: string | null;
+        meta?: QuestMessageMeta | null;
+        photo_id?: string | null;
+    }) => Promise<QuestMessageRow | null>;
 };
 
 export const useGameStore = create<GameStore>((set, get) => {
@@ -1343,6 +1388,13 @@ export const useGameStore = create<GameStore>((set, get) => {
                 requested.add("questChainItems"); // ✅ optionnel si tu veux auto-charger items du chain actif (voir note)
             }
 
+            if (requested.has("chapterQuests")) {
+                requested.add("questThreads"); // ✅ ADD (utile: threads liés aux CQ)
+            }
+            if (requested.has("questThreads")) {
+                requested.add("questMessages"); // ✅ optionnel (si tu veux refresh complet)
+            }
+
             if (!silent) {
                 set((s) => ({
                     error: null,
@@ -1506,6 +1558,27 @@ export const useGameStore = create<GameStore>((set, get) => {
                             });
                         }
                     }
+                }
+
+                if (requested.has("questThreads")) {
+                    const chapterQuests = get().currentChapterQuests ?? [];
+                    // best-effort: on ne spam pas si vide
+                    await Promise.all(
+                        chapterQuests
+                            .map((cq) => cq?.id)
+                            .filter(Boolean)
+                            .map((cqId) => get().getQuestThread(String(cqId), { force: true }))
+                    );
+                }
+
+                if (requested.has("questMessages")) {
+                    // ⚠️ on ne sait pas “quel thread est actif” => on refresh les threads déjà en cache
+                    const threads = Object.values(get().questThreadsByChapterQuestId).filter(
+                        Boolean
+                    ) as QuestThreadRow[];
+                    await Promise.all(
+                        threads.map((t) => get().fetchQuestMessages(t.id, { force: true }))
+                    );
                 }
 
                 if (requested.has("questChains")) {
@@ -2910,6 +2983,272 @@ export const useGameStore = create<GameStore>((set, get) => {
 
             toast.success("Photo supprimée", undefined);
             return true;
+        },
+
+        /* =========================================================================
+💬 QUEST THREADS
+======================================================================== */
+
+        questThreadsByChapterQuestId: {},
+        questThreadsLoadingByChapterQuestId: {},
+        questThreadsErrorByChapterQuestId: {},
+
+        clearQuestThread: (chapterQuestId) =>
+            set((s) => {
+                const id = (chapterQuestId ?? "").trim();
+                if (!id) return s;
+
+                const nextT = { ...s.questThreadsByChapterQuestId };
+                delete nextT[id];
+
+                const nextL = { ...s.questThreadsLoadingByChapterQuestId };
+                delete nextL[id];
+
+                const nextE = { ...s.questThreadsErrorByChapterQuestId };
+                delete nextE[id];
+
+                return {
+                    questThreadsByChapterQuestId: nextT,
+                    questThreadsLoadingByChapterQuestId: nextL,
+                    questThreadsErrorByChapterQuestId: nextE,
+                };
+            }),
+
+        getQuestThread: async (chapterQuestId, opts) => {
+            const id = (chapterQuestId ?? "").trim();
+            if (!id) return null;
+
+            const force = !!opts?.force;
+            const cached = get().questThreadsByChapterQuestId[id];
+            if (!force && cached?.id) return cached;
+
+            set((s) => ({
+                questThreadsLoadingByChapterQuestId: {
+                    ...s.questThreadsLoadingByChapterQuestId,
+                    [id]: true,
+                },
+                questThreadsErrorByChapterQuestId: {
+                    ...s.questThreadsErrorByChapterQuestId,
+                    [id]: null,
+                },
+            }));
+
+            try {
+                const res = await apiGet<{ thread: QuestThreadRow | null }>(
+                    `/api/quest-threads?chapterQuestId=${encodeURIComponent(id)}`
+                );
+
+                if (!res.ok) {
+                    set((s) => ({
+                        questThreadsErrorByChapterQuestId: {
+                            ...s.questThreadsErrorByChapterQuestId,
+                            [id]: res.error ?? "Failed to fetch thread",
+                        },
+                    }));
+                    return null;
+                }
+
+                const thread = (res.data as any)?.thread ?? null;
+
+                if (thread?.id) {
+                    set((s) => ({
+                        questThreadsByChapterQuestId: {
+                            ...s.questThreadsByChapterQuestId,
+                            [id]: thread,
+                        },
+                    }));
+                }
+
+                return thread?.id ? thread : null;
+            } finally {
+                set((s) => ({
+                    questThreadsLoadingByChapterQuestId: {
+                        ...s.questThreadsLoadingByChapterQuestId,
+                        [id]: false,
+                    },
+                }));
+            }
+        },
+
+        ensureQuestThread: async (chapterQuestId) => {
+            const id = (chapterQuestId ?? "").trim();
+            if (!id) return null;
+
+            // 1) try get existing
+            const existing = await get().getQuestThread(id, { force: false });
+            if (existing?.id) return existing;
+
+            // 2) create
+            const sessionId = useSessionStore.getState().activeSessionId;
+            if (!sessionId) return null;
+
+            const res = await apiPost<{ thread: QuestThreadRow | null }>("/api/quest-threads", {
+                session_id: sessionId,
+                chapter_quest_id: id,
+            });
+
+            if (!res.ok) {
+                set((s) => ({
+                    questThreadsErrorByChapterQuestId: {
+                        ...s.questThreadsErrorByChapterQuestId,
+                        [id]: res.error ?? "Failed to create thread",
+                    },
+                }));
+                return null;
+            }
+
+            const thread = (res.data as any)?.thread ?? null;
+
+            if (thread?.id) {
+                set((s) => ({
+                    questThreadsByChapterQuestId: {
+                        ...s.questThreadsByChapterQuestId,
+                        [id]: thread,
+                    },
+                }));
+                return thread;
+            }
+
+            return null;
+        },
+
+        /* =========================================================================
+📨 QUEST MESSAGES
+======================================================================== */
+
+        questMessagesByThreadId: {},
+        questMessagesLoadingByThreadId: {},
+        questMessagesErrorByThreadId: {},
+
+        clearQuestMessages: (threadId) =>
+            set((s) => {
+                const id = (threadId ?? "").trim();
+                if (!id) return s;
+
+                const nextM = { ...s.questMessagesByThreadId };
+                delete nextM[id];
+
+                const nextL = { ...s.questMessagesLoadingByThreadId };
+                delete nextL[id];
+
+                const nextE = { ...s.questMessagesErrorByThreadId };
+                delete nextE[id];
+
+                return {
+                    questMessagesByThreadId: nextM,
+                    questMessagesLoadingByThreadId: nextL,
+                    questMessagesErrorByThreadId: nextE,
+                };
+            }),
+
+        fetchQuestMessages: async (threadId, opts) => {
+            const id = (threadId ?? "").trim();
+            if (!id) return [];
+
+            const force = !!opts?.force;
+            const cached = get().questMessagesByThreadId[id];
+            if (!force && cached?.length) return cached;
+
+            set((s) => ({
+                questMessagesLoadingByThreadId: {
+                    ...s.questMessagesLoadingByThreadId,
+                    [id]: true,
+                },
+                questMessagesErrorByThreadId: {
+                    ...s.questMessagesErrorByThreadId,
+                    [id]: null,
+                },
+            }));
+
+            try {
+                const res = await apiGet<{ rows: QuestMessageRow[] }>(
+                    `/api/quest-messages?threadId=${encodeURIComponent(id)}`
+                );
+
+                if (!res.ok) {
+                    set((s) => ({
+                        questMessagesErrorByThreadId: {
+                            ...s.questMessagesErrorByThreadId,
+                            [id]: res.error ?? "Failed to fetch messages",
+                        },
+                    }));
+                    return [];
+                }
+
+                const rows = Array.isArray((res.data as any)?.rows)
+                    ? ((res.data as any).rows as QuestMessageRow[])
+                    : [];
+
+                // tri asc par created_at (si ton API ne le fait pas déjà)
+                rows.sort((a, b) =>
+                    String(a?.created_at ?? "").localeCompare(String(b?.created_at ?? ""))
+                );
+
+                set((s) => ({
+                    questMessagesByThreadId: {
+                        ...s.questMessagesByThreadId,
+                        [id]: rows,
+                    },
+                }));
+
+                return rows;
+            } finally {
+                set((s) => ({
+                    questMessagesLoadingByThreadId: {
+                        ...s.questMessagesLoadingByThreadId,
+                        [id]: false,
+                    },
+                }));
+            }
+        },
+
+        refreshQuestMessages: async (threadId) => {
+            return await get().fetchQuestMessages(threadId, { force: true });
+        },
+
+        createQuestMessage: async (input) => {
+            const toast = useToastStore.getState();
+
+            const session_id = (input?.session_id ?? "").trim();
+            const thread_id = (input?.thread_id ?? "").trim();
+            const chapter_quest_id = (input?.chapter_quest_id ?? "").trim();
+            const content = (input?.content ?? "").trim();
+
+            if (!session_id || !thread_id || !chapter_quest_id) return null;
+            if (!input.role || !input.kind || !content) return null;
+
+            const res = await apiPost<{ message: QuestMessageRow | null }>("/api/quest-messages", {
+                session_id,
+                thread_id,
+                chapter_quest_id,
+                role: input.role,
+                kind: input.kind,
+                content,
+                title: input.title ?? null,
+                meta: input.meta ?? null,
+                photo_id: input.photo_id ?? null,
+            });
+
+            if (!res.ok) {
+                toast.error("Message", res.error ?? "Envoi impossible");
+                return null;
+            }
+
+            const message = (res.data as any)?.message ?? null;
+            if (!message?.id) return null;
+
+            // patch optimiste: append
+            set((s) => {
+                const prev = s.questMessagesByThreadId[thread_id] ?? [];
+                return {
+                    questMessagesByThreadId: {
+                        ...s.questMessagesByThreadId,
+                        [thread_id]: [...prev, message],
+                    },
+                };
+            });
+
+            return message;
         },
     };
 });
