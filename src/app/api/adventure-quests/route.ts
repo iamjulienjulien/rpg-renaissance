@@ -64,7 +64,9 @@ export async function GET(req: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     const quests = (data ?? []).map((q: any) => {
-        const cq = Array.isArray(q.chapter_quests) ? q.chapter_quests[0] : q.chapter_quests;
+        const cq = Array.isArray(q.chapter_quests)
+            ? q.chapter_quests[q.chapter_quests.length - 1]
+            : q.chapter_quests;
 
         return {
             id: q.id,
@@ -81,7 +83,7 @@ export async function GET(req: Request) {
         };
     });
 
-    return NextResponse.json({ quests });
+    return NextResponse.json({ quests, data });
 }
 
 /**
