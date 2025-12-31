@@ -12,10 +12,10 @@ Ce projet est né d’une conversation, d’un besoin de remettre de l’ordre, 
 
 RPG Renaissance propose :
 
-- une **gamification douce de la vie réelle**
-- une **narration assistée par IA**
-- une structure inspirée des **RPG narratifs**, des journaux de bord et des aventures textuelles
-- une progression basée sur des **quêtes**, des **aventures**, des **inventaires** et des **états internes**
+- une gamification douce de la vie réelle
+- une narration assistée par IA
+- une structure inspirée des RPG narratifs, des journaux de bord et des aventures textuelles
+- une progression basée sur des quêtes, des aventures, des inventaires et des états internes
 
 L’application n’est pas un jeu classique.  
 C’est un **outil de transformation personnelle**, déguisé en RPG.
@@ -28,7 +28,7 @@ Le projet repose sur une stack moderne, orientée performance, itération rapide
 
 ### Frontend
 
-- **[Next.js](chatgpt://generic-entity?number=0)** (App Router)
+- Next.js (App Router)
 - React 18
 - TypeScript
 - Tailwind CSS
@@ -36,7 +36,7 @@ Le projet repose sur une stack moderne, orientée performance, itération rapide
 
 ### Backend & Data
 
-- **[Supabase](chatgpt://generic-entity?number=1)**
+- Supabase
     - PostgreSQL
     - RPC (fonctions SQL)
     - Auth & sécurité
@@ -44,15 +44,15 @@ Le projet repose sur une stack moderne, orientée performance, itération rapide
 
 ### Infrastructure
 
-- **[Vercel](chatgpt://generic-entity?number=2)**
+- Vercel
     - Déploiement continu
     - Edge & Serverless Functions
 
 ### IA & génération
 
 - Génération de textes narratifs via IA
-- Architecture pensée pour intégrer des **workers asynchrones**
-- Objectif : **temps de réponse proche du temps réel**, malgré des générations longues
+- Architecture pensée pour intégrer des workers asynchrones
+- Objectif : temps de réponse proche du temps réel malgré des générations longues
 
 ---
 
@@ -95,3 +95,58 @@ Le projet repose sur une stack moderne, orientée performance, itération rapide
 npm install
 npm run dev
 ```
+
+Puis ouvre :  
+http://localhost:3000
+
+---
+
+## 🧭 Philosophie du projet
+
+RPG Renaissance n’est pas conçu comme un produit classique.
+
+C’est :
+
+- un laboratoire personnel
+- une œuvre vivante
+- une tentative de réconcilier technologie, narration et humanité
+
+Le code sert la narration.  
+La narration sert la reconstruction.  
+La reconstruction sert le mouvement.
+
+---
+
+## 👤 Le développeur
+
+**Julien Julien**  
+Développeur Full Stack  
+Créateur de RPG Renaissance et Space Memoria
+
+- Passionné par la narration, les systèmes, la gamification et le sens
+- Ancien développeur en entreprise, aujourd’hui en création indépendante
+- Convaincu que le code peut aussi être un outil de transformation personnelle
+
+📍 Angers / Paris  
+🌐 https://julienjulien.fr  
+📸 Instagram : @iamjulienjulien
+
+---
+
+## 🛠️ Statut du projet
+
+🧪 En développement actif  
+Certaines fonctionnalités sont expérimentales, d’autres en cours de refonte.  
+Le projet évolue au rythme des aventures.
+
+---
+
+## 📜 Licence
+
+Projet personnel.  
+Tous droits réservés, sauf mention contraire.
+
+---
+
+> _RPG Renaissance n’est pas là pour te faire gagner du temps._  
+> _Il est là pour te rappeler pourquoi tu avances._
