@@ -139,13 +139,17 @@ export default function RenaissanceHome() {
                     <img src={logoSrc} alt="Renaissance" />
 
                     <h1 className="mt-2 text-5xl font-semibold text-white/95 sm:text-6xl">
-                        <span className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent font-main-title">
+                        <span className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent text-gradient font-main-title">
                             Renaissance
                         </span>
                     </h1>
 
-                    <div className="mt-3 max-w-2xl rpg-text-sm text-white/60">
-                        🛡️ Ton RPG du quotidien, à la lame douce 🗡️
+                    <div className="mt-3 max-w-2xl rpg-text-sm ">
+                        🛡️{" "}
+                        <span className="text-accent-darker">
+                            Ton RPG du quotidien, à la lame douce
+                        </span>{" "}
+                        🗡️
                     </div>
 
                     {/* <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
@@ -160,137 +164,179 @@ export default function RenaissanceHome() {
                     </div> */}
                 </div>
 
-                {/* ✅ Status banner (sans raccourcis) */}
+                {/* ✅ Status banner (mobile friendly) */}
                 <div className="mt-8">
                     {hasRun && (
-                        <>
-                            <Panel>
-                                <div className="flex justify-between gap-4">
-                                    <div className="flex-1">
-                                        <div className="text-[11px] tracking-[0.18em] text-white/55">
-                                            🧭 AVENTURE
-                                        </div>
-                                        <div className="mt-2 rpg-text-sm text-white/80">
-                                            🏠 Réalignement du foyer
-                                        </div>
-                                        <div className="mt-1 grid gap-1">
-                                            <div className="rpg-text-sm text-white/60">
-                                                📖 {getCurrentChapterName()}
-                                            </div>
-                                            <div className="rpg-text-sm text-white/40">
-                                                🎯 Quête : {getCurrentQuestsName()}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex-1 text-center">
-                                        <ActionButton
-                                            onClick={() => onNavigate("/adventure")}
-                                            variant="solid"
-                                        >
-                                            ▶️ Reprendre l'aventure
-                                        </ActionButton>
-                                        <div className="mt-4 text-center">
-                                            <RenownScoreboard />
-                                        </div>
-                                    </div>
-                                    <div className="flex-1 text-right">
-                                        <div className="text-[11px] tracking-[0.18em] text-white/55">
-                                            🧙‍♀️ PERSONNAGE
-                                        </div>
+                        <Panel>
+                            <div
+                                className={cn(
+                                    "relative overflow-hidden rounded-[22px]",
+                                    "bg-black/20 ring-1 ring-white/10"
+                                )}
+                            >
+                                {/* Optional: soft background glow (theme accent) */}
+                                <div
+                                    className="pointer-events-none absolute inset-0 opacity-60"
+                                    style={{
+                                        background:
+                                            "radial-gradient(900px 380px at 15% 20%, hsl(var(--accent) / 0.16), transparent 60%), radial-gradient(700px 360px at 85% 30%, hsl(var(--accent-2) / 0.14), transparent 55%)",
+                                    }}
+                                />
 
-                                        <div className="mt-2 inline-flex max-w-[320px] items-center gap-3 rounded-2xl text-right">
-                                            {/* 🧾 Infos */}
-                                            <div className="min-w-0 text-right">
-                                                <div className="truncate text- font-semibold text-white/80">
-                                                    {activeCharacter?.emoji ?? "🧙"}{" "}
-                                                    {activeCharacter?.name ?? "Aucun personnage"}
-                                                </div>
+                                {/* Optional: adventure illustration (uncomment if you have it) */}
+                                {/* <div className="pointer-events-none absolute inset-0 opacity-[0.12]">
+                                    <img
+                                        src={`/assets/images/adventures/realignement_du_foyer.png`}
+                                        alt=""
+                                        className="h-full w-full object-cover"
+                                        draggable={false}
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-black/90" />
+                                </div> */}
 
-                                                <div className="mt-0.5 truncate textx] text-white/60 text-right">
-                                                    {activeCharacter && (
-                                                        <div className="text-xs text-white/70 line-clamp-2">
-                                                            {activeCharacter.vibe}
+                                <div className="relative p-4 sm:p-5 lg:p-6">
+                                    <div className="grid gap-4 lg:grid-cols-3 lg:items-center">
+                                        {/* LEFT: Adventure (mirrored mini-card) */}
+                                        <div className="min-w-0">
+                                            <div className="text-[11px] tracking-[0.18em] text-white/55">
+                                                🧭 AVENTURE
+                                            </div>
+
+                                            <div
+                                                className={cn(
+                                                    "mt-2 flex items-center gap-3",
+                                                    "rounded-3xl bg-black/25 p-3 ring-1 ring-white/10",
+                                                    "max-w-full"
+                                                )}
+                                            >
+                                                {/* Infos */}
+                                                <div className="min-w-0 flex-1 text-left">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <div className="truncate font-semibold text-white/85">
+                                                            🏠 Réalignement du foyer
                                                         </div>
-                                                    )}
+
+                                                        {/* <span className="rounded-full bg-white/5 px-2 py-1 text-[11px] text-white/60 ring-1 ring-white/10">
+                                                            En cours
+                                                        </span> */}
+                                                    </div>
+
+                                                    {/* <div className="mt-1 grid gap-1"> */}
+                                                    <div className="mt-0.5 text-xs text-white/65 line-clamp-2">
+                                                        {/* 📖{" "}
+                                                            <span className="text-white/50">
+                                                                Chapitre :
+                                                            </span>{" "} */}
+                                                        {getCurrentChapterName()}
+                                                    </div>
+
+                                                    <div className="mt-1 text-[11px] text-white/40 line-clamp-1">
+                                                        {/* 🎯{" "}
+                                                            <span className="text-white/45">
+                                                                Quête :
+                                                            </span>{" "} */}
+                                                        {getCurrentQuestsName()}
+                                                    </div>
+                                                    {/* </div> */}
                                                 </div>
 
-                                                {activeCharacter?.motto ? (
-                                                    <div className="mt-1 truncate text-[11px] text-white/40">
-                                                        “{activeCharacter.motto}”
-                                                    </div>
-                                                ) : null}
-                                            </div>
-
-                                            {/* 🖼️ Avatar */}
-                                            <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10">
-                                                {activeCharacter?.code ? (
+                                                {/* Illustration */}
+                                                <div className="grid h-18 w-18 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white/5 ring-1 ring-white/10">
                                                     <img
-                                                        src={`/assets/images/characters/${activeCharacter.code}.png`}
-                                                        alt={activeCharacter.name ?? "Personnage"}
+                                                        src={`/assets/images/adventures/realignement_du_foyer.png`}
+                                                        alt="Réalignement du foyer"
                                                         className="h-full w-full object-cover"
                                                         draggable={false}
                                                     />
-                                                ) : (
-                                                    <span className="text-xl">
-                                                        {activeCharacter?.emoji ?? "🧙"}
-                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* CENTER: CTA + Renown */}
+                                        <div className="flex flex-col items-stretch gap-3 lg:items-center lg:justify-center">
+                                            <ActionButton
+                                                onClick={() => onNavigate("/adventure")}
+                                                variant="solid"
+                                                className="w-full lg:w-auto"
+                                            >
+                                                ▶️ Reprendre l&apos;aventure
+                                            </ActionButton>
+
+                                            <div className="lg:mt-1">
+                                                <RenownScoreboard />
+                                            </div>
+                                        </div>
+
+                                        {/* RIGHT: Character */}
+                                        <div className="min-w-0 lg:text-right">
+                                            <div className="text-[11px] tracking-[0.18em] text-white/55">
+                                                🧙‍♀️ PERSONNAGE
+                                            </div>
+
+                                            <div
+                                                className={cn(
+                                                    "mt-2 flex items-center gap-3",
+                                                    "rounded-3xl bg-black/25 p-3 ring-1 ring-white/10",
+                                                    "lg:ml-auto lg:max-w-[360px] lg:justify-end"
                                                 )}
+                                            >
+                                                {/* Avatar */}
+                                                <div className="grid h-18 w-18 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white/5 ring-1 ring-white/10">
+                                                    {activeCharacter?.code ? (
+                                                        <img
+                                                            src={`/assets/images/characters/${activeCharacter.code}.png`}
+                                                            alt={
+                                                                activeCharacter.name ?? "Personnage"
+                                                            }
+                                                            className="h-full w-full object-cover object-top"
+                                                            draggable={false}
+                                                        />
+                                                    ) : (
+                                                        <span className="text-xl">
+                                                            {activeCharacter?.emoji ?? "🧙"}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Infos */}
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="truncate font-semibold text-white/85">
+                                                        {activeCharacter?.name ??
+                                                            "Aucun personnage"}{" "}
+                                                        {activeCharacter?.emoji ?? "🧙"}
+                                                    </div>
+
+                                                    {activeCharacter?.vibe ? (
+                                                        <div className="mt-0.5 text-xs text-white/65 line-clamp-2">
+                                                            {activeCharacter.vibe}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="mt-0.5 text-xs text-white/45">
+                                                            Choisis une voix dans l’onboarding.
+                                                        </div>
+                                                    )}
+
+                                                    {activeCharacter?.motto ? (
+                                                        <div className="mt-1 text-[11px] text-white/40 line-clamp-1">
+                                                            “{activeCharacter.motto}”
+                                                        </div>
+                                                    ) : null}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            </Panel>
-                        </>
-                    )}
-                    {/* <Panel
-                        title={hasRun ? "Aventure détectée" : "Aucune aventure en cours"}
-                        emoji={hasRun ? "🧭" : "🕯️"}
-                        subtitle={
-                            hasRun
-                                ? adventureEmojiFromCode((chapter as any)?.adventure_code ?? null) +
-                                  " " +
-                                  getCurrentAdventureName()
-                                : "Tu es au seuil du jeu. Clique sur ✨ Nouvelle aventure et choisis 🏠 Réalignement du foyer"
-                        }
-                        right={
-                            hasRun ? (
-                                <div>
-                                    <ActionButton
-                                        onClick={() => onNavigate("/adventure")}
-                                        variant="solid"
-                                    >
-                                        ▶️ Reprendre l'aventure
-                                    </ActionButton>
-                                    <RenownScoreboard />
-                                </div>
-                            ) : (
-                                <ActionButton onClick={() => onNavigate("/new")} variant="solid">
-                                    ✨ Nouvelle aventure
-                                </ActionButton>
-                            )
-                        }
-                    >
-                        {loading ? (
-                            <div className="rounded-2xl bg-black/30 p-4 rpg-text-sm text-white/60 ring-1 ring-white/10">
-                                ⏳ Lecture de l’état…
-                            </div>
-                        ) : hasRun ? (
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                                <div className="min-w-0">
-                            
 
-                                    <div className="mt-1 grid gap-1">
-                                        <div className="rpg-text-sm text-white/60">
-                                            📖 Chapitre en cours : {getCurrentChapterName()}
-                                        </div>
-                                        <div className="rpg-text-sm text-white/60">
-                                            🎯 Quête en cours : {getCurrentQuestsName()}
-                                        </div>
+                                    {/* Mobile helper line */}
+                                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-[11px] text-white/40 lg:hidden">
+                                        <span>Astuce : garde ce bouton sous le pouce ✨</span>
+                                        <span className="rounded-full bg-white/5 px-2 py-1 ring-1 ring-white/10">
+                                            {activeCharacter ? "MJ prêt" : "MJ à choisir"}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
-                        ) : null}
-                    </Panel> */}
+                        </Panel>
+                    )}
                 </div>
 
                 {/* ✅ Main menu (sans "Reprendre") */}

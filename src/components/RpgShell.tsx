@@ -111,13 +111,13 @@ export default function RpgShell({
                             </Link>
 
                             <h1 className="mt-2 text-4xl font-semibold text-white/95 sm:text-5xl">
-                                <span className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent font-main-title text-theme-accent-glow">
+                                <span className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent font-main-title text-gradient">
                                     {title}
                                 </span>
                             </h1>
 
                             {subtitle ? (
-                                <p className="mt-3 max-w-2xl rpg-text-sm leading-relaxed text-white/60">
+                                <p className="mt-3 max-w-2xl rpg-text-sm leading-relaxed text-accent-darker">
                                     {subtitle}
                                 </p>
                             ) : null}
