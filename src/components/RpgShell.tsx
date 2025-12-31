@@ -84,7 +84,7 @@ export default function RpgShell({
                         )}
                         {!noRightSlot && !rightSlot && (
                             <div className="flex items-center gap-2">
-                                <DevEnvPill env={process.env.CURRENT_ENV ?? ""} />
+                                <DevEnvPill env={process.env.NEXT_PUBLIC_APP_ENV ?? ""} />
                             </div>
                         )}
                     </header>
@@ -111,7 +111,7 @@ export default function RpgShell({
                             </Link>
 
                             <h1 className="mt-2 text-4xl font-semibold text-white/95 sm:text-5xl">
-                                <span className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent font-main-title">
+                                <span className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent font-main-title text-theme-accent-glow">
                                     {title}
                                 </span>
                             </h1>

@@ -154,7 +154,7 @@ export async function GET(req: NextRequest) {
                 const { data: rows, error } = await supabase
                     .from("photos")
                     .select(
-                        "id,created_at,category,bucket,path,mime_type,size,width,height,caption,is_cover,sort,chapter_quest_id,adventure_quest_id,session_id,user_id"
+                        "id,created_at,category,bucket,path,mime_type,size,width,height,caption,is_cover,sort,chapter_quest_id,adventure_quest_id,session_id,user_id,ai_description"
                     )
                     .eq("chapter_quest_id", chapterQuestId)
                     .eq("session_id", session.id)

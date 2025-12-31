@@ -14,6 +14,7 @@ export type UiLightboxItem = {
     url: string;
     alt?: string;
     caption?: string | null;
+    description?: string | null;
     categoryEmoji?: string; // ex: 🌅
     categoryLabel?: string; // ex: Photo initiale
     isCover?: boolean;
@@ -39,6 +40,8 @@ export default function UiLightbox({ open, items, startIndex, onClose, onIndexCh
         setIndex(Math.max(0, Math.min(startIndex, Math.max(0, items.length - 1))));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, startIndex]);
+
+    console.log(items);
 
     const count = items.length;
 
@@ -93,6 +96,8 @@ export default function UiLightbox({ open, items, startIndex, onClose, onIndexCh
     if (!mounted) return null;
     if (!open || !current) return null;
 
+    console.log("current", current);
+
     return createPortal(
         <UiAnimatePresence>
             <UiMotionDiv
@@ -137,6 +142,11 @@ export default function UiLightbox({ open, items, startIndex, onClose, onIndexCh
                                 {current.caption ? (
                                     <div className="mt-2 text-sm font-semibold text-white/90">
                                         {current.caption}
+                                    </div>
+                                ) : null}
+                                {current.description ? (
+                                    <div className="mt-2 text-xs font-semibold text-white/90">
+                                        {current.description}
                                     </div>
                                 ) : null}
                             </div>

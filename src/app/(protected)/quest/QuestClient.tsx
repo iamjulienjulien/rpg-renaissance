@@ -72,6 +72,8 @@ type QuestPhoto = {
 
     is_cover: boolean;
     sort: number;
+
+    ai_description: string | null;
 };
 
 type PhotoCategory = "initial" | "final" | "other";
@@ -155,11 +157,14 @@ export default function QuestClient() {
                 url: p.signed_url as string,
                 alt: p.caption ?? categoryLabel(p.category),
                 caption: p.caption,
+                description: p.ai_description,
                 categoryEmoji: categoryEmoji(p.category),
                 categoryLabel: categoryLabel(p.category),
                 isCover: !!p.is_cover,
             }));
     }, [filteredPhotos]);
+
+    console.log("f", filteredPhotos);
 
     const toggleCategory = (cat: PhotoCategory) => {
         setPhotoFilter((prev) =>

@@ -251,13 +251,13 @@ export default function SettingsPage() {
         <RpgShell
             title="Réglages"
             subtitle="Ambiance, accessibilité, préférences du Maître du Jeu, et outils DEV."
-            rightSlot={
-                <div className="flex items-center gap-2">
-                    <Pill>⌨️ S</Pill>
-                    <Pill>⚙️ Settings</Pill>
-                    <Pill>🧪 Dev</Pill>
-                </div>
-            }
+            // rightSlot={
+            //     <div className="flex items-center gap-2">
+            //         <Pill>⌨️ S</Pill>
+            //         <Pill>⚙️ Settings</Pill>
+            //         <Pill>🧪 Dev</Pill>
+            //     </div>
+            // }
         >
             <div className="grid gap-4 lg:grid-cols-2">
                 {/* ✅ INTERFACE (bien visible) */}

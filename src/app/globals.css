@@ -295,3 +295,21 @@ body {
 .font-main-title.is-ritual {
     letter-spacing: 0.08em;
 }
+
+@layer utilities {
+    .text-accent {
+        color: hsl(var(--accent));
+    }
+}
+
+/* 🎨 Texte accent principal (couleur du thème actif) */
+.text-theme-accent {
+    color: hsl(var(--accent));
+}
+
+.text-theme-accent-glow {
+    color: hsl(var(--accent));
+    text-shadow:
+        0 0 12px hsl(var(--accent) / 0.35),
+        0 0 28px hsl(var(--accent) / 0.15);
+}

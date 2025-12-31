@@ -23,9 +23,7 @@ export function envEmoji(env: string): string {
  * Pill UI prête à l’emploi
  */
 export function DevEnvPill(env: any) {
-    const currentEnv = env;
-
-    // console.log("currentEnv", process.env);
+    const currentEnv = env?.env;
 
     if (currentEnv === "") return "";
 
