@@ -101,6 +101,13 @@ function ThemeSwitchRow() {
             emoji: "🎄",
             description: "Hiver rituel, or ancien et chaleur feutrée.",
         },
+        {
+            key: "aube-ardente" as const,
+            label: "Aube Ardente",
+            emoji: "🌅",
+            description:
+                "Feu sacré, or incandescent et promesse de renouveau. Le monde s’embrase pour recommencer.",
+        },
     ] satisfies Array<{
         key: string;
         label: string;
@@ -117,7 +124,7 @@ function ThemeSwitchRow() {
             description={current.description}
             value={current.label}
             right={
-                <div className="flex items-center gap-2">
+                <div className="grid grid-cols-3 gap-2 max-w-[200px]">
                     {THEMES.map((t) => {
                         const active = theme === t.key;
                         return (

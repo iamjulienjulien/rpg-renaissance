@@ -6,6 +6,7 @@ const LOGOS_BY_THEME = {
     "forest-sigil": "/assets/images/logos/logo_renaissance_forest_sigil.png",
     "ashen-codex": "/assets/images/logos/logo_renaissance_ashen_codex.png",
     "winter-noel": "/assets/images/logos/logo_renaissance_winter_noel.png",
+    "aube-ardente": "/assets/images/logos/logo_renaissance_aube_ardente.png",
 } as const;
 
 /**

@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400..900&family=Cormorant+SC:wght@300;400;500;600;700&family=Fondamento:ital@0;1&family=Orbitron&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400..900&family=Cormorant+SC:wght@300;400;500;600;700&family=Fondamento:ital@0;1&family=Marcellus&family=Orbitron&display=swap");
 @import "tailwindcss";
 
 :root {
@@ -251,4 +251,47 @@ body {
     font-family: "Cinzel Decorative", serif;
     font-weight: 700;
     letter-spacing: 0.06em;
+}
+
+/* 🔥 AUBE ARDENTE */
+:root[data-theme="aube-ardente"] {
+    --theme: aube-ardente;
+
+    /* Fonds */
+    --bg: 28 45% 6%; /* nuit chaude, presque brune */
+    --panel: 28 40% 10%; /* braise sombre */
+    --panel-2: 28 35% 14%; /* pierre chauffée */
+
+    /* Texte */
+    --text: 38 60% 96%; /* ivoire chaud */
+    --muted: 32 18% 72%; /* cendre dorée */
+
+    /* Bordures */
+    --border: 38 90% 70% / 0.14;
+
+    /* Accents */
+    --accent: 38 95% 62%; /* or ardent */
+    --accent-2: 12 80% 58%; /* rouge braise */
+    --glow: 38 95% 62%;
+
+    /* Effets */
+    --shadow: 38 95% 62% / 0.12;
+    --ring: 38 95% 62% / 0.32;
+}
+
+:root[data-theme="aube-ardente"] body {
+    background:
+        radial-gradient(1200px 700px at 20% 15%, hsl(var(--accent) / 0.18), transparent 60%),
+        radial-gradient(900px 600px at 80% 45%, hsl(var(--accent-2) / 0.14), transparent 55%),
+        hsl(var(--bg));
+}
+
+:root[data-theme="aube-ardente"] .font-main-title {
+    font-family: "Marcellus", serif;
+    letter-spacing: 0.04em;
+    text-transform: none;
+}
+
+.font-main-title.is-ritual {
+    letter-spacing: 0.08em;
 }
