@@ -1,36 +1,97 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🌌 RPG Renaissance
 
-## Getting Started
+**RPG Renaissance** est une web-app expérimentale qui transforme la vie réelle en jeu de rôle narratif.  
+Un espace hybride entre journal, RPG, to-do gamifiée et compagnon introspectif, où chaque action devient une quête, chaque période un chapitre, et chaque décision un pas vers la reconstruction.
 
-First, run the development server:
+Ce projet est né d’une conversation, d’un besoin de remettre de l’ordre, et d’une envie simple :  
+👉 **redonner du sens au quotidien en le rendant jouable**.
+
+---
+
+## ✨ Concept
+
+RPG Renaissance propose :
+
+- une **gamification douce de la vie réelle**
+- une **narration assistée par IA**
+- une structure inspirée des **RPG narratifs**, des journaux de bord et des aventures textuelles
+- une progression basée sur des **quêtes**, des **aventures**, des **inventaires** et des **états internes**
+
+L’application n’est pas un jeu classique.  
+C’est un **outil de transformation personnelle**, déguisé en RPG.
+
+---
+
+## 🧱 Stack technique
+
+Le projet repose sur une stack moderne, orientée performance, itération rapide et narration dynamique.
+
+### Frontend
+
+- **[Next.js](chatgpt://generic-entity?number=0)** (App Router)
+- React 18
+- TypeScript
+- Tailwind CSS
+- Composants UI custom (RpgShell, RpgUi…)
+
+### Backend & Data
+
+- **[Supabase](chatgpt://generic-entity?number=1)**
+    - PostgreSQL
+    - RPC (fonctions SQL)
+    - Auth & sécurité
+- Stockage structuré (aventures, quêtes, inventaires, événements)
+
+### Infrastructure
+
+- **[Vercel](chatgpt://generic-entity?number=2)**
+    - Déploiement continu
+    - Edge & Serverless Functions
+
+### IA & génération
+
+- Génération de textes narratifs via IA
+- Architecture pensée pour intégrer des **workers asynchrones**
+- Objectif : **temps de réponse proche du temps réel**, malgré des générations longues
+
+---
+
+## 🕹️ Fonctionnalités principales
+
+### 🎒 Gameplay narratif
+
+- Aventures jouables
+- Quêtes structurées
+- Progression par chapitres
+- États internes et choix narratifs
+
+### 🧠 IA & narration
+
+- Génération de textes immersifs
+- Ton RPG / journal intime
+- Contextes globaux + contextes de chapitre
+- Schémas JSON stricts pour fiabilité et cohérence
+
+### 🧩 Gamification du réel
+
+- Inventaires du quotidien (objets, souvenirs, vinyles, lieux, symboles)
+- Actions réelles transformées en quêtes
+- Journal de bord automatique
+
+### 🧪 Expérimentation
+
+- Architecture volontairement modulaire
+- Projet en évolution constante
+- Terrain de jeu pour explorer :
+    - narration interactive
+    - productivité gamifiée
+    - IA comme compagnon, pas comme outil froid
+
+---
+
+## 🚀 Lancer le projet en local
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
