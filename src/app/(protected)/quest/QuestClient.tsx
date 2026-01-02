@@ -767,6 +767,10 @@ export default function QuestClient() {
                                             ✅ Terminer la quête
                                         </ActionButton>
 
+                                        <ActionButton variant="solid" onClick={onEdit}>
+                                            ✍️ Modifier la quête
+                                        </ActionButton>
+
                                         <ActionButton
                                             variant="master"
                                             onClick={onEncourage}
