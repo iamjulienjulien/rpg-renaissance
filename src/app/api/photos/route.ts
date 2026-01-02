@@ -1,4 +1,4 @@
-// app/api/photos/route.ts
+/// app/api/photos/route.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -249,7 +249,7 @@ export async function POST(req: NextRequest) {
 
                 const supabase = await supabaseServer();
 
-                // session active (et patch ctx dans getActiveSession)
+                // ✅ session active (inventaire inclus, on veut juste une session)
                 const session = await getActiveSessionOrThrow();
                 patchRequestContext({ session_id: session.id });
 
@@ -276,18 +276,15 @@ export async function POST(req: NextRequest) {
                 try {
                     const f0 = Date.now();
                     form = await req.formData();
-                    Log.debug("photos.POST.formData.ok", {
-                        metadata: { ms: msSince(f0) },
-                    });
+                    Log.debug("photos.POST.formData.ok", { metadata: { ms: msSince(f0) } });
                 } catch (e) {
-                    Log.error("photos.POST.formData.invalid", e, {
-                        status_code: 400,
-                    });
+                    Log.error("photos.POST.formData.invalid", e, { status_code: 400 });
                     t.endError("POST /api/photos.invalid_form", e, { status_code: 400 });
                     return jsonError("Invalid form-data", 400);
                 }
 
-                const chapterQuestId = String(form.get("chapter_quest_id") ?? "").trim();
+                // ✅ Inputs communs
+                const chapterQuestId = String(form.get("chapter_quest_id") ?? "").trim() || null;
                 const category = String(form.get("category") ?? "other").trim();
                 const caption = String(form.get("caption") ?? "").trim() || null;
 
@@ -301,9 +298,13 @@ export async function POST(req: NextRequest) {
 
                 const file = form.get("file");
 
+                // ✅ Mode: si chapter_quest_id => QUEST, sinon => PLAIN (inventaire/générique)
+                const mode: "quest" | "plain" = chapterQuestId ? "quest" : "plain";
+
                 Log.debug("photos.POST.input.parsed", {
                     metadata: {
-                        chapter_quest_id: chapterQuestId || null,
+                        mode,
+                        chapter_quest_id: chapterQuestId,
                         category,
                         caption_present: !!caption,
                         sort,
@@ -314,14 +315,6 @@ export async function POST(req: NextRequest) {
                         ...(file instanceof File ? safeFileMeta(file) : {}),
                     },
                 });
-
-                if (!chapterQuestId) {
-                    Log.warning("photos.POST.missing.chapter_quest_id", { status_code: 400 });
-                    t.endError("POST /api/photos.bad_request", undefined, { status_code: 400 });
-                    return jsonError("Missing chapter_quest_id", 400);
-                }
-
-                patchRequestContext({ chapter_quest_id: chapterQuestId });
 
                 if (!ALLOWED_CATEGORIES.has(category)) {
                     Log.warning("photos.POST.invalid.category", {
@@ -349,71 +342,103 @@ export async function POST(req: NextRequest) {
                     return jsonError("File must be an image", 400);
                 }
 
-                // 1) Charger CQ verrouillée session
-                const q0 = Date.now();
-                const { data: cq, error: cqErr } = await supabase
-                    .from("chapter_quests")
-                    .select("id,session_id,adventure_quest_id,chapter_id")
-                    .eq("id", chapterQuestId)
-                    .eq("session_id", session.id)
-                    .maybeSingle();
+                // ✅ Données liées à la quête (uniquement si mode quest)
+                let sessionId = session.id;
+                let adventureQuestId: string | null = null;
+                let chapterId: string | null = null;
 
-                if (cqErr) {
-                    Log.error("photos.POST.cq.select.error", cqErr, {
-                        status_code: 500,
-                        metadata: { ms: msSince(q0), chapterQuestId, session_id: session.id },
-                    });
-                    t.endError("POST /api/photos.cq_select_failed", cqErr, { status_code: 500 });
-                    return jsonError(cqErr.message, 500);
-                }
+                if (mode === "quest") {
+                    patchRequestContext({ chapter_quest_id: chapterQuestId });
 
-                if (!cq) {
-                    Log.warning("photos.POST.cq.not_found", {
-                        status_code: 404,
-                        metadata: { ms: msSince(q0), chapterQuestId, session_id: session.id },
-                    });
-                    t.endError("POST /api/photos.cq_not_found", undefined, { status_code: 404 });
-                    return jsonError("Not found", 404);
-                }
+                    // 1) Charger CQ verrouillée session
+                    const q0 = Date.now();
+                    const { data: cq, error: cqErr } = await supabase
+                        .from("chapter_quests")
+                        .select("id,session_id,adventure_quest_id,chapter_id")
+                        .eq("id", chapterQuestId)
+                        .eq("session_id", session.id)
+                        .maybeSingle();
 
-                const sessionId = cq.session_id;
-                const adventureQuestId = cq.adventure_quest_id;
+                    if (cqErr) {
+                        Log.error("photos.POST.cq.select.error", cqErr, {
+                            status_code: 500,
+                            metadata: { ms: msSince(q0), chapterQuestId, session_id: session.id },
+                        });
+                        t.endError("POST /api/photos.cq_select_failed", cqErr, {
+                            status_code: 500,
+                        });
+                        return jsonError(cqErr.message, 500);
+                    }
 
-                patchRequestContext({
-                    session_id: sessionId,
-                    chapter_id: cq.chapter_id ?? null,
-                    adventure_quest_id: adventureQuestId ?? null,
-                });
+                    if (!cq) {
+                        Log.warning("photos.POST.cq.not_found", {
+                            status_code: 404,
+                            metadata: { ms: msSince(q0), chapterQuestId, session_id: session.id },
+                        });
+                        t.endError("POST /api/photos.cq_not_found", undefined, {
+                            status_code: 404,
+                        });
+                        return jsonError("Not found", 404);
+                    }
 
-                Log.debug("photos.POST.cq.ok", {
-                    metadata: {
-                        ms: msSince(q0),
+                    sessionId = cq.session_id;
+                    adventureQuestId = cq.adventure_quest_id ?? null;
+                    chapterId = cq.chapter_id ?? null;
+
+                    patchRequestContext({
                         session_id: sessionId,
-                        chapter_id: cq.chapter_id ?? null,
-                        adventure_quest_id: adventureQuestId ?? null,
-                    },
-                });
+                        chapter_id: chapterId,
+                        adventure_quest_id: adventureQuestId,
+                    });
 
-                // 2) Path
+                    Log.debug("photos.POST.cq.ok", {
+                        metadata: {
+                            ms: msSince(q0),
+                            session_id: sessionId,
+                            chapter_id: chapterId,
+                            adventure_quest_id: adventureQuestId,
+                        },
+                    });
+                } else {
+                    // plain mode: pas de chapter quest
+                    patchRequestContext({
+                        chapter_quest_id: null,
+                        chapter_id: null,
+                        adventure_quest_id: null,
+                    });
+                }
+
+                // 2) Path + ID
                 photoId = crypto.randomUUID();
                 const ext = pickExt(file.name, file.type || null);
-                objectPath = `${sessionId}/quests/${chapterQuestId}/${category}/${photoId}.${ext}`;
+
+                // ✅ path différent selon mode
+                objectPath =
+                    mode === "quest"
+                        ? `${sessionId}/quests/${chapterQuestId}/${category}/${photoId}.${ext}`
+                        : `${sessionId}/uploads/${category}/${photoId}.${ext}`;
 
                 Log.debug("photos.POST.storage.path", {
-                    metadata: { photo_id: photoId, object_path: objectPath, ext },
+                    metadata: { mode, photo_id: photoId, object_path: objectPath, ext },
                 });
 
                 // 3) Insert DB d'abord
+                // ⚠️ En mode plain, chapter_quest_id doit être nullable en DB.
                 const q1 = Date.now();
                 const { error: insErr } = await supabase.from("photos").insert({
                     id: photoId,
                     user_id: userId,
                     session_id: sessionId,
-                    chapter_quest_id: chapterQuestId,
 
-                    adventure_quest_id: adventureQuestId ?? null,
+                    // QUEST: set, PLAIN: null
+                    chapter_quest_id: mode === "quest" ? chapterQuestId : null,
+
+                    // QUEST only
+                    adventure_quest_id: mode === "quest" ? adventureQuestId : null,
+                    chapter_id: mode === "quest" ? chapterId : null,
+
+                    // Pour l’instant on ne lie pas à l’inventaire ici
                     adventure_id: null,
-                    chapter_id: null,
                     journal_entry_id: null,
 
                     bucket: BUCKET,
@@ -435,14 +460,20 @@ export async function POST(req: NextRequest) {
                 if (insErr) {
                     Log.error("photos.POST.db.insert.error", insErr, {
                         status_code: 500,
-                        metadata: { ms: msSince(q1), photo_id: photoId, chapterQuestId, category },
+                        metadata: {
+                            ms: msSince(q1),
+                            mode,
+                            photo_id: photoId,
+                            chapterQuestId,
+                            category,
+                        },
                     });
                     t.endError("POST /api/photos.db_insert_failed", insErr, { status_code: 500 });
                     return jsonError(insErr.message, 500);
                 }
 
                 Log.success("photos.POST.db.insert.ok", {
-                    metadata: { ms: msSince(q1), photo_id: photoId },
+                    metadata: { ms: msSince(q1), mode, photo_id: photoId },
                 });
 
                 // 4) Upload storage
@@ -487,7 +518,7 @@ export async function POST(req: NextRequest) {
                 }
 
                 Log.success("photos.POST.storage.upload.ok", {
-                    metadata: { ms: msSince(q2), photo_id: photoId, object_path: objectPath },
+                    metadata: { ms: msSince(q2), mode, photo_id: photoId, object_path: objectPath },
                 });
 
                 // 5) Signed url
@@ -500,6 +531,7 @@ export async function POST(req: NextRequest) {
                     Log.warning("photos.POST.signed_url.error", {
                         metadata: {
                             ms: msSince(q3),
+                            mode,
                             photo_id: photoId,
                             object_path: objectPath,
                             error: signErr.message ?? String(signErr),
@@ -509,6 +541,7 @@ export async function POST(req: NextRequest) {
                     Log.debug("photos.POST.signed_url.ok", {
                         metadata: {
                             ms: msSince(q3),
+                            mode,
                             photo_id: photoId,
                             has_url: !!signed?.signedUrl,
                         },
@@ -517,78 +550,83 @@ export async function POST(req: NextRequest) {
 
                 const signedUrl = signed?.signedUrl ?? null;
 
-                // Journal entry (preuve ajoutée)
-                const j0 = Date.now();
-                await createJournalEntry({
-                    session_id: sessionId,
-                    kind: "quest_photo_added",
-                    title: `${categoryEmoji(category as any)} Preuve ajoutée`,
-                    content: caption ? `🗒️ ${caption}` : null,
-                    chapter_id: cq.chapter_id ?? null,
-                    adventure_quest_id: adventureQuestId ?? null,
-                    meta: {
-                        photo_id: photoId,
-                        photo_category: category,
-                        chapter_quest_id: chapterQuestId,
-                    },
-                });
-
-                Log.info("photos.POST.journal.created", {
-                    metadata: {
-                        ms: msSince(j0),
-                        photo_id: photoId,
-                        category,
-                        caption_present: !!caption,
-                    },
-                });
-
-                // ✅ MJ: analyser la photo et poster un message (best-effort)
-                if (signedUrl) {
-                    const ai0 = Date.now();
-                    Log.info("photos.POST.mj.generate.start", {
-                        metadata: {
-                            ms_since_start: msSince(startedAt),
+                // ✅ Journal + MJ uniquement si mode quest
+                if (mode === "quest") {
+                    const j0 = Date.now();
+                    await createJournalEntry({
+                        session_id: sessionId,
+                        kind: "quest_photo_added",
+                        title: `${categoryEmoji(category as any)} Preuve ajoutée`,
+                        content: caption ? `🗒️ ${caption}` : null,
+                        chapter_id: chapterId,
+                        adventure_quest_id: adventureQuestId,
+                        meta: {
                             photo_id: photoId,
                             photo_category: category,
+                            chapter_quest_id: chapterQuestId,
+                        },
+                    });
+
+                    Log.info("photos.POST.journal.created", {
+                        metadata: {
+                            ms: msSince(j0),
+                            photo_id: photoId,
+                            category,
                             caption_present: !!caption,
                         },
                     });
 
-                    const settled = await Promise.allSettled([
-                        generatePhotoQuestMessageForQuest({
-                            chapter_quest_id: chapterQuestId,
-                            photo_id: photoId,
-                            photo_category: category as any,
-                            photo_caption: caption,
-                            photo_signed_url: signedUrl,
-                        }),
-                    ]);
-
-                    const r = settled[0];
-                    if (r.status === "fulfilled") {
-                        Log.success("photos.POST.mj.generate.ok", {
-                            metadata: { ms: msSince(ai0), photo_id: photoId },
-                        });
-                    } else {
-                        Log.warning("photos.POST.mj.generate.failed", {
+                    // ✅ MJ (best-effort)
+                    if (signedUrl) {
+                        const ai0 = Date.now();
+                        Log.info("photos.POST.mj.generate.start", {
                             metadata: {
-                                ms: msSince(ai0),
+                                ms_since_start: msSince(startedAt),
                                 photo_id: photoId,
-                                reason:
-                                    r.reason instanceof Error ? r.reason.message : String(r.reason),
+                                photo_category: category,
+                                caption_present: !!caption,
                             },
                         });
+
+                        const settled = await Promise.allSettled([
+                            generatePhotoQuestMessageForQuest({
+                                chapter_quest_id: chapterQuestId!,
+                                photo_id: photoId,
+                                photo_category: category as any,
+                                photo_caption: caption,
+                                photo_signed_url: signedUrl,
+                            }),
+                        ]);
+
+                        const r = settled[0];
+                        if (r.status === "fulfilled") {
+                            Log.success("photos.POST.mj.generate.ok", {
+                                metadata: { ms: msSince(ai0), photo_id: photoId },
+                            });
+                        } else {
+                            Log.warning("photos.POST.mj.generate.failed", {
+                                metadata: {
+                                    ms: msSince(ai0),
+                                    photo_id: photoId,
+                                    reason:
+                                        r.reason instanceof Error
+                                            ? r.reason.message
+                                            : String(r.reason),
+                                },
+                            });
+                        }
+                    } else {
+                        Log.warning("photos.POST.mj.skipped.no_signed_url", {
+                            metadata: { photo_id: photoId, object_path: objectPath },
+                        });
                     }
-                } else {
-                    Log.warning("photos.POST.mj.skipped.no_signed_url", {
-                        metadata: { photo_id: photoId, object_path: objectPath },
-                    });
                 }
 
                 Log.success("photos.POST.ok", {
                     status_code: 200,
                     metadata: {
                         duration_ms: msSince(startedAt),
+                        mode,
                         photo_id: photoId,
                         chapter_quest_id: chapterQuestId,
                         category,
@@ -602,8 +640,8 @@ export async function POST(req: NextRequest) {
                         id: photoId,
                         user_id: userId,
                         session_id: sessionId,
-                        chapter_quest_id: chapterQuestId,
-                        adventure_quest_id: adventureQuestId ?? null,
+                        chapter_quest_id: mode === "quest" ? chapterQuestId : null,
+                        adventure_quest_id: mode === "quest" ? adventureQuestId : null,
                         bucket: BUCKET,
                         path: objectPath,
                         mime_type: file.type ?? null,
