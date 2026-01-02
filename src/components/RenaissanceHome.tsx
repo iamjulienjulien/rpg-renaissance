@@ -103,6 +103,14 @@ export default function RenaissanceHome() {
                 disabled: false,
             },
             {
+                key: "rules",
+                title: "Régles",
+                subtitle: "Régles du jeu, lexique",
+                emoji: "📜",
+                href: "/rules",
+                disabled: false,
+            },
+            {
                 key: "settings",
                 title: "Réglages",
                 subtitle: "Ambiance, clavier, accessibilité",
