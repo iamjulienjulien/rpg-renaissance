@@ -15,19 +15,20 @@ export default async function HomePage() {
 
     // ✅ connecté -> vérifier player_profiles
     const { data: profile, error: profErr } = await supabase
-        .from("player_profiles")
-        .select("user_id")
+        .from("user_profiles")
+        .select("user_id, onboarding_done")
         .eq("user_id", data.user.id)
         .maybeSingle();
 
     // Si erreur base: on évite de boucler, mais on ne bloque pas l'accès
     // (à toi de choisir: ici je renvoie Home, sinon tu peux redirect vers /auth/signin?error=...)
     if (profErr) {
-        return <RenaissanceHome />;
+        console.log("err", profErr);
+        return <RenaissanceLandingPublic />;
     }
 
     // ✅ pas encore onboardé -> onboarding
-    if (!profile) {
+    if (!profile?.onboarding_done) {
         redirect("/onboarding");
     }
 

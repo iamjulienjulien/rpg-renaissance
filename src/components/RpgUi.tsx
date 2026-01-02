@@ -70,7 +70,7 @@ export function Panel({
 🎛️ UI ACTIONS (store)
 ============================================================================ */
 
-type UiAction =
+export type UiAction =
     | "openPalette"
     | "closePalette"
     | "togglePalette"
@@ -78,7 +78,7 @@ type UiAction =
     | "disableDevMode"
     | "toggleDevMode";
 
-function useUiAction(action?: UiAction) {
+export function useUiAction(action?: UiAction) {
     const openPalette = useUiStore((s) => s.openCommandPalette);
     const closePalette = useUiStore((s) => s.closeCommandPalette);
     const togglePalette = useUiStore((s) => s.toggleCommandPalette);

@@ -13,7 +13,7 @@ function cn(...classes: Array<string | false | null | undefined>) {
 }
 
 export default function AccountPage() {
-    const { user, profile, session, loading, saving, error, bootstrap, updateDisplayName, logout } =
+    const { user, profile, session, loading, saving, error, bootstrap, updateDisplayName } =
         usePlayerStore();
 
     const { signOut } = useAuthStore();

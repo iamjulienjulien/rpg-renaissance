@@ -81,7 +81,7 @@ export default function SignupPage() {
         }
 
         setSuccess("Compte créé ✅ Connexion en cours…");
-        router.push("/new");
+        router.push("/");
         router.refresh();
     };
 

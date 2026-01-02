@@ -75,7 +75,13 @@ export default function RenaissanceLandingPublic() {
     const goSignin = () => router.push("/auth/signin");
 
     return (
-        <RpgShell title="Renaissance" returnButton={false} noRightSlot={true}>
+        <RpgShell
+            title="Renaissance"
+            subtitle="🛡️ Ton RPG du quotidien, à la lame douce 🗡️"
+            returnButton={false}
+            noRightSlot={true}
+            largeLogo
+        >
             <div className="grid gap-4">
                 {/* HERO */}
                 <div

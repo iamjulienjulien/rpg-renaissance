@@ -62,14 +62,14 @@ export default function RenaissanceHome() {
 
     const menu = useMemo(() => {
         return [
-            {
-                key: "new",
-                title: "Nouvelle aventure",
-                subtitle: "Choisir un thème, préparer les quêtes",
-                emoji: "✨",
-                href: "/new",
-                disabled: false,
-            },
+            // {
+            //     key: "new",
+            //     title: "Nouvelle aventure",
+            //     subtitle: "Choisir un thème, préparer les quêtes",
+            //     emoji: "✨",
+            //     href: "/new",
+            //     disabled: false,
+            // },
             {
                 key: "characters",
                 title: "Personnages",

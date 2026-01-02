@@ -12,8 +12,8 @@ export default async function OnboardingLayout({ children }: { children: React.R
     }
 
     const { data: profile, error: profileErr } = await supabase
-        .from("player_profiles")
-        .select("user_id")
+        .from("user_profiles")
+        .select("user_id, onboarding_done")
         .eq("user_id", data.user.id)
         .maybeSingle();
 
@@ -22,7 +22,7 @@ export default async function OnboardingLayout({ children }: { children: React.R
     }
 
     // Déjà onboardé -> pas besoin d’être ici
-    if (profile) {
+    if (profile?.onboarding_done) {
         redirect("/");
     }
 

@@ -35,6 +35,7 @@ export default function RpgShell({
     rightSlot,
     returnButton = true,
     noRightSlot = false,
+    largeLogo = false,
 }: {
     title: string;
     subtitle?: string;
@@ -42,6 +43,7 @@ export default function RpgShell({
     rightSlot?: React.ReactNode;
     returnButton?: boolean;
     noRightSlot?: boolean;
+    largeLogo?: boolean;
 }) {
     const logoSrc = useThemeLogo();
 
@@ -97,17 +99,31 @@ export default function RpgShell({
                                 aria-label="Retour à l’accueil"
                                 className="group inline-flex"
                             >
-                                <img
-                                    src={logoSrc}
-                                    alt="Renaissance"
-                                    className="
-                    h-20 w-auto select-none opacity-95
-                    transition
-                    group-hover:opacity-100
-                    group-hover:scale-[1.03]
-                "
-                                    draggable={false}
-                                />
+                                {!largeLogo && (
+                                    <img
+                                        src={logoSrc}
+                                        alt="Renaissance"
+                                        className="
+                                        h-20 w-auto select-none opacity-95
+                                        transition
+                                        group-hover:opacity-100
+                                        group-hover:scale-[1.03]
+                                    "
+                                        draggable={false}
+                                    />
+                                )}
+                                {largeLogo && (
+                                    <img
+                                        src={logoSrc}
+                                        alt="Renaissance"
+                                        className="select-none opacity-95
+                                        transition
+                                        group-hover:opacity-100
+                                        group-hover:scale-[1.03]
+                                    "
+                                        draggable={false}
+                                    />
+                                )}
                             </Link>
 
                             <h1 className="mt-2 text-4xl font-semibold text-white/95 sm:text-5xl">

@@ -31,9 +31,11 @@ function CharacterCard(props: {
             disabled={disabled}
             className={cn(
                 "group relative overflow-hidden rounded-3xl text-left ring-1 transition",
-                "bg-black/25 ring-white/10 hover:bg-black/35 hover:ring-white/15",
-                active && "ring-emerald-400/30",
-                disabled && "opacity-60 pointer-events-none"
+                // "bg-black/25 hover:bg-black/35",
+                active
+                    ? "bg-amber-900/30 hover:bg-amber-900/40 ring-amber-400/30 ring-amber-400/40"
+                    : "bg-black/25 hover:bg-black/35 ring-white/10 hover:ring-amber-400/15",
+                disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
             )}
         >
             {/* Illustration */}
@@ -52,9 +54,9 @@ function CharacterCard(props: {
 
                 {/* Top badges */}
                 <div className="absolute left-3 top-3 flex items-center gap-2">
-                    <span className="rounded-full bg-black/40 px-2 py-1 text-[11px] text-white/75 ring-1 ring-white/10">
+                    {/* <span className="rounded-full bg-black/40 px-2 py-1 text-[11px] text-white/75 ring-1 ring-white/10">
                         {kindLabel(c.kind)}
-                    </span>
+                    </span> */}
                     <span className="rounded-full bg-black/40 px-2 py-1 text-[11px] text-white/75 ring-1 ring-white/10">
                         🏷️ {c.archetype}
                     </span>
@@ -104,7 +106,7 @@ export default function CharacterGrid(props: {
     const { characters, activeCharacterId, disabled, onSelect, className } = props;
 
     return (
-        <div className={cn("grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4", className)}>
+        <div className={cn("grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3", className)}>
             {characters.map((c) => (
                 <CharacterCard
                     key={c.id}

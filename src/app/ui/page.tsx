@@ -6,6 +6,15 @@ import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
 import MasterCard from "@/components/ui/MasterCard";
 
+// ✅ NEW: Onboarding components showcase
+import { OnboardingStepper } from "@/components/onboarding/OnboardingStepper";
+import { StickyCtaBar } from "@/components/onboarding/StickyCtaBar";
+import { ChoiceCard } from "@/components/onboarding/ChoiceCard";
+import { InlineNotice, EmptyState } from "@/components/onboarding/InlineNotice";
+
+import UIActionButtonPanel from "@/app/ui/_panels/UiActionButtonPanel";
+import UiActionButtonGroupPanel from "./_panels/UiActionButtonGroupPanel";
+
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
 }
@@ -51,6 +60,18 @@ function SectionTitle({ title, subtitle }: { title: string; subtitle?: string })
 export default function UiShowcasePage() {
     const [toggle, setToggle] = useState(false);
     const [variant, setVariant] = useState<"soft" | "solid" | "master">("solid");
+
+    // ✅ NEW: onboarding showcase states
+    const [stepKey, setStepKey] = useState<"adventure" | "identity" | "quests" | "finish">(
+        "identity"
+    );
+
+    const [cardSelected, setCardSelected] = useState<Record<string, boolean>>({
+        kitchen: true,
+        bedroom: false,
+    });
+
+    const [noticeTone, setNoticeTone] = useState<"info" | "warning" | "error" | "success">("info");
 
     const snippets = useMemo(() => {
         return {
@@ -149,6 +170,49 @@ const [difficulty, setDifficulty] = useState<1|2|3>(2);
     <div>Colonne gauche</div>
     <div>Colonne droite</div>
 </div>`,
+
+            // ✅ NEW: onboarding snippets
+            stepper: `import { OnboardingStepper } from "@/components/onboarding/OnboardingStepper";
+
+<OnboardingStepper
+    activeKey="identity"
+    steps={[
+        { key: "adventure", label: "Aventure", emoji: "🧭" },
+        { key: "identity", label: "Identité", emoji: "🪞" },
+        { key: "quests", label: "Pièces & Quêtes", emoji: "📜" },
+        { key: "finish", label: "Lancement", emoji: "🏁" },
+    ]}
+/>`,
+
+            sticky: `import { StickyCtaBar } from "@/components/onboarding/StickyCtaBar";
+import { ActionButton } from "@/components/RpgUi";
+
+<StickyCtaBar>
+    <ActionButton variant="master" className="w-full justify-center py-4 rounded-3xl text-base">
+        ✨ Continuer
+    </ActionButton>
+</StickyCtaBar>`,
+
+            choiceCard: `import { ChoiceCard } from "@/components/onboarding/ChoiceCard";
+import { Pill } from "@/components/RpgUi";
+
+<ChoiceCard
+    title="🚪 Cuisine"
+    subtitle="Zone à haute fréquence, impact immédiat."
+    selected={true}
+    metaRight={<Pill>🟡</Pill>}
+    onClick={() => {}}
+/>`,
+
+            notice: `import { InlineNotice, EmptyState } from "@/components/onboarding/InlineNotice";
+
+<InlineNotice tone="warning">⚠️ Ajoute au moins une pièce.</InlineNotice>
+
+<EmptyState
+    emoji="📭"
+    title="Aucune quête"
+    subtitle="Ajoute-en une ou laisse l’IA t’aider."
+/>`,
         };
     }, []);
 
@@ -164,6 +228,190 @@ const [difficulty, setDifficulty] = useState<1|2|3>(2);
             }
         >
             <div className="grid gap-4">
+                <UIActionButtonPanel />
+                <UiActionButtonGroupPanel />
+
+                {/* ✅ NEW: Onboarding UI */}
+                <Panel
+                    title="Onboarding UI"
+                    emoji="🧭"
+                    subtitle="Composants dédiés à l’onboarding: progression, CTA sticky, cartes choix, états."
+                    right={<Pill>4 composants</Pill>}
+                >
+                    <div className="grid gap-4">
+                        {/* Stepper */}
+                        <div>
+                            <SectionTitle
+                                title="OnboardingStepper"
+                                subtitle="Progression + étapes. Clique pour changer l’étape active."
+                            />
+
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                <ActionButton
+                                    variant={stepKey === "adventure" ? "solid" : "soft"}
+                                    onClick={() => setStepKey("adventure")}
+                                >
+                                    🧭 Aventure
+                                </ActionButton>
+                                <ActionButton
+                                    variant={stepKey === "identity" ? "solid" : "soft"}
+                                    onClick={() => setStepKey("identity")}
+                                >
+                                    🪞 Identité
+                                </ActionButton>
+                                <ActionButton
+                                    variant={stepKey === "quests" ? "solid" : "soft"}
+                                    onClick={() => setStepKey("quests")}
+                                >
+                                    📜 Quêtes
+                                </ActionButton>
+                                <ActionButton
+                                    variant={stepKey === "finish" ? "solid" : "soft"}
+                                    onClick={() => setStepKey("finish")}
+                                >
+                                    🏁 Finish
+                                </ActionButton>
+                            </div>
+
+                            <div className="mt-3">
+                                <OnboardingStepper
+                                    activeKey={stepKey}
+                                    steps={[
+                                        { key: "adventure", label: "Aventure", emoji: "🧭" },
+                                        { key: "identity", label: "Identité", emoji: "🪞" },
+                                        { key: "quests", label: "Pièces & Quêtes", emoji: "📜" },
+                                        { key: "finish", label: "Lancement", emoji: "🏁" },
+                                    ]}
+                                />
+                            </div>
+
+                            <CodeBlock code={snippets.stepper} />
+                        </div>
+
+                        {/* ChoiceCard */}
+                        <div>
+                            <SectionTitle
+                                title="ChoiceCard"
+                                subtitle="Cartes sélectionnables (pièces, quêtes, options)."
+                            />
+
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                <ChoiceCard
+                                    title="🚪 Cuisine"
+                                    subtitle="Zone à haute fréquence. Effet immédiat."
+                                    selected={!!cardSelected.kitchen}
+                                    metaRight={<Pill>🟡 Diff 2</Pill>}
+                                    onClick={() =>
+                                        setCardSelected((s) => ({ ...s, kitchen: !s.kitchen }))
+                                    }
+                                />
+
+                                <ChoiceCard
+                                    title="🛏️ Chambre"
+                                    subtitle="Calme, routine, petites victoires."
+                                    selected={!!cardSelected.bedroom}
+                                    metaRight={<Pill>🟢 Diff 1</Pill>}
+                                    onClick={() =>
+                                        setCardSelected((s) => ({ ...s, bedroom: !s.bedroom }))
+                                    }
+                                />
+                            </div>
+
+                            <CodeBlock code={snippets.choiceCard} />
+                        </div>
+
+                        {/* InlineNotice + EmptyState */}
+                        <div>
+                            <SectionTitle
+                                title="InlineNotice & EmptyState"
+                                subtitle="États de feedback cohérents (info/warning/error/success) + vide."
+                            />
+
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                <ActionButton
+                                    variant={noticeTone === "info" ? "solid" : "soft"}
+                                    onClick={() => setNoticeTone("info")}
+                                >
+                                    info
+                                </ActionButton>
+                                <ActionButton
+                                    variant={noticeTone === "success" ? "solid" : "soft"}
+                                    onClick={() => setNoticeTone("success")}
+                                >
+                                    success
+                                </ActionButton>
+                                <ActionButton
+                                    variant={noticeTone === "warning" ? "solid" : "soft"}
+                                    onClick={() => setNoticeTone("warning")}
+                                >
+                                    warning
+                                </ActionButton>
+                                <ActionButton
+                                    variant={noticeTone === "error" ? "solid" : "soft"}
+                                    onClick={() => setNoticeTone("error")}
+                                >
+                                    error
+                                </ActionButton>
+                            </div>
+
+                            <div className="mt-3 space-y-3">
+                                <InlineNotice tone={noticeTone}>
+                                    {noticeTone === "info"
+                                        ? "ℹ️ Tu peux compléter ça plus tard. Rien n’est gravé dans le marbre."
+                                        : noticeTone === "success"
+                                          ? "✅ Parfait. Le MJ a pris note."
+                                          : noticeTone === "warning"
+                                            ? "⚠️ Ajoute au moins une pièce pour continuer."
+                                            : "🧨 Impossible de sauvegarder. Réessaie."}
+                                </InlineNotice>
+
+                                <EmptyState
+                                    emoji="📭"
+                                    title="Aucune quête"
+                                    subtitle="Ajoute-en une ou laisse l’IA t’aider."
+                                />
+                            </div>
+
+                            <CodeBlock code={snippets.notice} />
+                        </div>
+
+                        {/* Sticky CTA */}
+                        <div>
+                            <SectionTitle
+                                title="StickyCtaBar"
+                                subtitle="Barre sticky en bas, parfaite pour le bouton principal."
+                            />
+
+                            <div className="mt-3 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
+                                <div className="text-sm text-white/70">
+                                    Scrolle un peu: la barre reste en bas (si la page dépasse).
+                                </div>
+
+                                <div className="mt-4">
+                                    <StickyCtaBar>
+                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                            <div className="text-xs text-white/60">
+                                                Étape actuelle:{" "}
+                                                <b className="text-white/80">{stepKey}</b>
+                                            </div>
+
+                                            <ActionButton
+                                                variant="master"
+                                                className="w-full sm:w-auto justify-center py-4 rounded-3xl text-base"
+                                                onClick={() => setToggle((v) => !v)}
+                                            >
+                                                {toggle ? "✅ Validé" : "✨ Continuer"}
+                                            </ActionButton>
+                                        </div>
+                                    </StickyCtaBar>
+                                </div>
+                            </div>
+
+                            <CodeBlock code={snippets.sticky} />
+                        </div>
+                    </div>
+                </Panel>
+
                 {/* Pills */}
                 <Panel
                     title="Pills"

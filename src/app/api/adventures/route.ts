@@ -96,7 +96,7 @@ export async function GET(req: Request) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    return NextResponse.json({ adventures: (data ?? []).map(mapAdventure) });
+    return NextResponse.json({ adventures: (data ?? []).map(mapAdventure), session });
 }
 
 export async function POST(req: Request) {

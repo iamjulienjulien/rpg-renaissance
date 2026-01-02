@@ -14,6 +14,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useUiSettingsStore } from "@/stores/uiSettingsStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useAuthStore } from "@/stores/authStore";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -180,7 +181,7 @@ export default function SettingsPage() {
 
     const [resetting, setResetting] = useState(false);
 
-    const logout = usePlayerStore((s) => s.logout);
+    const { signOut } = useAuthStore();
 
     const toastSuccess = useToastStore((s) => s.success);
     const toastError = useToastStore((s) => s.error);
@@ -211,7 +212,7 @@ export default function SettingsPage() {
             }
 
             toastSuccess("Reset OK ✅", "Tout est remis à zéro. Déconnexion…");
-            await logout();
+            await signOut();
             return;
         } catch (e) {
             console.error(e);

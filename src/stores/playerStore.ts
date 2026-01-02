@@ -34,7 +34,6 @@ type PlayerState = {
     refresh: () => Promise<void>;
 
     updateDisplayName: (displayName: string) => Promise<boolean>;
-    logout: () => Promise<void>;
 };
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -99,17 +98,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         } catch (e) {
             set({ error: e instanceof Error ? e.message : "Failed to update profile" });
             return false;
-        } finally {
-            set({ saving: false });
-        }
-    },
-
-    logout: async () => {
-        set({ saving: true, error: null });
-        try {
-            await fetch("/api/auth/logout", { method: "POST" });
-            set({ user: null, profile: null, session: null });
-            window.location.href = "/login";
         } finally {
             set({ saving: false });
         }

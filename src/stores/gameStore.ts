@@ -271,6 +271,8 @@ type GameStore = {
         };
     }) => Promise<{ adventureId: string; instance_code?: string | null } | null>;
 
+    loadLastAdventure: () => Promise<Adventure | null>;
+
     /* --------------------- 🧭 START ADVENTURE SETUP --------------------- */
     startAdventureLoading: boolean;
     startAdventureRefreshing: boolean;
@@ -333,8 +335,28 @@ type GameStore = {
         adventure_quest_ids: string[];
     }) => Promise<boolean>;
 
-    /* ONBOARDING */
-    completeOnboarding: (input: { display_name: string; character_id: string }) => Promise<boolean>;
+    /* ONBOARDING (Step 1: Adventure + MJ) */
+    onboardingAdventureLoading: boolean;
+
+    completeOnboardingAdventure: (input: {
+        character_id: string;
+        adventure_code: string;
+    }) => Promise<boolean>;
+
+    completeOnboardingIdentity: (
+        display_name: string,
+        context: {
+            context_self: string | null;
+            context_family: string | null;
+            context_home: string | null;
+            context_routine: string | null;
+            context_challenges: string | null;
+        }
+    ) => Promise<boolean>;
+
+    bootstrapOnboardingQuests: () => Promise<void>;
+
+    completeOnboarding: () => Promise<boolean>;
 
     /* --------------------------- 🧙 CHARACTERS --------------------------- */
     characters: Character[];
@@ -632,6 +654,66 @@ export const useGameStore = create<GameStore>((set, get) => {
                 return null;
             } finally {
                 set({ startingAdventure: false });
+            }
+        },
+
+        loadLastAdventure: async () => {
+            set({ loading: true, error: null });
+
+            try {
+                // ⚠️ GET sans params => toutes les aventures de la session
+                const res = await apiGet<{ adventures: Adventure[] | null }>("/api/adventures");
+
+                if (!res.ok) {
+                    set({ error: res.error ?? "Failed to load adventures" });
+                    return null;
+                }
+
+                const listRaw = (res.data as any)?.adventures ?? [];
+                const adventures: Adventure[] = Array.isArray(listRaw) ? listRaw : [];
+
+                if (adventures.length === 0) {
+                    // pas d'aventure => on remet à zéro mais sans casser tout le reste
+                    set((s) => ({
+                        currentAdventure: null,
+                        startAdventureData: {
+                            ...s.startAdventureData,
+                            adventure: null,
+                            rooms: [],
+                            backlog: [],
+                            context_text: "",
+                        },
+                    }));
+                    return null;
+                }
+
+                // ✅ "dernière du tableau" (comme demandé)
+                const last = adventures[adventures.length - 1] ?? null;
+
+                if (!last?.id) {
+                    set({ error: "Invalid adventure payload" });
+                    return null;
+                }
+
+                // Mettre à jour le snapshot + le startAdventureData pour réutiliser les flows existants
+                set((s) => ({
+                    currentAdventure: last,
+                    startAdventureData: {
+                        ...s.startAdventureData,
+                        adventure: last,
+                        context_text: (last.context_text ??
+                            s.startAdventureData.context_text ??
+                            "") as any,
+                    },
+                }));
+
+                return last;
+            } catch (e) {
+                const msg = e instanceof Error ? e.message : "Network error";
+                set({ error: msg });
+                return null;
+            } finally {
+                set({ loading: false });
             }
         },
 
@@ -1122,60 +1204,265 @@ export const useGameStore = create<GameStore>((set, get) => {
         },
 
         /* ONBOARDING */
-        completeOnboarding: async ({ display_name, character_id }) => {
-            const dn = (display_name ?? "").trim();
-            const cid = (character_id ?? "").trim();
 
-            if (dn.length < 2) {
-                set({ error: "Ton nom de joueur doit faire au moins 2 caractères." });
+        onboardingAdventureLoading: false,
+
+        completeOnboardingAdventure: async ({ character_id, adventure_code }) => {
+            const toast = useToastStore.getState();
+
+            const cid = (character_id ?? "").trim();
+            const adv = (adventure_code ?? "").trim();
+
+            if (!cid) {
+                set({ error: "Choisis un Maître du Jeu." });
                 return false;
             }
-            if (!cid) {
-                set({ error: "Choisis un personnage." });
+
+            if (!adv) {
+                set({ error: "Choisis une aventure." });
+                return false;
+            }
+
+            set({ onboardingAdventureLoading: true, saving: true, error: null });
+
+            try {
+                /* ------------------------------------------------------------
+        1) Enregistrer le MJ (comme activateCharacter)
+        ------------------------------------------------------------ */
+                const charRes = await apiPost<{ profile: Profile }>("/api/profile/character", {
+                    characterId: cid,
+                });
+
+                if (!charRes.ok) throw new Error(charRes.error);
+
+                const profile = (charRes.data?.profile ?? null) as Profile;
+
+                const selected = get().characters.find((c) => c.id === cid) ?? null;
+
+                set({
+                    selectedId: cid,
+                    profile: profile
+                        ? { ...profile, character: selected ?? (profile as any)?.character ?? null }
+                        : ({
+                              user_id: "me",
+                              display_name: null,
+                              character_id: cid,
+                              character: selected,
+                          } as any),
+                    currentCharacter: selected,
+                });
+
+                /* ------------------------------------------------------------
+        2) Démarrer l’aventure (comme startAdventure)
+        - On passe type_code = adventure_code (ton catalogue step1 utilise id)
+        ------------------------------------------------------------ */
+                const started = await get().startAdventure({
+                    type_code: adv,
+                    // tu peux mettre un titre d’instance plus tard si tu veux
+                    journal: {
+                        emoji: "🏁",
+                        title: "Prologue scellé",
+                        content: `Aventure: ${adv}\nMJ: ${selected ? `${selected.emoji} ${selected.name}` : cid}`,
+                    },
+                });
+
+                if (!started?.adventureId) {
+                    toast.error("Onboarding", "Impossible de démarrer l’aventure.");
+                    return false;
+                }
+
+                /* ------------------------------------------------------------
+        3) Rafraîchir l’état global (best-effort)
+        ------------------------------------------------------------ */
+                // On recharge tout pour que / et le reste aient la snapshot à jour
+                await get().bootstrap();
+
+                toast.success(
+                    "Aventure démarrée",
+                    selected ? `${selected.emoji} ${selected.name}` : undefined
+                );
+
+                return true;
+            } catch (e) {
+                const msg = e instanceof Error ? e.message : "Onboarding failed";
+                set({ error: msg });
+                toast.error("Échec", "Impossible de valider l’étape 1");
+                return false;
+            } finally {
+                set({ onboardingAdventureLoading: false, saving: false });
+            }
+        },
+
+        completeOnboardingIdentity: async (displayName, context) => {
+            console.info("completeOnboardingIdentity", displayName, context);
+            const name = (displayName ?? "").trim().slice(0, 80);
+
+            if (!name) {
+                set({ error: "Nom d’affichage invalide" });
                 return false;
             }
 
             set({ saving: true, error: null });
 
             try {
-                const res = await apiPost<{
-                    profile: {
-                        user_id: string;
-                        display_name: string | null;
-                        character_id: string | null;
-                    };
-                }>("/api/profile", { display_name: dn, character_id: cid });
-
-                if (!res.ok) throw new Error(res.error);
-
-                const profileRow = (res.data as any)?.profile ?? null;
-                const selected = get().characters.find((c) => c.id === cid) ?? null;
-
-                set({
-                    profile: profileRow
-                        ? {
-                              user_id: profileRow.user_id,
-                              display_name: profileRow.display_name,
-                              character_id: profileRow.character_id,
-                              character: selected,
-                          }
-                        : null,
-                    selectedId: cid,
-                    currentCharacter: selected,
+                /* ------------------------------------------------------------------
+        1) Sauvegarde du display_name
+        ------------------------------------------------------------------ */
+                const resProfile = await fetch("/api/profile", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ display_name: name }),
                 });
 
-                useToastStore
-                    .getState()
-                    .success(
-                        "Profil scellé",
-                        selected ? `${selected.emoji} ${selected.name}` : undefined
-                    );
+                const jsonProfile = await resProfile.json().catch(() => null);
+                if (!resProfile.ok) {
+                    set({
+                        error: jsonProfile?.error ?? "Impossible de sauvegarder le profil",
+                    });
+                    return false;
+                }
+
+                /* ------------------------------------------------------------------
+        2) Sauvegarde du contexte utilisateur (en une fois)
+        ------------------------------------------------------------------ */
+                const payload: Record<string, string | null> = {};
+
+                (
+                    [
+                        "context_self",
+                        "context_family",
+                        "context_home",
+                        "context_routine",
+                        "context_challenges",
+                    ] as const
+                ).forEach((key) => {
+                    const raw = context[key];
+                    const value = (raw ?? "").trim();
+                    payload[key] = value.length ? value : null;
+                });
+
+                const resContext = await fetch("/api/account/context", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+
+                const jsonContext = await resContext.json().catch(() => null);
+                if (!resContext.ok) {
+                    set({
+                        error: jsonContext?.error ?? "Impossible de sauvegarder le contexte",
+                    });
+                    return false;
+                }
+
+                /* ------------------------------------------------------------------
+        3) Mise à jour locale du profile (important pour la suite du flow)
+        ------------------------------------------------------------------ */
+                set({
+                    profile: jsonProfile?.profile ?? null,
+                });
 
                 return true;
             } catch (e) {
-                const msg = e instanceof Error ? e.message : "Onboarding failed";
-                set({ error: msg });
-                useToastStore.getState().error("Échec", "Impossible de créer le profil joueur");
+                set({
+                    error: e instanceof Error ? e.message : "Erreur inconnue",
+                });
+                return false;
+            } finally {
+                set({ saving: false });
+            }
+        },
+
+        bootstrapOnboardingQuests: async () => {
+            set({ startAdventureLoading: true });
+
+            try {
+                const sessionRes = await apiGet<{ session: GameSession | null }>(
+                    "/api/session/active"
+                );
+                if (!sessionRes.ok) {
+                    set({
+                        loading: false,
+                        characterLoading: false,
+                        renownLoading: false,
+                        error: sessionRes.error ?? "Failed to load active session",
+                    });
+                    return;
+                }
+
+                const session = sessionRes.data?.session ?? null;
+                const sessionId = session?.id ?? null;
+
+                // 2) Charger la dernière aventure de la session
+                const adv = await get().loadLastAdventure();
+
+                if (!adv?.id) {
+                    set({
+                        startAdventureData: {
+                            adventure: null,
+                            rooms: [],
+                            backlog: [],
+                            context_text: "",
+                        },
+                    });
+                    return;
+                }
+
+                // 3) Charger rooms + backlog à partir de l’aventure
+                const [roomsRes, qRes] = await Promise.all([
+                    apiGet<{ rooms: any[] }>(
+                        `/api/adventure-rooms?adventureId=${encodeURIComponent(adv.id)}`
+                    ),
+                    apiGet<{ quests: any[] }>(
+                        `/api/adventure-quests?adventureId=${encodeURIComponent(adv.id)}`
+                    ),
+                ]);
+
+                set({
+                    currentAdventure: adv,
+                    startAdventureData: {
+                        adventure: adv,
+                        rooms: roomsRes.ok ? (roomsRes.data?.rooms ?? []) : [],
+                        backlog: qRes.ok ? (qRes.data?.quests ?? []) : [],
+                        context_text: (adv.context_text ?? "") as string,
+                    },
+                });
+            } finally {
+                set({ startAdventureLoading: false });
+            }
+        },
+
+        completeOnboarding: async () => {
+            set({ saving: true, error: null });
+
+            try {
+                const res = await fetch("/api/me", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        onboarding_done: true,
+                    }),
+                });
+
+                const json = await res.json().catch(() => null);
+
+                if (!res.ok) {
+                    set({ error: json?.error ?? "Failed to complete onboarding" });
+                    return false;
+                }
+
+                // On met à jour le profil local si présent
+                set((state) => ({
+                    profile: state.profile
+                        ? { ...state.profile, onboarding_done: true }
+                        : state.profile,
+                }));
+
+                return true;
+            } catch (e) {
+                set({
+                    error: e instanceof Error ? e.message : "Failed to complete onboarding",
+                });
                 return false;
             } finally {
                 set({ saving: false });
