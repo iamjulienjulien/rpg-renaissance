@@ -97,7 +97,7 @@ export default function RenaissanceLandingPublic() {
                     <div className="relative">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <div className="flex flex-wrap gap-2">
-                                <Pill title="Thème actuel">🎨 Thème: {theme}</Pill>
+                                {/* <Pill title="Thème actuel">🎨 Thème: {theme}</Pill> */}
                                 <Pill>🕯️ RPG de la vraie vie</Pill>
                             </div>
 

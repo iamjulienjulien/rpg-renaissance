@@ -43,10 +43,12 @@ export default function CommandPalette() {
 
                 <div className="mt-4 grid gap-2">
                     {[
-                        { label: "🏠 Home", href: "/" },
-                        { label: "✨ Nouvelle aventure", href: "/new" },
+                        { label: "🏠 Menu principal", href: "/" },
+                        { label: "✨ Aventure", href: "/adventure" },
                         { label: "🧙 Personnages", href: "/characters" },
-                        { label: "📜 Quêtes / Chapitre", href: "/quests" },
+                        { label: "📖 Journal", href: "/journal" },
+                        { label: "🎒 Inventaire", href: "/inventory" },
+                        { label: "👤 Compte", href: "/accounts" },
                         { label: "⚙️ Réglages", href: "/settings" },
                     ].map((it) => (
                         <button
