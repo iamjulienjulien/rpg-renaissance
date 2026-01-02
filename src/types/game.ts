@@ -204,6 +204,19 @@ export type CreateAdventureQuestInput = {
     urgency?: QuestUrgency;
 };
 
+export type UpdateAdventureQuestInput = {
+    id: string;
+
+    title?: string;
+    description?: string | null;
+    room_code?: string | null;
+
+    difficulty?: 1 | 2 | 3;
+    estimate_min?: number | null;
+
+    urgency?: "low" | "normal" | "high";
+};
+
 /* ============================================================================
 🔗 QUEST CHAINS (chaînes de quêtes)
 ============================================================================ */

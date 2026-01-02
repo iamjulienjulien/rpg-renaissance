@@ -20,6 +20,7 @@ import type {
     Congratulations,
     ChapterStoryRow,
     CreateAdventureQuestInput,
+    UpdateAdventureQuestInput,
     AdventureRoom,
     RoomTemplate,
     QuestChain,
@@ -58,6 +59,22 @@ export type ReloadKey =
     | "questMission";
 
 export type ReloadInput = ReloadKey | ReloadKey[];
+
+export type ApiResult<T> =
+    | { ok: true; status: number; data: T }
+    | { ok: false; status: number; error: string; data?: undefined };
+
+async function safeJson(res: Response) {
+    return res.json().catch(() => null);
+}
+
+function asErrorMessage(payload: any, fallback: string) {
+    if (!payload) return fallback;
+    if (typeof payload === "string") return payload;
+    if (typeof payload?.error === "string") return payload.error;
+    if (typeof payload?.message === "string") return payload.message;
+    return fallback;
+}
 
 /* ============================================================================
 🧰 HELPERS (logiques locales, sans état)
@@ -127,6 +144,48 @@ async function apiPostForm<T>(
     } catch (e) {
         return { ok: false, error: e instanceof Error ? e.message : "Network error" };
     }
+}
+
+export async function apiPatch<T>(
+    url: string,
+    body?: unknown,
+    opts?: {
+        headers?: Record<string, string>;
+        signal?: AbortSignal;
+    }
+): Promise<ApiResult<T>> {
+    const res = await fetch(url, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+            ...(opts?.headers ?? {}),
+        },
+        credentials: "include",
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: opts?.signal,
+    });
+
+    const json = await safeJson(res);
+
+    if (!res.ok) {
+        // fallback: essaye aussi le texte si json null
+        let fallback = `Request failed (${res.status})`;
+        if (!json) {
+            const txt = await res.text().catch(() => "");
+            if (txt) fallback = txt;
+        }
+        return {
+            ok: false,
+            status: res.status,
+            error: asErrorMessage(json, fallback),
+        };
+    }
+
+    return {
+        ok: true,
+        status: res.status,
+        data: (json ?? ({} as any)) as T,
+    };
 }
 
 async function apiDelete<T>(
@@ -310,6 +369,7 @@ type GameStore = {
     startQuest: (chapterQuestId: string, quest?: QuestLite | null) => Promise<any | null>;
     finishQuest: (chapterQuestId: string, quest?: QuestLite | null) => Promise<any | null>;
     createAdventureQuest: (input: CreateAdventureQuestInput) => Promise<AdventureQuest | null>;
+    updateAdventureQuest: (input: UpdateAdventureQuestInput) => Promise<AdventureQuest | null>;
     assignQuestToCurrentChapter: (adventureQuestId: string) => Promise<boolean>;
     unassignQuestFromChapter: (
         chapterQuestId: string,
@@ -1995,6 +2055,90 @@ export const useGameStore = create<GameStore>((set, get) => {
                 console.error("Chain creation failed", e);
                 toast.error("Chaîne", "Impossible de lier la quête à la chaîne (création OK).");
             }
+
+            return quest;
+        },
+
+        updateAdventureQuest: async (input) => {
+            const toast = useToastStore.getState();
+
+            const id = (input?.id ?? "").trim();
+            if (!id) {
+                toast.error("Quête", "ID manquant.");
+                return null;
+            }
+
+            const patch: Record<string, any> = { id };
+
+            if (typeof input.title === "string") {
+                const t = input.title.trim();
+                if (!t) {
+                    toast.error("Quête", "Titre invalide.");
+                    return null;
+                }
+                patch.title = t;
+            }
+
+            if (input.description === null || typeof input.description === "string") {
+                const d = input.description ?? null;
+                patch.description = d && d.trim() ? d.trim() : null;
+            }
+
+            if (input.room_code === null || typeof input.room_code === "string") {
+                const rc = input.room_code ?? null;
+                patch.room_code = rc && rc.trim() ? rc.trim() : null;
+            }
+
+            if (typeof input.difficulty === "number") {
+                if (![1, 2, 3].includes(input.difficulty)) {
+                    toast.error("Quête", "Difficulté invalide.");
+                    return null;
+                }
+                patch.difficulty = input.difficulty;
+            }
+
+            if (input.estimate_min === null || typeof input.estimate_min === "number") {
+                if (input.estimate_min === null) {
+                    patch.estimate_min = null;
+                } else if (!Number.isFinite(input.estimate_min) || input.estimate_min < 1) {
+                    toast.error("Quête", "Estimation invalide.");
+                    return null;
+                } else {
+                    patch.estimate_min = Math.floor(input.estimate_min);
+                }
+            }
+
+            if (typeof input.urgency === "string") {
+                if (!["low", "normal", "high"].includes(input.urgency)) {
+                    toast.error("Quête", "Urgence invalide.");
+                    return null;
+                }
+                patch.urgency = input.urgency;
+            }
+
+            // rien à patcher (à part id)
+            if (Object.keys(patch).length <= 1) {
+                toast.error("Quête", "Aucune modification.");
+                return null;
+            }
+
+            const res = await apiPatch<{ quest: AdventureQuest }>("/api/adventure-quests", patch);
+
+            if (!res.ok) {
+                toast.error("Quête", res.error ?? "Modification impossible");
+                return null;
+            }
+
+            const quest = (res.data as any)?.quest as AdventureQuest | undefined;
+            if (!quest?.id) {
+                toast.error("Quête", "Modification impossible (réponse vide)");
+                return null;
+            }
+
+            toast.success("Quête modifiée", `🛠️ ${quest.title}`);
+
+            // ✅ Refresh best-effort: backlog + chapterQuests (là où la quête peut apparaître)
+            void get().reload(["backlog", "chapterQuests"], { silent: true });
 
             return quest;
         },

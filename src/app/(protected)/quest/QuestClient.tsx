@@ -32,6 +32,7 @@ import { journalKindLabel } from "@/helpers/journalKind";
 import { formatJournalTime } from "@/helpers/dateTime";
 import QuestMjThreadCard from "./QuestMjThreadCard";
 import { useDevStore } from "@/stores/devStore";
+import QuestEditModal from "@/components/modals/QuestEditModal";
 
 type Quest = {
     id: string;
@@ -360,6 +361,16 @@ export default function QuestClient() {
 
         await generateQuestMission(chapterQuestId, devModeEnabled);
         await reloadMission();
+    };
+
+    const onEdit = async () => {
+        if (!chapterQuestId || !quest) return;
+
+        openModal("questEdit", {
+            quest_id: quest.id,
+            title: quest.title, // optionnel
+            room_code: quest.room_code, // optionnel
+        });
     };
 
     if (!chapterQuestId) {
@@ -701,6 +712,10 @@ export default function QuestClient() {
                                             ▶️ Démarrer la quête
                                         </ActionButton>
 
+                                        <ActionButton variant="solid" onClick={onEdit}>
+                                            ✍️ Modifier la quête
+                                        </ActionButton>
+
                                         {(!missionMd || devModeEnabled) && (
                                             <ActionButton
                                                 variant="master"
@@ -951,6 +966,11 @@ export default function QuestClient() {
                 items={lightboxItems}
                 startIndex={lightboxIndex}
                 onClose={() => setLightboxOpen(false)}
+            />
+            <QuestEditModal
+                onUpdated={() => {
+                    void load();
+                }}
             />
         </RpgShell>
     );
