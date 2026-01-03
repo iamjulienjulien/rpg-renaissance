@@ -1,5 +1,6 @@
 import React from "react";
 import { Pill } from "@/components/RpgUi";
+import { UiChip, UiPill } from "@/components/ui";
 
 /**
  * Label textuel de difficulté
@@ -26,8 +27,14 @@ export function QuestDifficultyPill({ difficulty }: { difficulty: number | null 
     if (!difficulty) return null;
 
     return (
-        <Pill>
+        <UiPill title="Difficulté">
             {difficultyEmoji(difficulty)} {difficultyLabel(difficulty)}
-        </Pill>
+        </UiPill>
     );
+}
+
+export function QuestDifficultyChip({ difficulty }: { difficulty: number | null | undefined }) {
+    if (!difficulty) return null;
+
+    return <UiChip icon={difficultyEmoji(difficulty)}>{difficultyLabel(difficulty)}</UiChip>;
 }

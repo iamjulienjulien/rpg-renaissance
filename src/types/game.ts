@@ -408,3 +408,54 @@ export type QuestMessage = {
 
     created_at: string;
 };
+
+export type CurrentPlayer = {
+    user_id: string;
+
+    profile: {
+        first_name: string | null;
+        last_name: string | null;
+        avatar_url: string | null;
+        locale: string | null;
+        onboarding_done: boolean;
+        created_at: string | null;
+    } | null;
+
+    player_profile: {
+        character_id: string | null;
+        display_name: string | null;
+    } | null;
+
+    contexts: {
+        context_self: string | null;
+        context_family: string | null;
+        context_home: string | null;
+        context_routine: string | null;
+        context_challenges: string | null;
+    } | null;
+
+    renown: {
+        value: number;
+        updated_at: string | null;
+        level: {
+            number: number;
+            title: string;
+            tier: number;
+            tier_title: string;
+            level_suffix: string | null;
+            is_milestone: boolean;
+        } | null;
+    } | null;
+
+    badges: Array<{
+        code: string;
+        title: string;
+        emoji: string | null;
+        description: string | null;
+        unlocked_at: string;
+        source: string | null;
+        metadata: any;
+    }>;
+
+    active_session: { id: string; title: string; is_active: boolean } | null;
+};

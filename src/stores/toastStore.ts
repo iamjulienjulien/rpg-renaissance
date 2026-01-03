@@ -14,6 +14,7 @@ export type Toast = {
     createdAt: number;
     durationMs: number | null;
     source?: "local" | "db";
+    type?: "normal" | "achievement" | "badge";
 };
 
 export type ToastInput = {
@@ -25,7 +26,7 @@ export type ToastInput = {
 
 type DbToast = {
     id: string;
-    kind: "achievement" | "system" | "info";
+    kind: "achievement" | "system" | "info" | "badge";
     title: string;
     message: string;
     payload: any;
@@ -78,9 +79,10 @@ function uid() {
 }
 
 function defaultDuration(tone: ToastTone) {
-    if (tone === "error") return 6000;
-    if (tone === "warning") return 4500;
-    return 3200;
+    // if (tone === "error") return 6000;
+    // if (tone === "warning") return 4500;
+    // return 3200;
+    return null;
 }
 
 function safeStr(x: unknown) {
@@ -91,13 +93,41 @@ function mapDbToastToStore(t: DbToast): Toast {
     const payloadJson = t.payload ? JSON.stringify(t.payload) : "{}";
     const message = `${safeStr(t.message ?? "")}`.trim() + `\n\n__PAYLOAD__${payloadJson}`;
 
+    console.log("t", t);
+
+    if (t.kind === "achievement") {
+        return {
+            id: t.id,
+            tone: "success",
+            title: t.title,
+            message,
+            createdAt: Date.now(),
+            durationMs: null,
+            source: "db",
+            type: "achievement",
+        };
+    }
+
+    if (t.kind === "badge") {
+        return {
+            id: t.id,
+            tone: "success",
+            title: t.title,
+            message,
+            createdAt: Date.now(),
+            durationMs: null,
+            source: "db",
+            type: "badge",
+        };
+    }
+
     return {
         id: t.id,
-        tone: t.kind === "achievement" ? "success" : "info",
+        tone: "info",
         title: t.title,
         message,
         createdAt: Date.now(),
-        durationMs: t.kind === "achievement" ? null : 4200, // ✅ persistant
+        durationMs: null, // ✅ persistant
         source: "db",
     };
 }
@@ -159,7 +189,6 @@ export const useToastStore = create<ToastStore>()(
 
             dismiss: (id) => {
                 const toast = get().toasts.find((t) => t.id === id);
-
                 // clear timer
                 const tm = get()._timers[id];
                 if (tm) {
@@ -170,9 +199,7 @@ export const useToastStore = create<ToastStore>()(
                         return { _timers: next } as any;
                     });
                 }
-
                 set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
-
                 // best effort DB dismiss
                 if (toast?.source === "db") {
                     void get()._markDismissed(id);
@@ -231,7 +258,7 @@ export const useToastStore = create<ToastStore>()(
                     if (typeof ms !== "number" || ms <= 0) continue; // ✅ null => persistant
 
                     const handle = window.setTimeout(() => {
-                        get().dismiss(t.id);
+                        // get().dismiss(t.id);
                     }, ms);
 
                     nextTimers[t.id] = handle;
@@ -259,14 +286,14 @@ export const useToastStore = create<ToastStore>()(
             },
 
             _markDismissed: async (id) => {
-                await fetch("/api/toasts/dismiss", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ id }),
-                }).catch(() => null);
+                // await fetch("/api/toasts/dismiss", {
+                //     method: "POST",
+                //     headers: { "Content-Type": "application/json" },
+                //     body: JSON.stringify({ id }),
+                // }).catch(() => null);
             },
 
-            startLive: () => {
+            startLive: async () => {
                 // anti double start (Strict Mode)
                 console.log("startLive");
                 if (get()._started) return;
@@ -291,12 +318,22 @@ export const useToastStore = create<ToastStore>()(
                     }
                 })().catch(() => null);
 
+                const {
+                    data: { user },
+                } = await supabase.auth.getUser();
+                if (!user?.id) return;
+
                 // 2) live inserts
                 const channel = supabase
-                    .channel("user_toasts_live")
+                    .channel(`user_toasts_live:${user.id}`)
                     .on(
                         "postgres_changes",
-                        { event: "INSERT", schema: "public", table: "user_toasts" },
+                        {
+                            event: "INSERT",
+                            schema: "public",
+                            table: "user_toasts",
+                            filter: `user_id=eq.${user.id}`,
+                        },
                         (payload: any) => {
                             const row = payload?.new as DbToast | undefined;
                             console.log("[toasts] INSERT", payload);
@@ -309,7 +346,12 @@ export const useToastStore = create<ToastStore>()(
                     )
                     .on(
                         "postgres_changes",
-                        { event: "UPDATE", schema: "public", table: "user_toasts" },
+                        {
+                            event: "UPDATE",
+                            schema: "public",
+                            table: "user_toasts",
+                            filter: `user_id=eq.${user.id}`,
+                        },
                         (payload: any) => {
                             console.log("[toasts] UPDATE", payload);
 
@@ -319,8 +361,8 @@ export const useToastStore = create<ToastStore>()(
                             // ✅ debug-friendly: si la DB marque dismissed, on enlève local
                             if (row.status === "dismissed") {
                                 // évite d'appeler _markDismissed à nouveau (dismiss() le ferait)
-                                set((s) => ({ toasts: s.toasts.filter((t) => t.id !== row.id) }));
-                                return;
+                                // set((s) => ({ toasts: s.toasts.filter((t) => t.id !== row.id) }));
+                                // return;
                             }
 
                             // ✅ optionnel: si un toast repasse "unread", on le (ré)affiche

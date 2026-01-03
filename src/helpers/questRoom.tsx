@@ -2,6 +2,7 @@ import React from "react";
 import { Pill } from "@/components/RpgUi";
 import { useGameStore } from "@/stores/gameStore";
 import { AdventureRoom } from "@/features/adventures/types";
+import { UiChip, UiPill } from "@/components/ui";
 
 /**
  * 🧱 Room (tel que défini dans gameStore)
@@ -64,8 +65,15 @@ export function QuestRoomPill({ roomCode }: { roomCode: string | null | undefine
     const emoji = questRoomEmoji(roomCode);
 
     return (
-        <Pill>
+        <UiPill title="Pièce">
             {emoji} {label}
-        </Pill>
+        </UiPill>
     );
+}
+
+export function QuestRoomChip({ roomCode }: { roomCode: string | null | undefined }) {
+    const label = questRoomLabel(roomCode);
+    const emoji = questRoomEmoji(roomCode);
+
+    return <UiChip icon={emoji}>{label}</UiChip>;
 }

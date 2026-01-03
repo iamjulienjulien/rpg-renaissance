@@ -14,6 +14,14 @@ import { InlineNotice, EmptyState } from "@/components/onboarding/InlineNotice";
 
 import UIActionButtonPanel from "@/app/ui/_panels/UiActionButtonPanel";
 import UiActionButtonGroupPanel from "./_panels/UiActionButtonGroupPanel";
+import UiChipPanel from "./_panels/UiChipPanel";
+import UiGradientPanelPanel from "./_panels/UiGradientPanelPanel";
+import UiPillPanel from "./_panels/UiPillPanel";
+import UiPanelPanel from "./_panels/UiPanelPanel";
+import { UiFormSelect } from "@/components/ui/UiFormSelect";
+import UiFormSelectPanel from "./_panels/UiFormSelectPanel";
+import UiFormTextPanelV2 from "./_panels/UiFormTextPanelV2";
+import UiCardPanel from "./_panels/UiCardPanel";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -218,18 +226,19 @@ import { Pill } from "@/components/RpgUi";
 
     return (
         <RpgShell
-            title="UI Kit (RPG Renaissance)"
+            title="UI Kit"
             subtitle="Vitrine interne: composants, styles, patterns, snippets copiables."
-            rightSlot={
-                <div className="flex items-center gap-2">
-                    <Pill>🧪 /ui</Pill>
-                    <Pill>⌘K</Pill>
-                </div>
-            }
         >
             <div className="grid gap-4">
                 <UIActionButtonPanel />
                 <UiActionButtonGroupPanel />
+                <UiPillPanel />
+                <UiChipPanel />
+                <UiCardPanel />
+                <UiPanelPanel />
+                <UiGradientPanelPanel />
+                <UiFormTextPanelV2 />
+                <UiFormSelectPanel />
 
                 {/* ✅ NEW: Onboarding UI */}
                 <Panel
@@ -410,73 +419,6 @@ import { Pill } from "@/components/RpgUi";
                             <CodeBlock code={snippets.sticky} />
                         </div>
                     </div>
-                </Panel>
-
-                {/* Pills */}
-                <Panel
-                    title="Pills"
-                    emoji="🏷️"
-                    subtitle="Badges compacts: état, raccourcis, tags."
-                    right={<Pill>3 exemples</Pill>}
-                >
-                    <div className="flex flex-wrap gap-2">
-                        <Pill>⌘K</Pill>
-                        <Pill>🧙 Mage</Pill>
-                        <Pill>✅ Disponible</Pill>
-                        <Pill>🔒 Bientôt</Pill>
-                        <Pill>🎚️ Diff 2</Pill>
-                    </div>
-
-                    <CodeBlock code={snippets.pills} />
-                </Panel>
-
-                {/* Buttons */}
-                <Panel
-                    title="ActionButton"
-                    emoji="🪄"
-                    subtitle="CTA principal + variantes."
-                    right={<Pill>2 variantes</Pill>}
-                >
-                    <div className="flex flex-wrap items-center gap-2">
-                        <ActionButton onClick={() => setVariant("soft")} variant="soft">
-                            Soft
-                        </ActionButton>
-
-                        <ActionButton onClick={() => setVariant("solid")} variant="solid">
-                            Solid
-                        </ActionButton>
-
-                        <ActionButton onClick={() => setVariant("master")} variant="master">
-                            Master
-                        </ActionButton>
-
-                        <ActionButton variant={variant} onClick={() => setToggle((v) => !v)}>
-                            {toggle ? "✅ Activé" : "⚪ Inactif"}
-                        </ActionButton>
-
-                        <ActionButton disabled onClick={() => {}}>
-                            Disabled
-                        </ActionButton>
-                    </div>
-
-                    <CodeBlock code={snippets.buttons} />
-                </Panel>
-
-                {/* Panel */}
-                <Panel
-                    title="Panel"
-                    emoji="🧱"
-                    subtitle="Bloc principal: titre, emoji, sous-titre, slot à droite."
-                    right={<Pill>Layout</Pill>}
-                >
-                    <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
-                        <div className="text-xs tracking-[0.18em] text-white/55">EXEMPLE</div>
-                        <div className="mt-2 text-white/80">
-                            Un Panel encapsule une zone de page et garde une hiérarchie stable.
-                        </div>
-                    </div>
-
-                    <CodeBlock code={snippets.panel} />
                 </Panel>
 
                 {/* Cards / list items */}

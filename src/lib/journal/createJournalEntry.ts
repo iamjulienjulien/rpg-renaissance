@@ -19,7 +19,8 @@ export type JournalKind =
     | "quest_done"
     | "quest_reopened"
     | "quest_photo_added"
-    | "note";
+    | "note"
+    | "system";
 
 export type CreateJournalEntryInput = {
     session_id: string;

@@ -575,6 +575,33 @@ async function createAchievementToast(
     rewardsApplied: Reward[],
     ctx: EvaluateAchievementsContext
 ): Promise<void> {
+    const t0 = Date.now();
+
+    // utile pour regrouper les traces si tu filtres par ctx
+    patchRequestContext({
+        user_id: ctx.user_id,
+        session_id: ctx.session_id ?? undefined,
+        adventure_id: ctx.adventure_id ?? undefined,
+        chapter_id: ctx.chapter_id ?? undefined,
+        chapter_quest_id: ctx.chapter_quest_id ?? undefined,
+        request_id: ctx.request_id ?? undefined,
+        trace_id: ctx.trace_id ?? undefined,
+    });
+
+    Log.debug("ach.toast.start", {
+        metadata: {
+            ms: msSince(t0),
+            achievement_id: achievement.id,
+            code: achievement.code,
+            rewards_count: Array.isArray(rewardsApplied) ? rewardsApplied.length : 0,
+            user_id: ctx.user_id,
+            session_id: ctx.session_id ?? null,
+            adventure_id: ctx.adventure_id ?? null,
+            chapter_id: ctx.chapter_id ?? null,
+            chapter_quest_id: ctx.chapter_quest_id ?? null,
+        },
+    });
+
     const title = `${achievement.icon ?? "✨"} ${achievement.name}`;
     const message = achievement.description;
 
@@ -598,14 +625,261 @@ async function createAchievementToast(
         },
     };
 
-    await supabase.from("user_toasts").insert({
-        id: crypto.randomUUID(),
+    // 1) Toast "achievement"
+    const toastId = crypto.randomUUID();
+    const ins0 = Date.now();
+
+    Log.debug("ach.toast.achievement.insert.start", {
+        metadata: {
+            ms: msSince(ins0),
+            toast_id: toastId,
+            user_id: ctx.user_id,
+            achievement_id: achievement.id,
+            code: achievement.code,
+        },
+    });
+
+    const { error: toastErr } = await supabase.from("user_toasts").insert({
+        id: toastId,
         user_id: ctx.user_id,
         kind: "achievement",
         title,
         message,
         payload,
         status: "unread",
+    });
+
+    if (toastErr) {
+        Log.error("ach.toast.achievement.insert.error", toastErr, {
+            status_code: 500,
+            metadata: {
+                ms: msSince(ins0),
+                toast_id: toastId,
+                code: achievement.code,
+                achievement_id: achievement.id,
+            },
+        });
+        throw new Error("Failed to insert achievement toast: " + toastErr.message);
+    }
+
+    Log.success("ach.toast.achievement.insert.ok", {
+        metadata: {
+            ms: msSince(ins0),
+            toast_id: toastId,
+            code: achievement.code,
+        },
+    });
+
+    // 2) Badges (si présents dans les rewards)
+    const badgeRewards = (rewardsApplied ?? []).filter(
+        (r: any) => r?.type === "badge" && typeof r?.code === "string" && r.code.trim()
+    );
+
+    Log.debug("ach.toast.badges.scan", {
+        metadata: {
+            ms: msSince(t0),
+            code: achievement.code,
+            badge_rewards_count: badgeRewards.length,
+            badge_codes: badgeRewards.map((r: any) => String(r.code).trim()).slice(0, 12),
+        },
+    });
+
+    if (badgeRewards.length === 0) {
+        Log.debug("ach.toast.done.no_badges", {
+            metadata: { ms: msSince(t0), code: achievement.code },
+        });
+        return;
+    }
+
+    // Option: 1 toast par badge
+    for (const r of badgeRewards as any[]) {
+        const badgeCode = String(r.code).trim();
+        const loop0 = Date.now();
+
+        Log.debug("ach.toast.badge.start", {
+            metadata: { ms: msSince(loop0), code: achievement.code, badge_code: badgeCode },
+        });
+
+        // a) lookup badge catalog
+        const look0 = Date.now();
+        Log.debug("ach.toast.badge.catalog_lookup.start", {
+            metadata: { ms: msSince(look0), badge_code: badgeCode },
+        });
+
+        const { data: badgeRow, error: badgeErr } = await supabase
+            .from("achievement_badges_catalog")
+            .select("id, code, title, emoji, description")
+            .eq("code", badgeCode)
+            .maybeSingle();
+
+        if (badgeErr) {
+            Log.error("ach.toast.badge.catalog_lookup.error", badgeErr, {
+                status_code: 500,
+                metadata: { ms: msSince(look0), badge_code: badgeCode, code: achievement.code },
+            });
+            throw new Error("Failed to lookup badge catalog: " + badgeErr.message);
+        }
+
+        if (!badgeRow?.id) {
+            Log.warning("ach.toast.badge.catalog_lookup.miss", {
+                metadata: {
+                    ms: msSince(look0),
+                    badge_code: badgeCode,
+                    code: achievement.code,
+                    note: "badge reward referenced but not found in catalog",
+                },
+            });
+            continue;
+        }
+
+        Log.success("ach.toast.badge.catalog_lookup.ok", {
+            metadata: {
+                ms: msSince(look0),
+                badge_id: badgeRow.id,
+                badge_code: badgeRow.code,
+            },
+        });
+
+        // b) insert possession (idempotent)
+        const up0 = Date.now();
+        Log.debug("ach.toast.badge.player_badges.upsert.start", {
+            metadata: {
+                ms: msSince(up0),
+                user_id: ctx.user_id,
+                badge_id: badgeRow.id,
+                badge_code: badgeRow.code,
+                source: `achievement:${achievement.code}`,
+            },
+        });
+
+        const { error: pbErr } = await supabase.from("player_badges").upsert(
+            {
+                user_id: ctx.user_id,
+                badge_id: badgeRow.id,
+                source: `achievement:${achievement.code}`,
+                metadata: {
+                    achievement_id: achievement.id,
+                    achievement_code: achievement.code,
+                    reward: r,
+                    context: {
+                        session_id: ctx.session_id ?? null,
+                        adventure_id: ctx.adventure_id ?? null,
+                        chapter_id: ctx.chapter_id ?? null,
+                        chapter_quest_id: ctx.chapter_quest_id ?? null,
+                    },
+                    trace: {
+                        request_id: ctx.request_id ?? null,
+                        trace_id: ctx.trace_id ?? null,
+                    },
+                },
+            },
+            {
+                onConflict: "user_id,badge_id",
+                ignoreDuplicates: true,
+            }
+        );
+
+        if (pbErr) {
+            Log.error("ach.toast.badge.player_badges.upsert.error", pbErr, {
+                status_code: 500,
+                metadata: {
+                    ms: msSince(up0),
+                    user_id: ctx.user_id,
+                    badge_id: badgeRow.id,
+                    badge_code: badgeRow.code,
+                    code: achievement.code,
+                },
+            });
+            throw new Error("Failed to upsert player_badges: " + pbErr.message);
+        }
+
+        Log.success("ach.toast.badge.player_badges.upsert.ok", {
+            metadata: {
+                ms: msSince(up0),
+                badge_id: badgeRow.id,
+                badge_code: badgeRow.code,
+            },
+        });
+
+        // c) toast "badge"
+        const badgeToastId = crypto.randomUUID();
+        const badgeTitle = `${badgeRow.emoji ?? "🏅"} ${badgeRow.title ?? "Badge débloqué"}`;
+        const badgeMessage = badgeRow.description ?? "Nouveau badge obtenu.";
+
+        const badgePayload = {
+            badge: {
+                id: badgeRow.id,
+                code: badgeRow.code,
+                title: badgeRow.title,
+                emoji: badgeRow.emoji,
+                description: badgeRow.description,
+            },
+            source: {
+                achievement_id: achievement.id,
+                achievement_code: achievement.code,
+            },
+            context: {
+                session_id: ctx.session_id ?? null,
+                adventure_id: ctx.adventure_id ?? null,
+                chapter_id: ctx.chapter_id ?? null,
+                chapter_quest_id: ctx.chapter_quest_id ?? null,
+            },
+            trace: {
+                request_id: ctx.request_id ?? null,
+                trace_id: ctx.trace_id ?? null,
+            },
+        };
+
+        const bt0 = Date.now();
+        Log.debug("ach.toast.badge.toast_insert.start", {
+            metadata: {
+                ms: msSince(bt0),
+                toast_id: badgeToastId,
+                badge_code: badgeRow.code,
+                badge_id: badgeRow.id,
+                user_id: ctx.user_id,
+            },
+        });
+
+        const { error: badgeToastErr } = await supabase.from("user_toasts").insert({
+            id: badgeToastId,
+            user_id: ctx.user_id,
+            kind: "badge",
+            title: badgeTitle,
+            message: badgeMessage,
+            payload: badgePayload,
+            status: "unread",
+        });
+
+        if (badgeToastErr) {
+            Log.error("ach.toast.badge.toast_insert.error", badgeToastErr, {
+                status_code: 500,
+                metadata: {
+                    ms: msSince(bt0),
+                    toast_id: badgeToastId,
+                    badge_code: badgeRow.code,
+                    badge_id: badgeRow.id,
+                    code: achievement.code,
+                },
+            });
+            throw new Error("Failed to insert badge toast: " + badgeToastErr.message);
+        }
+
+        Log.success("ach.toast.badge.toast_insert.ok", {
+            metadata: {
+                ms: msSince(bt0),
+                toast_id: badgeToastId,
+                badge_code: badgeRow.code,
+            },
+        });
+
+        Log.debug("ach.toast.badge.done", {
+            metadata: { ms: msSince(loop0), badge_code: badgeCode, code: achievement.code },
+        });
+    }
+
+    Log.success("ach.toast.done", {
+        metadata: { ms: msSince(t0), code: achievement.code },
     });
 }
 

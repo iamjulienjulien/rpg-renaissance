@@ -1,5 +1,6 @@
 import React from "react";
 import { Pill } from "@/components/RpgUi";
+import { UiChip, UiPill } from "@/components/ui";
 
 /**
  * Type de priorité de quête
@@ -32,10 +33,16 @@ export function QuestPriorityPill({ priority }: { priority: QuestPriority | null
     if (!priority) return null;
 
     return (
-        <Pill>
+        <UiPill title="Priorité">
             {priorityEmoji(priority)} {priorityLabel(priority)}
-        </Pill>
+        </UiPill>
     );
+}
+
+export function QuestPriorityChip({ priority }: { priority: QuestPriority | null | undefined }) {
+    if (!priority) return null;
+
+    return <UiChip icon={priorityEmoji(priority)}>{priorityLabel(priority)}</UiChip>;
 }
 
 export function defaultPriority(): QuestPriority {

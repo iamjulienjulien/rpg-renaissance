@@ -1,10 +1,24 @@
+// src/components/modals/QuestCreateModal.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import UiModal from "@/components/ui/UiModal";
-import { ActionButton, Pill } from "@/components/RpgUi";
 import { useUiStore } from "@/stores/uiStore";
 import { useGameStore } from "@/stores/gameStore";
+
+import {
+    UiModal,
+    UiActionButton,
+    UiActionButtonGroup,
+    type UiActionButtonGroupButton,
+    UiChip,
+    UiPanel,
+    UiGradientPanel,
+    UiFormText,
+    type UiFormTextTone,
+    UiFormSelect,
+    UiPill,
+} from "@/components/ui";
+import Helpers from "@/helpers";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -19,35 +33,15 @@ type Props = {
 
 type Difficulty = 1 | 2 | 3;
 type Target = "backlog" | "chapter";
-
 type QuestUrgency = "low" | "normal" | "high";
 type QuestPriority = "secondary" | "main";
-
-function difficultyLabel(d: Difficulty) {
-    if (d === 1) return "🟢 Facile";
-    if (d === 3) return "🔴 Difficile";
-    return "🟡 Standard";
-}
-
-function urgencyLabel(u: QuestUrgency) {
-    if (u === "low") return "🧊 basse";
-    if (u === "high") return "🔥 haute";
-    return "⚡ normale";
-}
-
-function priorityLabel(p: QuestPriority) {
-    if (p === "secondary") return "🌿 secondaire";
-    return "🏁 principale";
-}
 
 /**
  * 🧳 Context attendu pour questCreate (optionnel)
  * On reste permissif: la modal doit fonctionner sans contexte.
  */
 type QuestCreateModalContext =
-    | {
-          mode?: "default";
-      }
+    | { mode?: "default" }
     | {
           mode: "chain";
           parent_chapter_quest_id?: string | null;
@@ -55,6 +49,20 @@ type QuestCreateModalContext =
           parent_title?: string | null;
           parent_room_code?: string | null;
       };
+
+function difficultyLabel(d: Difficulty) {
+    if (d === 1) return "🟢 Facile";
+    if (d === 3) return "🔴 Difficile";
+    return "🟡 Standard";
+}
+function urgencyLabel(u: QuestUrgency) {
+    if (u === "low") return "🧊 Basse";
+    if (u === "high") return "🔥 Haute";
+    return "⚡ Normale";
+}
+function priorityLabel(p: QuestPriority) {
+    return p === "secondary" ? "🌿 Secondaire" : "🏁 Principale";
+}
 
 export default function QuestCreateModal(props: Props) {
     const isOpen = useUiStore((s) => s.isModalOpen("questCreate"));
@@ -71,10 +79,8 @@ export default function QuestCreateModal(props: Props) {
     const adventureId = currentAdventure?.id ?? props.defaultAdventureId ?? null;
     const canAssignToChapter = !!currentChapter?.id;
 
-    // 🔗 chain mode (UI)
     const isChainMode = modalCtx?.mode === "chain";
 
-    // 🔗 garde le contexte en state local (pratique pour l'étape suivante)
     const [chainParentChapterQuestId, setChainParentChapterQuestId] = useState<string | null>(null);
     const [chainParentAdventureQuestId, setChainParentAdventureQuestId] = useState<string | null>(
         null
@@ -83,21 +89,21 @@ export default function QuestCreateModal(props: Props) {
 
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
+
     const [roomCode, setRoomCode] = useState<string>("");
     const [difficulty, setDifficulty] = useState<Difficulty>(2);
     const [estimateMin, setEstimateMin] = useState<string>("");
 
     const [urgency, setUrgency] = useState<QuestUrgency>("normal");
     const [priority] = useState<QuestPriority>("main"); // 🔒 non modifiable pour l’instant
-
     const [target, setTarget] = useState<Target>(props.defaultTarget ?? "backlog");
+
     const [busy, setBusy] = useState(false);
 
     // reset defaults when open (+ applique contexte)
     useEffect(() => {
         if (!isOpen) return;
 
-        // base reset
         setTitle("");
         setDescription("");
         setRoomCode(props.defaultRoomCode ?? "");
@@ -106,24 +112,19 @@ export default function QuestCreateModal(props: Props) {
         setUrgency("normal");
         setTarget(props.defaultTarget ?? "backlog");
 
-        // chain reset
         setChainParentChapterQuestId(null);
         setChainParentAdventureQuestId(null);
         setChainParentTitle(null);
 
-        // ✅ appliquer le contexte si présent
         if (modalCtx?.mode === "chain") {
             setChainParentChapterQuestId(modalCtx.parent_chapter_quest_id ?? null);
             setChainParentAdventureQuestId(modalCtx.parent_adventure_quest_id ?? null);
             setChainParentTitle(modalCtx.parent_title ?? null);
 
-            // UX simple: une quête enchaînée est faite pour le chapitre courant
+            // UX: chain => chapitre
             setTarget("chapter");
 
-            // optionnel: si on a une pièce parent, on peut pré-sélectionner
-            if (modalCtx.parent_room_code) {
-                setRoomCode(modalCtx.parent_room_code);
-            }
+            if (modalCtx.parent_room_code) setRoomCode(modalCtx.parent_room_code);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
@@ -140,6 +141,15 @@ export default function QuestCreateModal(props: Props) {
     }, [roomCode, roomOptions]);
 
     const onClose = () => closeModal("questCreate");
+
+    const disableSubmit =
+        !adventureId ||
+        !title.trim() ||
+        busy ||
+        (isChainMode && !canAssignToChapter) ||
+        (!isChainMode && target === "chapter" && !canAssignToChapter);
+
+    const submitTone: UiFormTextTone = !title.trim() ? "neutral" : "theme";
 
     const onSubmit = async () => {
         if (!adventureId) return;
@@ -158,283 +168,366 @@ export default function QuestCreateModal(props: Props) {
                 description: description.trim() ? description.trim() : null,
                 difficulty,
                 estimate_min: safeEst,
-                urgency, // ✅ NEW
-                // priority: gérée serveur pour l’instant (ou bientôt)
-                //
-                // 🔗 chain: on ne l'envoie pas encore tant que la BDD/routes ne sont pas prêtes.
+                urgency,
                 parent_chapter_quest_id: chainParentChapterQuestId,
                 parent_adventure_quest_id: chainParentAdventureQuestId,
             } as any);
 
             if (!quest?.id) return;
 
-            // mode chain: target forcée chapter si possible
             const wantChapter = isChainMode ? true : target === "chapter";
-
             if (wantChapter && canAssignToChapter) {
                 await assignQuestToCurrentChapter(quest.id);
             }
-            props.onCreated?.();
 
+            props.onCreated?.();
             onClose();
         } finally {
             setBusy(false);
         }
     };
 
-    const disableSubmit =
-        !adventureId || !title.trim() || busy || (isChainMode && !canAssignToChapter);
+    // --- UI Options (UiFormSelect)
+    const targetItems = useMemo(
+        () => [
+            {
+                value: "backlog",
+                label: "🧺 Backlog",
+                description: "Tu la prends quand tu veux.",
+                disabled: false,
+            },
+            {
+                value: "chapter",
+                label: "📘 Chapitre courant",
+                description: canAssignToChapter
+                    ? "Elle rejoint ton chapitre actif."
+                    : "Aucun chapitre actif.",
+                disabled: !canAssignToChapter,
+            },
+        ],
+        [canAssignToChapter]
+    );
 
-    const eyebrow = isChainMode ? "⛓️ Chaîne de quêtes" : "📜 Quête";
-    const modalTitle = isChainMode ? "Enchaîner une quête" : "Créer une nouvelle quête";
+    const roomItems = useMemo(() => {
+        const base = [
+            {
+                value: "",
+                label: "🗺️ Toutes pièces",
+                // description: "Pas de lieu précis.",
+            },
+        ];
+
+        const mapped = roomOptions.map((r: any) => ({
+            value: String(r.code),
+            label: `${r.emoji ?? "🚪"} ${r.title ?? r.code}`,
+        }));
+
+        return base.concat(mapped);
+    }, [roomOptions]);
+
+    const difficultyItems = useMemo(
+        () => [
+            { value: "1", label: "🟢 Facile", hint: "Petit pas, victoire rapide." },
+            { value: "2", label: "🟡 Standard", hint: "Rythme normal." },
+            { value: "3", label: "🔴 Difficile", hint: "Focus, effort, gros gain." },
+        ],
+        []
+    );
+
+    // --- Controls via UiActionButtonGroup
+    const urgencyButtons = useMemo<UiActionButtonGroupButton[]>(() => {
+        const items: Array<{ k: QuestUrgency; label: string; hint: string }> = [
+            { k: "low", label: "🧊 Basse", hint: "Plus tard" },
+            { k: "normal", label: "⚡ Normale", hint: "Cette semaine" },
+            { k: "high", label: "🔥 Haute", hint: "Prioritaire" },
+        ];
+
+        return items.map((x) => ({
+            key: x.k,
+            children: x.label,
+            hint: urgency === x.k ? "✓" : x.hint,
+            active: urgency === x.k,
+            onClick: () => setUrgency(x.k),
+        }));
+    }, [urgency]);
+
+    const modalEyebrow = isChainMode ? "⛓️ Chaîne de quêtes" : "📜 Atelier de quêtes";
+    const modalTitle = isChainMode ? "Enchaîner une quête" : "Forger une nouvelle quête";
 
     return (
         <UiModal
             id="questCreate"
-            maxWidth="lg"
-            eyebrow={eyebrow}
+            maxWidth="3xl"
+            eyebrow={modalEyebrow}
             title={modalTitle}
             closeOnBackdrop
             closeOnEscape
             footer={
                 <div className="flex items-center justify-between gap-2">
-                    <ActionButton onClick={onClose}>Annuler</ActionButton>
-                    <ActionButton
+                    <UiActionButton variant="soft" onClick={onClose}>
+                        Annuler
+                    </UiActionButton>
+
+                    <UiActionButton
                         variant="solid"
                         disabled={disableSubmit}
                         onClick={() => void onSubmit()}
+                        hint={busy ? "…" : isChainMode ? "⛓️" : "✅"}
                     >
-                        {busy ? "⏳ Création…" : isChainMode ? "✅ Enchaîner" : "✅ Créer"}
-                    </ActionButton>
+                        {busy ? "⏳ Forging…" : isChainMode ? "✅ Enchaîner" : "✅ Créer la quête"}
+                    </UiActionButton>
                 </div>
             }
         >
             {!adventureId ? (
-                <div className="rounded-2xl bg-black/25 p-4 ring-1 ring-white/10 text-sm text-white/60">
-                    ⚠️ Aucune aventure active. Lance une aventure pour créer une quête.
-                </div>
-            ) : isChainMode && !canAssignToChapter ? (
-                <div className="rounded-2xl bg-black/25 p-4 ring-1 ring-white/10 text-sm text-white/60">
-                    ⚠️ Impossible d’enchaîner: aucun chapitre actif.
-                </div>
-            ) : (
-                <div className="grid gap-3 mt-2">
-                    {/* 🔗 Bandeau chain (simple, informatif) */}
-                    {isChainMode ? (
-                        <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
-                            <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
-                                Contexte
-                            </div>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                                <Pill>⛓️ Quête enchaînée</Pill>
-                                <Pill>📘 Chapitre courant</Pill>
-                                {chainParentAdventureQuestId ? <Pill>🧬 Parent OK</Pill> : null}
-                                {chainParentChapterQuestId ? (
-                                    <Pill>🪝 Lien chapitre OK</Pill>
-                                ) : null}
-                            </div>
-
-                            {chainParentTitle?.trim() ? (
-                                <div className="mt-2 text-sm text-white/70">
-                                    Parent:{" "}
-                                    <span className="text-white/90 font-semibold">
-                                        {chainParentTitle}
-                                    </span>
-                                </div>
-                            ) : null}
-                        </div>
-                    ) : null}
-
-                    {/* Résumé rapide */}
-                    <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
-                        <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
-                            Résumé
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                            <Pill>
-                                {isChainMode || target === "chapter"
-                                    ? "📘 Chapitre courant"
-                                    : "🧺 Backlog"}
-                            </Pill>
-                            <Pill>
-                                🚪{" "}
-                                {currentRoom
-                                    ? `${currentRoom.emoji} ${currentRoom.title}`
-                                    : "Toutes pièces"}
-                            </Pill>
-                            <Pill>{difficultyLabel(difficulty)}</Pill>
-                            <Pill>⏱️ {urgencyLabel(urgency)}</Pill>
-                            <Pill>🔒 {priorityLabel(priority)}</Pill>
-                        </div>
-
-                        {!canAssignToChapter && !isChainMode ? (
-                            <div className="mt-2 text-xs text-white/45">
-                                📘 Chapitre courant indisponible: aucun chapitre actif.
-                            </div>
-                        ) : null}
+                <UiPanel
+                    title="Aventure requise"
+                    emoji="⚠️"
+                    subtitle="Pour créer des quêtes, démarre d’abord une aventure."
+                >
+                    <div className="text-sm text-white/65">
+                        Astuce: depuis l’accueil, lance une aventure puis reviens ici.
                     </div>
+                </UiPanel>
+            ) : isChainMode && !canAssignToChapter ? (
+                <UiPanel
+                    title="Chapitre requis"
+                    emoji="⚠️"
+                    subtitle="Une quête enchaînée doit être attachée à un chapitre actif."
+                >
+                    <div className="text-sm text-white/65">
+                        Ouvre ou crée un chapitre, puis relance l’enchaînement.
+                    </div>
+                </UiPanel>
+            ) : (
+                <div className="mt-2 grid gap-3">
+                    {/* HERO SUMMARY (sexy) */}
+                    <UiGradientPanel innerClassName="p-4">
+                        <div className="grid gap-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="text-[11px] tracking-[0.22em] text-white/55">
+                                    ⚙️ PARAMÈTRES RAPIDES
+                                </div>
 
-                    {/* Target */}
-                    <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
-                        <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
-                            Destination
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {/* <UiChip tone="theme" icon="🧭">
+                                        aventure active
+                                    </UiChip> */}
+
+                                    {/* <UiChip tone="neutral" icon="🚪">
+                                        {currentRoom
+                                            ? `${currentRoom.emoji} ${currentRoom.title}`
+                                            : "toutes pièces"}
+                                    </UiChip> */}
+                                    <Helpers.Chip.room roomCode={roomCode} />
+                                    <Helpers.Chip.priority priority={priority} />
+                                    <Helpers.Chip.difficulty difficulty={difficulty} />
+
+                                    {/* <UiChip tone="neutral" icon="🎚️">
+                                        {difficultyLabel(difficulty)}
+                                    </UiChip> */}
+
+                                    <UiChip tone="neutral" icon="⏱️">
+                                        {urgencyLabel(urgency)}
+                                    </UiChip>
+
+                                    {/* <UiChip tone="neutral" icon="🔒">
+                                        {priorityLabel(priority)}
+                                    </UiChip> */}
+                                </div>
+                            </div>
+
+                            {isChainMode ? (
+                                <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div className="text-sm font-semibold text-white/85">
+                                            ⛓️ Mode chaîne
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <UiPill tone="theme">📘 Chapitre courant</UiPill>
+                                            {chainParentAdventureQuestId ? (
+                                                <UiPill tone="neutral">🧬 parent lié</UiPill>
+                                            ) : null}
+                                        </div>
+                                    </div>
+
+                                    {chainParentTitle?.trim() ? (
+                                        <div className="mt-2 text-sm text-white/70">
+                                            Parent:{" "}
+                                            <span className="font-semibold text-white/90">
+                                                {chainParentTitle}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div className="mt-2 text-sm text-white/60">
+                                            Crée la prochaine marche. Une action simple, nette,
+                                            gagnable.
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="text-sm text-white/60">
+                                    Donne-lui un titre clair, choisis le lieu, et lance-la dans ton
+                                    flux. Une quête doit donner envie de dire “ok, go”.
+                                </div>
+                            )}
                         </div>
+                    </UiGradientPanel>
 
+                    {/* DESTINATION */}
+                    <UiPanel
+                        title="Destination"
+                        emoji="🧺"
+                        // subtitle="Où cette quête doit atterrir dans ton aventure."
+                    >
                         {isChainMode ? (
-                            <div className="mt-2 text-sm text-white/70">
-                                🔒 Une quête enchaînée est ajoutée au{" "}
-                                <span className="text-white/90 font-semibold">
+                            <div className="text-sm text-white/70">
+                                🔒 Une quête enchaînée rejoint automatiquement le{" "}
+                                <span className="font-semibold text-white/90">
                                     chapitre courant
                                 </span>
                                 .
                             </div>
                         ) : (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setTarget("backlog")}
-                                    className={cn(
-                                        "rounded-full px-3 py-1 text-xs ring-1 transition",
-                                        target === "backlog"
-                                            ? "bg-white/10 text-white ring-white/15"
-                                            : "bg-white/5 text-white/70 ring-white/10 hover:bg-white/10"
-                                    )}
-                                >
-                                    🧺 Backlog
-                                </button>
-
-                                <button
-                                    type="button"
-                                    disabled={!canAssignToChapter}
-                                    onClick={() => setTarget("chapter")}
-                                    className={cn(
-                                        "rounded-full px-3 py-1 text-xs ring-1 transition",
-                                        target === "chapter"
-                                            ? "bg-white/10 text-white ring-white/15"
-                                            : "bg-white/5 text-white/70 ring-white/10 hover:bg-white/10",
-                                        !canAssignToChapter && "opacity-50 cursor-not-allowed"
-                                    )}
-                                    title={!canAssignToChapter ? "Aucun chapitre actif" : undefined}
-                                >
-                                    📘 Chapitre courant
-                                </button>
-                            </div>
+                            <UiFormSelect
+                                // label="Où cette quête doit atterrir dans ton aventure."
+                                placeholder="Sélectionner…"
+                                value={target}
+                                onChange={(v: any) => setTarget((v ?? "backlog") as Target)}
+                                options={targetItems as any}
+                                clearable={false}
+                                searchable={false}
+                                hint={
+                                    target === "chapter"
+                                        ? "Parfait pour avancer l’histoire maintenant."
+                                        : "Idéal pour vider la tête sans pression."
+                                }
+                            />
                         )}
-                    </div>
+                    </UiPanel>
 
-                    {/* Room + Difficulty */}
-                    <div className="grid gap-2 sm:grid-cols-[1fr_170px]">
-                        <select
-                            value={roomCode}
-                            onChange={(e) => setRoomCode(e.target.value)}
-                            className="rounded-2xl bg-black/30 px-4 py-3 text-sm text-white/90 ring-1 ring-white/10 outline-none focus:ring-2 focus:ring-white/25"
-                        >
-                            <option value="">🗺️ Toutes pièces</option>
-                            {roomOptions.map((r) => (
-                                <option key={r.code} value={r.code}>
-                                    {r.emoji} {r.title}
-                                </option>
-                            ))}
-                        </select>
+                    {/* CORE FORM */}
+                    <UiPanel
+                        title="La quête"
+                        emoji="📜"
+                        // subtitle="Un titre net + une intention simple. Le reste est optionnel."
+                    >
+                        <div className="grid gap-3">
+                            <UiFormText
+                                label="Titre"
+                                placeholder={
+                                    isChainMode
+                                        ? "Ex: Ensuite… vider le lave-vaisselle"
+                                        : "Ex: Ranger la table basse"
+                                }
+                                value={title}
+                                onChange={setTitle}
+                                required
+                                tone={submitTone}
+                                leftIcon="✍️"
+                                clearable
+                                onClear={() => setTitle("")}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") void onSubmit();
+                                }}
+                                // hint="Astuce: commence par un verbe. Court = plus facile à faire."
+                                maxLength={80}
+                                showCounter={false}
+                            />
 
-                        <select
-                            value={difficulty}
-                            onChange={(e) => setDifficulty(Number(e.target.value) as Difficulty)}
-                            className="rounded-2xl bg-black/30 px-4 py-3 text-sm text-white/90 ring-1 ring-white/10 outline-none focus:ring-2 focus:ring-white/25"
-                        >
-                            <option value={1}>🟢 Facile</option>
-                            <option value={2}>🟡 Standard</option>
-                            <option value={3}>🔴 Difficile</option>
-                        </select>
-                    </div>
+                            <UiFormText
+                                label="Détails (optionnel)"
+                                tone="neutral"
+                                placeholder="Ex: vider les câbles, dépoussiérer, remettre les plaids…"
+                                value={description}
+                                onChange={setDescription}
+                                multiline
+                                rows={5}
+                                autoResize
+                                autoResizeMinRows={4}
+                                autoResizeMaxRows={10}
+                                leftIcon="🗒️"
+                                clearable
+                                onClear={() => setDescription("")}
+                                // hint="Garde-le concret: ce qu’on doit voir une fois terminé."
+                                maxLength={500}
+                                showCounter={false}
+                            />
+                        </div>
+                    </UiPanel>
 
-                    {/* Urgency + Priority */}
-                    <div className="grid gap-2 sm:grid-cols-[1fr_1fr]">
-                        <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
-                            <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
-                                Urgence
+                    {/* SETTINGS */}
+                    <UiPanel
+                        title="Réglages"
+                        emoji="🎛️"
+                        // subtitle="Lieu, difficulté, urgence, estimation. De quoi guider le pacing."
+                    >
+                        <div className="grid gap-3">
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <UiFormSelect
+                                    label="Lieu"
+                                    placeholder="Toutes pièces"
+                                    value={roomCode}
+                                    onChange={(v: any) => setRoomCode(String(v ?? ""))}
+                                    options={roomItems as any}
+                                    clearable={false}
+                                    // hint="Si tu hésites: laisse vide, tu t’en occuperas en chemin."
+                                />
+
+                                <UiFormSelect
+                                    label="Difficulté"
+                                    placeholder="Standard"
+                                    value={String(difficulty)}
+                                    onChange={(v: any) =>
+                                        setDifficulty(Number(v ?? 2) as Difficulty)
+                                    }
+                                    options={difficultyItems as any}
+                                    clearable={false}
+                                    // hint="La difficulté influence le ressenti… et bientôt les récompenses."
+                                />
                             </div>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                                {(["low", "normal", "high"] as QuestUrgency[]).map((u) => (
-                                    <button
-                                        key={u}
-                                        type="button"
-                                        onClick={() => setUrgency(u)}
-                                        className={cn(
-                                            "rounded-full px-3 py-1 text-xs ring-1 transition",
-                                            urgency === u
-                                                ? "bg-white/10 text-white ring-white/15"
-                                                : "bg-white/5 text-white/70 ring-white/10 hover:bg-white/10"
-                                        )}
-                                    >
-                                        {u === "low"
-                                            ? "🧊 Basse"
-                                            : u === "high"
-                                              ? "🔥 Haute"
-                                              : "⚡ Normale"}
-                                    </button>
-                                ))}
+
+                            <div className="grid gap-2">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="text-xs tracking-[0.18em] text-white/55">
+                                        URGENCE
+                                    </div>
+                                    {/* <UiChip tone="neutral" icon="⏱️">
+                                        {urgencyLabel(urgency)}
+                                    </UiChip> */}
+                                </div>
+
+                                <UiActionButtonGroup
+                                    variant="soft"
+                                    size="sm"
+                                    fullWidth
+                                    buttons={urgencyButtons}
+                                />
+
+                                {/* <div className="text-xs text-white/45">
+                                    Sert au tri, à la planif, et bientôt au “rythme” narratif.
+                                </div> */}
                             </div>
-                            <div className="mt-2 text-xs text-white/45">
-                                Sert au tri, à la planif, et bientôt au pacing.
+
+                            <div className="grid gap-3 sm:grid-cols-[1fr_220px] sm:items-end">
+                                {/* <div className="text-sm text-white/60">
+                                    Estimation (minutes). Optionnel, mais pratique pour te donner un
+                                    “petit contrat” clair.
+                                </div> */}
+
+                                <UiFormText
+                                    label="Estimation (minutes)"
+                                    tone="neutral"
+                                    placeholder="Ex: 5"
+                                    value={estimateMin}
+                                    onChange={(v) => setEstimateMin(v.replace(/[^\d]/g, ""))}
+                                    leftIcon="⏳"
+                                    // inputClassName="tabular-nums"
+                                    // hint="1 à 999"
+                                />
                             </div>
                         </div>
-
-                        <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
-                            <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
-                                Priorité
-                            </div>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                                <span className="rounded-full px-3 py-1 text-xs ring-1 bg-white/5 text-white/70 ring-white/10">
-                                    🔒 {priorityLabel(priority)}
-                                </span>
-                            </div>
-                            <div className="mt-2 text-xs text-white/45">
-                                Non modifiable pour l’instant (quêtes secondaires à venir).
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Title */}
-                    <input
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") void onSubmit();
-                        }}
-                        placeholder={
-                            isChainMode
-                                ? "Ex: Ensuite… vider le lave-vaisselle (5 min)…"
-                                : "Ex: Ranger la table basse (5 min)…"
-                        }
-                        className={cn(
-                            "w-full rounded-2xl bg-black/30 px-4 py-3 text-sm text-white/90",
-                            "ring-1 ring-white/10 outline-none placeholder:text-white/40",
-                            "focus:ring-2 focus:ring-white/25"
-                        )}
-                    />
-
-                    {/* Description */}
-                    <textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Détails (optionnel). Ex: vider les câbles, dépoussiérer, remettre les plaids…"
-                        className="min-h-[120px] w-full rounded-2xl bg-black/30 px-4 py-3 text-sm text-white/90 ring-1 ring-white/10 outline-none placeholder:text-white/40 focus:ring-2 focus:ring-white/25"
-                    />
-
-                    {/* Estimate */}
-                    <div className="grid gap-2 sm:grid-cols-[1fr_240px]">
-                        <div className="text-sm text-white/60">
-                            Estimation en minutes (optionnel). Bientôt utile pour pacing et stats.
-                        </div>
-                        <input
-                            value={estimateMin}
-                            onChange={(e) => setEstimateMin(e.target.value.replace(/[^\d]/g, ""))}
-                            placeholder="Estimation (min)"
-                            inputMode="numeric"
-                            className="rounded-2xl bg-black/30 px-4 py-3 text-sm text-white/90 ring-1 ring-white/10 outline-none placeholder:text-white/40 focus:ring-2 focus:ring-white/25"
-                        />
-                    </div>
+                    </UiPanel>
                 </div>
             )}
         </UiModal>

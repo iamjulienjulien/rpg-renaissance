@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import UiModal from "@/components/ui/UiModal";
+import { UiModal } from "@/components/ui/UiModal";
 import { ActionButton } from "@/components/RpgUi";
 
 export default React.memo(function ChapterConfigModal(props: {

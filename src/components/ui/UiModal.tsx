@@ -73,7 +73,7 @@ function themePanelClass(theme: UiTheme) {
     );
 }
 
-export default function UiModal(props: UiModalProps) {
+export function UiModal(props: UiModalProps) {
     const {
         id,
         eyebrow,
@@ -194,7 +194,7 @@ export default function UiModal(props: UiModalProps) {
                                 )}
 
                                 {/* Body scrollable (le coeur du fix) */}
-                                <div className="px-5 pb-5 max-h-[calc(100svh-10rem)] overflow-y-auto">
+                                <div className="px-5 pb-5 max-h-[calc(100svh-15rem)] overflow-y-auto">
                                     {children}
                                 </div>
 

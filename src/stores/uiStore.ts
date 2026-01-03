@@ -189,3 +189,32 @@ export const useUiStore = create(
         }
     )
 );
+
+export type UiAction =
+    | "openPalette"
+    | "closePalette"
+    | "togglePalette"
+    | "enableDevMode"
+    | "disableDevMode"
+    | "toggleDevMode";
+
+export function useUiAction(action?: UiAction) {
+    const openPalette = useUiStore((s) => s.openCommandPalette);
+    const closePalette = useUiStore((s) => s.closeCommandPalette);
+    const togglePalette = useUiStore((s) => s.toggleCommandPalette);
+
+    const devMode = useUiStore((s) => s.devMode);
+    const setDevMode = useUiStore((s) => s.setDevMode);
+
+    if (!action) return undefined;
+
+    if (action === "openPalette") return () => openPalette();
+    if (action === "closePalette") return () => closePalette();
+    if (action === "togglePalette") return () => togglePalette();
+
+    if (action === "enableDevMode") return () => setDevMode(true);
+    if (action === "disableDevMode") return () => setDevMode(false);
+    if (action === "toggleDevMode") return () => setDevMode(!devMode);
+
+    return undefined;
+}

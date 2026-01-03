@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { qstashPublishJSON } from "@/lib/qstash/publish";
 import { generateBriefingForAdventureId } from "@/lib/briefing/generateBriefing";
+import { generateWelcomeMessage } from "@/lib/prompts/generateWelcomeMessage";
 
 // ✅ System logs + request context
 import { Log } from "@/lib/systemLog/Log";
@@ -318,6 +319,55 @@ async function executeJob(job: AiJobRow) {
                 adventure_id: adventureId,
                 briefing: result.briefing,
                 meta: result.meta,
+            };
+        }
+
+        case "welcome_message": {
+            const adventureId = (job.payload as any)?.adventure_id ?? job.adventure_id ?? null;
+            const userId = (job.payload as any)?.user_id ?? job.user_id ?? null;
+
+            if (!adventureId) {
+                Log.warning("ai_worker.execute.welcome_message.missing_adventure_id", {
+                    status_code: 400,
+                    metadata: { job_id: job.id, has_payload: !!job.payload },
+                });
+                throw new Error("Missing payload.adventure_id");
+            }
+
+            if (!userId) {
+                Log.warning("ai_worker.execute.welcome_message.missing_user_id", {
+                    status_code: 400,
+                    metadata: { job_id: job.id, has_payload: !!job.payload },
+                });
+                throw new Error("Missing payload.user_id");
+            }
+
+            patchRequestContext({ adventure_id: adventureId, user_id: userId });
+
+            const g0 = Date.now();
+
+            // ✅ La persistance en BDD est déjà gérée dans generateWelcomeMessage.ts
+            // (welcome_text + createAiGenerationLog + createJournalEntry)
+            const result = await generateWelcomeMessage({
+                adventure_id: adventureId,
+                user_id: userId,
+            });
+
+            Log.success("ai_worker.execute.welcome_message.generated", {
+                status_code: 200,
+                metadata: {
+                    ms: msSince(g0),
+                    job_id: job.id,
+                    adventure_id: adventureId,
+                    user_id: userId,
+                    has_md: !!result?.welcome_text,
+                },
+            });
+
+            return {
+                adventure_id: adventureId,
+                user_id: userId,
+                welcome_md: result?.welcome_text ?? null,
             };
         }
 

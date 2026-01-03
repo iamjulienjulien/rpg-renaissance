@@ -45,7 +45,7 @@ export default function OnboardingQuestsPage() {
     const [creatingQuest, setCreatingQuest] = useState(false);
 
     const [generating, setGenerating] = useState(false);
-    const [aiCount, setAiCount] = useState<5 | 8 | 12>(5);
+    const [aiCount, setAiCount] = useState<1 | 3 | 5 | 8 | 12>(5);
 
     const [starting, setStarting] = useState(false);
 
@@ -336,7 +336,7 @@ export default function OnboardingQuestsPage() {
                         </Panel>
 
                         {/* IA */}
-                        {/* <Panel
+                        <Panel
                             title="Coup de pouce IA"
                             emoji="🧠"
                             subtitle="Génère des quêtes courtes et concrètes, pièce par pièce."
@@ -362,6 +362,18 @@ export default function OnboardingQuestsPage() {
 
                             <div className="mt-3 flex flex-wrap gap-2">
                                 <ActionButton
+                                    variant={aiCount === 1 ? "solid" : "soft"}
+                                    onClick={() => setAiCount(1)}
+                                >
+                                    1
+                                </ActionButton>
+                                <ActionButton
+                                    variant={aiCount === 3 ? "solid" : "soft"}
+                                    onClick={() => setAiCount(3)}
+                                >
+                                    3
+                                </ActionButton>
+                                <ActionButton
                                     variant={aiCount === 5 ? "solid" : "soft"}
                                     onClick={() => setAiCount(5)}
                                 >
@@ -383,7 +395,7 @@ export default function OnboardingQuestsPage() {
                                 <Pill>💡 Conseil: commence par 5</Pill>
                                 <Pill>🧼 Ciblé, pas parfait</Pill>
                             </div>
-                        </Panel> */}
+                        </Panel>
 
                         {/* VALIDATION */}
                         <Panel

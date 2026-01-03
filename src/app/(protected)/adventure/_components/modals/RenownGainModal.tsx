@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import UiModal from "@/components/ui/UiModal";
+import { UiModal } from "@/components/ui/UiModal";
 import MasterCard from "@/components/ui/MasterCard";
 import { ActionButton } from "@/components/RpgUi";
 import { UiMotionDiv } from "@/components/motion/UiMotion";

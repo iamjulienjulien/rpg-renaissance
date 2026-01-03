@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import UiModal from "@/components/ui/UiModal";
+import { UiModal } from "@/components/ui/UiModal";
 import { ActionButton, Pill } from "@/components/RpgUi";
 import { useUiStore } from "@/stores/uiStore";
 import { useGameStore } from "@/stores/gameStore";

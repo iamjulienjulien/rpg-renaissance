@@ -32,7 +32,27 @@ import type {
     QuestMessageMeta,
     QuestThread as QuestThreadRow,
     QuestMessage as QuestMessageRow,
+    CurrentPlayer,
 } from "@/types/game";
+
+export type BadgeCatalogRow = {
+    id: string;
+    code: string;
+    title: string;
+    emoji: string | null;
+    description: string | null;
+    created_at: string;
+};
+
+export type RenownLevelRow = {
+    level: number;
+    tier: number;
+    tier_title: string;
+    level_suffix: string | null;
+    full_title: string;
+    is_milestone: boolean;
+    created_at: string;
+};
 
 /* ============================================================================
 🧱 TYPES (données métier)
@@ -256,6 +276,9 @@ type GameStore = {
     currentQuests: ChapterQuestFull[];
     currentChapterQuests: ChapterQuestFull[];
     currentCharacter: Character | null;
+    currentPlayer: CurrentPlayer | null;
+
+    getCurrentPlayer: () => Promise<CurrentPlayer | null>;
 
     /* --------------------------- 🗺️ ADVENTURE --------------------------- */
     startingAdventure: boolean;
@@ -297,7 +320,9 @@ type GameStore = {
         difficulty: 1 | 2 | 3;
     }) => Promise<boolean>;
 
-    generateBacklogForStartAdventure: (input: { perRoomCount: 5 | 8 | 12 }) => Promise<number>;
+    generateBacklogForStartAdventure: (input: {
+        perRoomCount: 1 | 3 | 5 | 8 | 12;
+    }) => Promise<number>;
 
     launchStartAdventureFirstChapter: () => Promise<string | null>;
 
@@ -557,6 +582,24 @@ type GameStore = {
     getQuestMission: (chapterQuestId: string) => Promise<any | null>;
     generateQuestMission: (chapterQuestId: string, force?: boolean) => Promise<any | null>;
     clearQuestMission: (chapterQuestId: string) => void;
+
+    // data
+    badges: BadgeCatalogRow[];
+    renownLevels: RenownLevelRow[];
+
+    // loading/error (optionnel mais pratique)
+    badgesLoading: boolean;
+    renownLevelsLoading: boolean;
+    badgesError: string | null;
+    renownLevelsError: string | null;
+
+    // actions
+    getBadges: (args?: { force?: boolean }) => Promise<BadgeCatalogRow[]>;
+    getRenownLevels: (args?: {
+        force?: boolean;
+        tier?: number;
+        milestonesOnly?: boolean;
+    }) => Promise<RenownLevelRow[]>;
 };
 
 export const useGameStore = create<GameStore>((set, get) => {
@@ -581,9 +624,32 @@ export const useGameStore = create<GameStore>((set, get) => {
         currentQuests: [],
         currentChapterQuests: [],
         currentCharacter: null,
+        currentPlayer: null,
 
         rooms: [],
         templates: [],
+
+        getCurrentPlayer: async () => {
+            const res = await fetch("/api/player", {
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+            });
+
+            if (!res.ok) {
+                // option: reset si 401
+                if (res.status === 401) {
+                    set({ currentPlayer: null });
+                    return null;
+                }
+                const msg = await res.text().catch(() => "");
+                throw new Error(`getCurrentPlayer failed (${res.status}): ${msg}`);
+            }
+
+            const data = (await res.json()) as CurrentPlayer;
+
+            set({ currentPlayer: data });
+            return data;
+        },
 
         /* =========================================================================
         🗺️ ADVENTURE (start)
@@ -1371,6 +1437,25 @@ export const useGameStore = create<GameStore>((set, get) => {
                     return false;
                 }
 
+                const userId = jsonProfile?.profile?.user_id ?? null;
+                const adventureId = get().currentAdventure?.id ?? null;
+
+                if (userId && adventureId) {
+                    const resWelcome = await fetch("/api/ai/welcome-message", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ adventure_id: adventureId, user_id: userId }),
+                    });
+
+                    await resWelcome.json().catch(() => null);
+                    if (!resWelcome.ok) {
+                        set({
+                            error: "Impossible de générer le message d'accueil",
+                        });
+                        return false;
+                    }
+                }
+
                 /* ------------------------------------------------------------------
         3) Mise à jour locale du profile (important pour la suite du flow)
         ------------------------------------------------------------------ */
@@ -1683,6 +1768,8 @@ export const useGameStore = create<GameStore>((set, get) => {
                     }
                 }
 
+                // console.log("currentAdventure", currentAdventure);
+
                 set({
                     characters,
                     rooms,
@@ -1707,6 +1794,10 @@ export const useGameStore = create<GameStore>((set, get) => {
                 if (currentAdventure?.id) {
                     void get().getChaptersByAdventure(currentAdventure.id);
                 }
+
+                void get().getCurrentPlayer();
+                void get().getRenownLevels();
+                void get().getBadges();
             } catch (e) {
                 set({
                     characters: [],
@@ -3817,6 +3908,117 @@ export const useGameStore = create<GameStore>((set, get) => {
                         [chapterQuestId]: false,
                     },
                 }));
+            }
+        },
+
+        badges: [],
+        renownLevels: [],
+
+        badgesLoading: false,
+        renownLevelsLoading: false,
+        badgesError: null,
+        renownLevelsError: null,
+
+        getBadges: async (args) => {
+            const force = !!args?.force;
+            const { badges, badgesLoading } = get() as any;
+
+            if (!force && Array.isArray(badges) && badges.length > 0) return badges;
+            if (badgesLoading) return (badges ?? []) as BadgeCatalogRow[];
+
+            set({ badgesLoading: true, badgesError: null } as any);
+
+            try {
+                const res = await fetch("/api/badges", {
+                    method: "GET",
+                    headers: { Accept: "application/json" },
+                });
+
+                const body = await safeJson(res);
+
+                if (!res.ok) {
+                    const msg = (body as any)?.error ?? `Failed to fetch badges (${res.status})`;
+                    set({ badgesLoading: false, badgesError: msg } as any);
+                    return (get() as any).badges as BadgeCatalogRow[];
+                }
+
+                const next = ((body as any)?.badges ?? []) as BadgeCatalogRow[];
+                set({ badges: next, badgesLoading: false, badgesError: null } as any);
+                return next;
+            } catch (e: any) {
+                const msg = e?.message ? String(e.message) : "Failed to fetch badges";
+                set({ badgesLoading: false, badgesError: msg } as any);
+                return (get() as any).badges as BadgeCatalogRow[];
+            }
+        },
+
+        getRenownLevels: async (args) => {
+            const force = !!args?.force;
+            const tier = typeof args?.tier === "number" ? args.tier : null;
+            const milestonesOnly = !!args?.milestonesOnly;
+
+            const { renownLevels, renownLevelsLoading } = get() as any;
+
+            // ⚠️ cache simple: on ne court-circuite que si on demande le catalogue complet
+            const askingFullCatalog = tier === null && !milestonesOnly;
+
+            if (
+                !force &&
+                askingFullCatalog &&
+                Array.isArray(renownLevels) &&
+                renownLevels.length > 0
+            ) {
+                return renownLevels;
+            }
+            if (renownLevelsLoading) return (renownLevels ?? []) as RenownLevelRow[];
+
+            set({ renownLevelsLoading: true, renownLevelsError: null } as any);
+
+            try {
+                const qs = new URLSearchParams();
+                if (tier !== null) qs.set("tier", String(tier));
+                if (milestonesOnly) qs.set("milestones", "1");
+
+                const url = qs.toString()
+                    ? `/api/renown-levels?${qs.toString()}`
+                    : "/api/renown-levels";
+
+                const res = await fetch(url, {
+                    method: "GET",
+                    headers: { Accept: "application/json" },
+                });
+
+                const body = await safeJson(res);
+
+                if (!res.ok) {
+                    const msg =
+                        (body as any)?.error ?? `Failed to fetch renown levels (${res.status})`;
+                    set({ renownLevelsLoading: false, renownLevelsError: msg } as any);
+                    return (get() as any).renownLevels as RenownLevelRow[];
+                }
+
+                const next = ((body as any)?.levels ?? []) as RenownLevelRow[];
+
+                // On stocke uniquement le catalogue complet dans le store "principal"
+                if (askingFullCatalog) {
+                    set({
+                        renownLevels: next,
+                        renownLevelsLoading: false,
+                        renownLevelsError: null,
+                    } as any);
+                } else {
+                    // si query (tier/milestones), on ne remplace pas le full cache
+                    set({
+                        renownLevelsLoading: false,
+                        renownLevelsError: null,
+                    } as any);
+                }
+
+                return next;
+            } catch (e: any) {
+                const msg = e?.message ? String(e.message) : "Failed to fetch renown levels";
+                set({ renownLevelsLoading: false, renownLevelsError: msg } as any);
+                return (get() as any).renownLevels as RenownLevelRow[];
             }
         },
     };

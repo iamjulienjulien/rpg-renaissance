@@ -3,6 +3,7 @@
 import React from "react";
 import { Panel, ActionButton } from "@/components/RpgUi";
 import type { Adventure, Chapter } from "@/types/game";
+import { UiGradientPanel } from "@/components/ui/UiGradientPanel";
 
 export default React.memo(function AdventureBlock(props: {
     chapter: Chapter;
@@ -25,6 +26,7 @@ export default React.memo(function AdventureBlock(props: {
             }
         >
             <div className="rounded-2xl bg-black/30 p-5 ring-1 ring-white/10">
+                {/* <UiGradientPanel innerClassName="p-5"> */}
                 <div className="min-w-0">
                     <div className="text-xl font-semibold text-white/90">
                         {advEmoji} {advTitle}
@@ -41,6 +43,7 @@ export default React.memo(function AdventureBlock(props: {
                         </div>
                     </div>
                 </div>
+                {/* </UiGradientPanel> */}
             </div>
         </Panel>
     );

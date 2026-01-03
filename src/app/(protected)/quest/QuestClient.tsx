@@ -33,6 +33,7 @@ import { formatJournalTime } from "@/helpers/dateTime";
 import QuestMjThreadCard from "./QuestMjThreadCard";
 import { useDevStore } from "@/stores/devStore";
 import QuestEditModal from "@/components/modals/QuestEditModal";
+import UIActionButton from "@/components/ui/UiActionButton";
 
 type Quest = {
     id: string;
@@ -717,13 +718,13 @@ export default function QuestClient() {
                                         </ActionButton>
 
                                         {(!missionMd || devModeEnabled) && (
-                                            <ActionButton
-                                                variant="master"
+                                            <UIActionButton
+                                                variant="magic"
                                                 onClick={onRegenerateMission}
                                                 disabled={busy}
                                             >
                                                 ✨ Générer l'ordre de mission
-                                            </ActionButton>
+                                            </UIActionButton>
                                         )}
 
                                         <ActionButton
@@ -771,22 +772,22 @@ export default function QuestClient() {
                                             ✍️ Modifier la quête
                                         </ActionButton>
 
-                                        <ActionButton
-                                            variant="master"
+                                        <UIActionButton
+                                            variant="magic"
                                             onClick={onEncourage}
                                             disabled={busy}
                                         >
                                             ✨ Demander un encouragement
-                                        </ActionButton>
+                                        </UIActionButton>
 
                                         {(!missionMd || devModeEnabled) && (
-                                            <ActionButton
-                                                variant="master"
+                                            <UIActionButton
+                                                variant="magic"
                                                 onClick={onRegenerateMission}
                                                 disabled={busy}
                                             >
                                                 ✨ Générer l'ordre de mission
-                                            </ActionButton>
+                                            </UIActionButton>
                                         )}
 
                                         {/* ✅ NEW: Chain quest */}

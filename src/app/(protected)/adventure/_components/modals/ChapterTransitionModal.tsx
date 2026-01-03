@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import UiModal from "@/components/ui/UiModal";
+import { UiModal } from "@/components/ui/UiModal";
 import { ActionButton, Pill } from "@/components/RpgUi";
 import { QuestDifficultyPill } from "@/helpers/questDifficulty";
 import { QuestRoomPill } from "@/helpers/questRoom";
