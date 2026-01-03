@@ -1620,9 +1620,6 @@ export const useGameStore = create<GameStore>((set, get) => {
 
             const session = sessionRes.data?.session ?? null;
             const sessionId = session?.id ?? null;
-            const userId = session?.user_id ?? null;
-
-            set({ currentUserId: userId });
 
             try {
                 const [charsRes, profRes, chapterRes, renownRes, advTypesRes] =
