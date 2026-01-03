@@ -1258,11 +1258,12 @@ export const useGameStore = create<GameStore>((set, get) => {
         ------------------------------------------------------------ */
                 const started = await get().startAdventure({
                     type_code: adv,
-                    // tu peux mettre un titre d’instance plus tard si tu veux
                     journal: {
                         emoji: "🏁",
                         title: "Prologue scellé",
-                        content: `Aventure: ${adv}\nMJ: ${selected ? `${selected.emoji} ${selected.name}` : cid}`,
+                        content: `Aventure: ${adv}\nMJ: ${
+                            selected ? `${selected.emoji} ${selected.name}` : cid
+                        }`,
                     },
                 });
 
@@ -1272,9 +1273,24 @@ export const useGameStore = create<GameStore>((set, get) => {
                 }
 
                 /* ------------------------------------------------------------
+        2.5) Enqueue job briefing (best-effort)
+        ------------------------------------------------------------ */
+                const jobRes = await apiPost<{ jobId: string }>("/api/ai/jobs/enqueue", {
+                    job_type: "adventure_briefing",
+                    adventure_id: started.adventureId,
+                    priority: 50,
+                    payload: {
+                        adventure_id: started.adventureId,
+                    },
+                });
+
+                if (!jobRes.ok) {
+                    console.warn("Failed to enqueue adventure briefing job:", jobRes.error);
+                }
+
+                /* ------------------------------------------------------------
         3) Rafraîchir l’état global (best-effort)
         ------------------------------------------------------------ */
-                // On recharge tout pour que / et le reste aient la snapshot à jour
                 await get().bootstrap();
 
                 toast.success(

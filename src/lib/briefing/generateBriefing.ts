@@ -64,6 +64,16 @@ function verbosityRules(v?: string | null) {
     return { maxIntroLines: 3, bulletsMin: 4, bulletsMax: 8 };
 }
 
+// Petit mapping “safe” (ton schema adventure_types ne contient pas emoji)
+function emojiForAdventureTypeCode(code?: string | null): string {
+    const c = safeTrim(code).toLowerCase();
+    if (!c) return "🧭";
+    if (c.includes("home") || c.includes("foyer")) return "🏠";
+    if (c.includes("mind") || c.includes("esprit")) return "🧠";
+    if (c.includes("body") || c.includes("corps")) return "🚶";
+    return "🧭";
+}
+
 /* ============================================================================
 🔎 DATA LOADERS
 ============================================================================ */
@@ -116,6 +126,87 @@ async function loadPlayerContextByUserId(userId: string): Promise<PlayerContext>
             ai_style: c.ai_style ?? null,
         },
     };
+}
+
+type AdventureTypeRow = {
+    code?: string | null;
+    title?: string | null;
+    description?: string | null;
+};
+
+/**
+ * ✅ NEW: charge l’aventure “instance” + son type (si dispo)
+ * ⚠️ Important: selon ton schéma, adventure_types n'a QUE code/title/description.
+ * Donc emoji/base_goal/steps = fallback côté instance.
+ */
+async function loadAdventureInfoById(adventureId: string): Promise<AdventureInfo> {
+    const supabase = await supabaseServer();
+
+    // 1) adventure instance (ton schéma adventures)
+    const { data: adv, error: advErr } = await supabase
+        .from("adventures")
+        .select(
+            "id,title,description,context_text,type_id,legacy_type_code,instance_code,session_id"
+        )
+        .eq("id", adventureId)
+        .single();
+
+    if (advErr || !adv) {
+        throw new Error(advErr?.message ?? "Adventure not found");
+    }
+
+    // 2) adventure type (si dispo)
+    let typeRow: AdventureTypeRow | null = null;
+
+    if ((adv as any).type_id) {
+        const { data: t, error: tErr } = await supabase
+            .from("adventure_types")
+            .select("code,title,description")
+            .eq("id", (adv as any).type_id)
+            .maybeSingle();
+
+        if (!tErr && t) typeRow = t as any;
+    }
+
+    // 3) map -> AdventureInfo (fallbacks)
+    const code =
+        safeTrim((typeRow as any)?.code) ||
+        safeTrim((adv as any)?.legacy_type_code) ||
+        safeTrim((adv as any)?.instance_code) ||
+        "adventure";
+
+    const title = safeTrim((adv as any)?.title) || safeTrim((typeRow as any)?.title) || "Aventure";
+
+    // emoji: pas en DB pour l’instant -> mapping depuis code
+    const emoji = emojiForAdventureTypeCode(code);
+
+    // baseGoal: on privilégie description, puis context_text, puis description du type
+    const baseGoal =
+        safeTrim((adv as any)?.description) ||
+        safeTrim((adv as any)?.context_text) ||
+        safeTrim((typeRow as any)?.description) ||
+        "Clarifier ton chemin et avancer.";
+
+    // steps: pas en DB pour l’instant -> vide (tu pourras ajouter plus tard si tu ajoutes une colonne steps)
+    const steps: string[] = [];
+
+    return {
+        code,
+        title,
+        emoji,
+        baseGoal,
+        steps,
+    };
+}
+
+/**
+ * ✅ NEW: API minimale = adventure_id
+ * - Charge les infos utiles depuis la BDD
+ * - Délègue à generateBriefingForAdventure()
+ */
+export async function generateBriefingForAdventureId(adventureId: string) {
+    const adventure = await loadAdventureInfoById(adventureId);
+    return generateBriefingForAdventure(adventure);
 }
 
 /* ============================================================================
