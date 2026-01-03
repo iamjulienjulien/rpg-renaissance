@@ -55,7 +55,14 @@ export async function qstashPublishJSON(input: {
         throw err;
     }
 
-    const publishUrl = "https://qstash.upstash.io/v2/publish/" + encodeURIComponent(input.url);
+    const dest = String(input.url ?? "").trim();
+
+    if (!/^https?:\/\//i.test(dest)) {
+        throw new Error(`Invalid destination url (missing scheme): "${dest}"`);
+    }
+
+    // ✅ DO NOT encodeURIComponent(dest)
+    const publishUrl = `https://qstash.upstash.io/v2/publish/${dest}`;
 
     const payloadBytes = jsonByteLength(input.body);
 

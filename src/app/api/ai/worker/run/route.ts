@@ -1,9 +1,11 @@
-// src/app/api/ai/worker/run/route.ts
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { qstashPublishJSON } from "@/lib/qstash/publish";
-
 import { generateBriefingForAdventureId } from "@/lib/briefing/generateBriefing";
+
+// ✅ System logs + request context
+import { Log } from "@/lib/systemLog/Log";
+import { withRequestContext, patchRequestContext } from "@/lib/systemLog/requestContext";
 
 type JobStatus = "queued" | "running" | "done" | "error" | "cancelled";
 
@@ -36,12 +38,19 @@ type AiJobRow = {
     updated_at: string;
 };
 
+function jsonError(message: string, status = 400) {
+    return NextResponse.json({ error: message }, { status });
+}
+
+function msSince(t0: number) {
+    return Math.max(0, Date.now() - t0);
+}
+
 function nowIso() {
     return new Date().toISOString();
 }
 
 function backoffSeconds(attempt: number) {
-    // attempt=1 -> 15s, 2 -> 60s, 3 -> 180s...
     const table = [15, 60, 180, 600, 1800];
     return table[Math.max(0, Math.min(table.length - 1, attempt - 1))];
 }
@@ -49,7 +58,7 @@ function backoffSeconds(attempt: number) {
 async function claimJob(supabase: Awaited<ReturnType<typeof supabaseAdmin>>, jobId: string) {
     const workerId = `worker:${process.env.NEXT_PUBLIC_APP_URL ?? "local"}`;
 
-    // Claim only if queued (and not cancelled)
+    const q0 = Date.now();
     const { data, error } = await supabase
         .from("ai_jobs")
         .update({
@@ -64,7 +73,18 @@ async function claimJob(supabase: Awaited<ReturnType<typeof supabaseAdmin>>, job
         .select("*")
         .maybeSingle();
 
-    if (error) throw new Error(error.message);
+    if (error) {
+        Log.error("ai_worker.claim.error", error, {
+            status_code: 500,
+            metadata: { ms: msSince(q0), job_id: jobId, worker_id: workerId },
+        });
+        throw new Error(error.message);
+    }
+
+    Log.debug("ai_worker.claim.result", {
+        metadata: { ms: msSince(q0), job_id: jobId, claimed: !!data, worker_id: workerId },
+    });
+
     return (data ?? null) as AiJobRow | null;
 }
 
@@ -73,6 +93,7 @@ async function markDone(
     jobId: string,
     result: any
 ) {
+    const q0 = Date.now();
     const { error } = await supabase
         .from("ai_jobs")
         .update({
@@ -86,7 +107,18 @@ async function markDone(
         })
         .eq("id", jobId);
 
-    if (error) throw new Error(error.message);
+    if (error) {
+        Log.error("ai_worker.mark_done.error", error, {
+            status_code: 500,
+            metadata: { ms: msSince(q0), job_id: jobId },
+        });
+        throw new Error(error.message);
+    }
+
+    Log.success("ai_worker.mark_done.ok", {
+        status_code: 200,
+        metadata: { ms: msSince(q0), job_id: jobId },
+    });
 }
 
 async function markErrorAndMaybeRetry(
@@ -98,8 +130,20 @@ async function markErrorAndMaybeRetry(
     const nextAttempts = (job.attempts ?? 0) + 1;
     const maxAttempts = job.max_attempts ?? 3;
 
+    Log.warning("ai_worker.execute.error", {
+        status_code: 500,
+        metadata: {
+            job_id: job.id,
+            job_type: job.job_type,
+            attempts_before: job.attempts ?? 0,
+            attempts_after: nextAttempts,
+            max_attempts: maxAttempts,
+            error_message: message,
+        },
+    });
+
     if (nextAttempts < maxAttempts) {
-        // Requeue (status queued) + attempts++
+        const q0 = Date.now();
         const { error } = await supabase
             .from("ai_jobs")
             .update({
@@ -108,20 +152,44 @@ async function markErrorAndMaybeRetry(
                 error_message: message,
                 locked_at: null,
                 locked_by: null,
-                // on garde started_at (première tentative) ou on peut le remettre à null, selon préférence
                 updated_at: nowIso(),
             })
             .eq("id", job.id);
 
-        if (error) throw new Error(error.message);
+        if (error) {
+            Log.error("ai_worker.retry.requeue.error", error, {
+                status_code: 500,
+                metadata: { ms: msSince(q0), job_id: job.id, next_attempts: nextAttempts },
+            });
+            throw new Error(error.message);
+        }
 
-        // Republier QStash pour retry
         const workerUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/ai/worker/run`;
-        await qstashPublishJSON({
-            url: workerUrl,
-            deduplicationId: `${job.id}:retry:${nextAttempts}`, // dedup unique par tentative
-            body: { jobId: job.id, workerSecret: process.env.WORKER_SECRET },
-        });
+
+        try {
+            await qstashPublishJSON({
+                url: workerUrl,
+                deduplicationId: `${job.id}:retry:${nextAttempts}`,
+                body: { jobId: job.id, workerSecret: process.env.WORKER_SECRET },
+            });
+
+            Log.success("ai_worker.retry.qstash_republish.ok", {
+                status_code: 202,
+                metadata: {
+                    job_id: job.id,
+                    next_attempts: nextAttempts,
+                    retry_in_seconds: backoffSeconds(nextAttempts),
+                },
+            });
+        } catch (e: any) {
+            Log.error("ai_worker.retry.qstash_republish.error", e, {
+                status_code: 500,
+                metadata: { job_id: job.id, next_attempts: nextAttempts },
+            });
+            // On ne throw pas ici forcément, mais c’est souvent mieux de remonter l’erreur
+            // car sinon le job reste queued sans retry effectif.
+            throw e;
+        }
 
         return NextResponse.json(
             {
@@ -135,7 +203,7 @@ async function markErrorAndMaybeRetry(
         );
     }
 
-    // Erreur finale
+    const q1 = Date.now();
     const { error } = await supabase
         .from("ai_jobs")
         .update({
@@ -149,7 +217,18 @@ async function markErrorAndMaybeRetry(
         })
         .eq("id", job.id);
 
-    if (error) throw new Error(error.message);
+    if (error) {
+        Log.error("ai_worker.final_error.save_failed", error, {
+            status_code: 500,
+            metadata: { ms: msSince(q1), job_id: job.id, attempts: nextAttempts },
+        });
+        throw new Error(error.message);
+    }
+
+    Log.warning("ai_worker.final_error.saved", {
+        status_code: 200,
+        metadata: { ms: msSince(q1), job_id: job.id, attempts: nextAttempts },
+    });
 
     return NextResponse.json(
         { ok: false, status: "error", attempts: nextAttempts, retried: false },
@@ -157,35 +236,74 @@ async function markErrorAndMaybeRetry(
     );
 }
 
-/** Branche ici tes handlers */
 async function executeJob(job: AiJobRow) {
     const supabase = await supabaseAdmin();
+
+    Log.debug("ai_worker.execute.start", {
+        metadata: {
+            job_id: job.id,
+            job_type: job.job_type,
+            session_id: job.session_id,
+            chapter_id: job.chapter_id,
+            adventure_id: job.adventure_id,
+            chapter_quest_id: job.chapter_quest_id,
+            attempts: job.attempts,
+            max_attempts: job.max_attempts,
+        },
+    });
+
     switch (job.job_type) {
         case "quest_photo_message": {
-            // TODO: impl
-            // return { ...jsonResult }
             return { ok: true, job_type: job.job_type };
         }
+
         case "adventure_briefing": {
             const adventureId = (job.payload as any)?.adventure_id ?? job.adventure_id ?? null;
 
             if (!adventureId) {
+                Log.warning("ai_worker.execute.briefing.missing_adventure_id", {
+                    status_code: 400,
+                    metadata: { job_id: job.id, has_payload: !!job.payload },
+                });
                 throw new Error("Missing payload.adventure_id");
             }
 
+            patchRequestContext({ adventure_id: adventureId });
+
+            const g0 = Date.now();
             const result = await generateBriefingForAdventureId(adventureId);
 
+            Log.success("ai_worker.execute.briefing.generated", {
+                status_code: 200,
+                metadata: {
+                    ms: msSince(g0),
+                    job_id: job.id,
+                    adventure_id: adventureId,
+                    has_briefing: !!result?.briefing,
+                    model: result?.meta?.model ?? null,
+                },
+            });
+
+            const s0 = Date.now();
             const { error: saveErr } = await supabase
                 .from("adventures")
                 .update({
-                    briefing_text: result.briefing, // jsonb
-                    created_at: undefined, // ne touche pas
+                    briefing_text: result.briefing,
                 } as any)
                 .eq("id", adventureId);
 
             if (saveErr) {
+                Log.error("ai_worker.execute.briefing.save_failed", saveErr, {
+                    status_code: 500,
+                    metadata: { ms: msSince(s0), job_id: job.id, adventure_id: adventureId },
+                });
                 throw new Error("Failed to save adventures.briefing_text: " + saveErr.message);
             }
+
+            Log.success("ai_worker.execute.briefing.saved", {
+                status_code: 200,
+                metadata: { ms: msSince(s0), job_id: job.id, adventure_id: adventureId },
+            });
 
             return {
                 adventure_id: adventureId,
@@ -194,38 +312,147 @@ async function executeJob(job: AiJobRow) {
             };
         }
 
-        default:
+        default: {
+            Log.warning("ai_worker.execute.unknown_job_type", {
+                status_code: 400,
+                metadata: { job_id: job.id, job_type: job.job_type },
+            });
             throw new Error(`Unknown job_type: ${job.job_type}`);
+        }
     }
 }
 
 export async function POST(req: Request) {
-    const body = await req.json().catch(() => null);
-    const jobId = body?.jobId as string | undefined;
-    const secret = body?.workerSecret as string | undefined;
+    const request_id = crypto.randomUUID();
+    const startedAt = Date.now();
+    const route = "/api/ai/worker/run";
+    const method = "POST";
 
-    if (!jobId) return NextResponse.json({ error: "Missing jobId" }, { status: 400 });
+    return await withRequestContext(
+        { request_id, route, method, started_at_ms: startedAt },
+        async () => {
+            const t = Log.timer("POST /api/ai/worker/run", {
+                source: "app/api/ai/worker/run/route.ts",
+            });
 
-    if (!process.env.WORKER_SECRET || secret !== process.env.WORKER_SECRET) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+            try {
+                Log.info("ai_worker.POST.start", {
+                    metadata: {
+                        content_type: req.headers.get("content-type"),
+                        // utile si tu veux vérifier que QStash arrive bien
+                        upstash_signature_present: !!req.headers.get("upstash-signature"),
+                        user_agent: req.headers.get("user-agent"),
+                    },
+                });
 
-    const supabase = await supabaseAdmin();
+                let body: any = null;
+                try {
+                    body = await req.json();
+                } catch {
+                    Log.warning("ai_worker.POST.invalid_json", { status_code: 400 });
+                    t.endError("POST /api/ai/worker/run.invalid_json", undefined, {
+                        status_code: 400,
+                    });
+                    return jsonError("Invalid JSON body", 400);
+                }
 
-    // Claim
-    const job = await claimJob(supabase, jobId);
+                const jobId = typeof body?.jobId === "string" ? body.jobId.trim() : "";
+                const secret = typeof body?.workerSecret === "string" ? body.workerSecret : "";
 
-    // Si pas claimable: déjà pris / déjà traité / cancelled / etc.
-    if (!job) {
-        return NextResponse.json({ ok: true, skipped: true }, { status: 200 });
-    }
+                // patchRequestContext({ job_id: jobId || null });
 
-    // Exécuter
-    try {
-        const result = await executeJob(job);
-        await markDone(supabase, job.id, result);
-        return NextResponse.json({ ok: true, jobId: job.id, status: "done" }, { status: 200 });
-    } catch (err) {
-        return await markErrorAndMaybeRetry(supabase, job, err);
-    }
+                Log.debug("ai_worker.POST.body", {
+                    metadata: {
+                        has_job_id: !!jobId,
+                        has_worker_secret: !!secret,
+                        env_has_worker_secret: !!process.env.WORKER_SECRET,
+                        // jamais logger les secrets, uniquement la comparaison booléenne
+                        secret_matches:
+                            !!process.env.WORKER_SECRET && !!secret
+                                ? secret === process.env.WORKER_SECRET
+                                : false,
+                    },
+                });
+
+                if (!jobId) {
+                    Log.warning("ai_worker.POST.missing_jobId", { status_code: 400 });
+                    t.endError("POST /api/ai/worker/run.missing_jobId", undefined, {
+                        status_code: 400,
+                    });
+                    return jsonError("Missing jobId", 400);
+                }
+
+                if (!process.env.WORKER_SECRET || secret !== process.env.WORKER_SECRET) {
+                    Log.warning("ai_worker.POST.forbidden", {
+                        status_code: 403,
+                        metadata: {
+                            job_id: jobId,
+                            env_has_worker_secret: !!process.env.WORKER_SECRET,
+                            has_worker_secret: !!secret,
+                        },
+                    });
+                    t.endError("POST /api/ai/worker/run.forbidden", undefined, {
+                        status_code: 403,
+                    });
+                    return jsonError("Forbidden", 403);
+                }
+
+                const supabase = await supabaseAdmin();
+
+                const job = await claimJob(supabase, jobId);
+
+                if (!job) {
+                    Log.success("ai_worker.POST.skipped", {
+                        status_code: 200,
+                        metadata: { job_id: jobId, reason: "not_claimable" },
+                    });
+                    t.endSuccess("POST /api/ai/worker/run.skipped", { status_code: 200 });
+                    return NextResponse.json({ ok: true, skipped: true }, { status: 200 });
+                }
+
+                patchRequestContext({
+                    user_id: job.user_id,
+                    session_id: job.session_id,
+                    chapter_id: job.chapter_id,
+                    adventure_id: job.adventure_id,
+                });
+
+                try {
+                    const x0 = Date.now();
+                    const result = await executeJob(job);
+                    await markDone(supabase, job.id, result);
+
+                    Log.success("ai_worker.POST.done", {
+                        status_code: 200,
+                        metadata: { ms: msSince(x0), job_id: job.id, job_type: job.job_type },
+                    });
+
+                    t.endSuccess("POST /api/ai/worker/run.success", { status_code: 200 });
+
+                    return NextResponse.json(
+                        { ok: true, jobId: job.id, status: "done" },
+                        { status: 200 }
+                    );
+                } catch (err) {
+                    Log.error("ai_worker.POST.execute_failed", err, {
+                        status_code: 500,
+                        metadata: { job_id: job.id, job_type: job.job_type },
+                    });
+
+                    const resp = await markErrorAndMaybeRetry(supabase, job, err);
+                    t.endSuccess("POST /api/ai/worker/run.error_handled", {
+                        status_code: (resp as any)?.status ?? 200,
+                    });
+                    return resp;
+                }
+            } catch (e: any) {
+                Log.error("ai_worker.POST.fatal", e, {
+                    status_code: 500,
+                    metadata: { duration_ms: msSince(startedAt) },
+                });
+                t.endError("POST /api/ai/worker/run.fatal", e, { status_code: 500 });
+                return jsonError(e?.message ?? "Server error", 500);
+            }
+        }
+    );
 }

@@ -166,7 +166,8 @@ export async function POST(req: NextRequest) {
                 /* ------------------------------------------------------------
                  6) QStash publish
                 ------------------------------------------------------------ */
-                const workerUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/ai/worker/run`;
+                const workerUrl =
+                    `${process.env.NEXT_PUBLIC_APP_URL}`.trim() + "/api/ai/worker/run";
 
                 Log.debug("ai_jobs.enqueue.qstash.debug", {
                     metadata: {
