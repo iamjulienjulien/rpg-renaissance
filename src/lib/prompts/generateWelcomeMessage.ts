@@ -228,7 +228,7 @@ export async function generateWelcomeMessage(args: { adventure_id: string; user_
                     })
                 );
 
-                const systemText = [GAME_INTRO, PROMPT_INTRO, ctxPrompt, PROMPT_CONSTRAINTS]
+                const systemText = [GAME_INTRO, PROMPT_INTRO, ctxPrompt.text, PROMPT_CONSTRAINTS]
                     .filter(Boolean)
                     .join("\n");
 

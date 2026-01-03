@@ -277,6 +277,7 @@ type GameStore = {
     currentChapterQuests: ChapterQuestFull[];
     currentCharacter: Character | null;
     currentPlayer: CurrentPlayer | null;
+    currentUserId: string | null;
 
     getCurrentPlayer: () => Promise<CurrentPlayer | null>;
 
@@ -625,6 +626,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         currentChapterQuests: [],
         currentCharacter: null,
         currentPlayer: null,
+        currentUserId: null,
 
         rooms: [],
         templates: [],
@@ -1404,6 +1406,8 @@ export const useGameStore = create<GameStore>((set, get) => {
                     return false;
                 }
 
+                console.log("jsonProfile", jsonProfile);
+
                 /* ------------------------------------------------------------------
         2) Sauvegarde du contexte utilisateur (en une fois)
         ------------------------------------------------------------------ */
@@ -1440,6 +1444,8 @@ export const useGameStore = create<GameStore>((set, get) => {
                 const userId = jsonProfile?.profile?.user_id ?? null;
                 const adventureId = get().currentAdventure?.id ?? null;
 
+                console.log("ok");
+
                 if (userId && adventureId) {
                     const resWelcome = await fetch("/api/ai/welcome-message", {
                         method: "POST",
@@ -1454,6 +1460,8 @@ export const useGameStore = create<GameStore>((set, get) => {
                         });
                         return false;
                     }
+                } else {
+                    console.error("missing user or adventure", userId, adventureId);
                 }
 
                 /* ------------------------------------------------------------------
@@ -1612,6 +1620,9 @@ export const useGameStore = create<GameStore>((set, get) => {
 
             const session = sessionRes.data?.session ?? null;
             const sessionId = session?.id ?? null;
+            const userId = session?.user_id ?? null;
+
+            set({ currentUserId: userId });
 
             try {
                 const [charsRes, profRes, chapterRes, renownRes, advTypesRes] =
@@ -1766,6 +1777,8 @@ export const useGameStore = create<GameStore>((set, get) => {
                                 : {};
                         }
                     }
+                } else {
+                    get().loadLastAdventure();
                 }
 
                 // console.log("currentAdventure", currentAdventure);
