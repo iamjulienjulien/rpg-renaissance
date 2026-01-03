@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
                         return jsonError("Missing payload.adventure_id", 400);
                     }
                     job.adventure_id = advId;
-                    job.payload = { adventure_id: advId };
+                    job.payload = { adventure_id: advId, user_id: userId };
                 }
 
                 Log.debug("ai_jobs.enqueue.job.built", {

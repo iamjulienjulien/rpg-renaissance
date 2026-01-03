@@ -259,6 +259,7 @@ async function executeJob(job: AiJobRow) {
 
         case "adventure_briefing": {
             const adventureId = (job.payload as any)?.adventure_id ?? job.adventure_id ?? null;
+            const userId = (job.payload as any)?.user_id ?? job.user_id ?? null;
 
             if (!adventureId) {
                 Log.warning("ai_worker.execute.briefing.missing_adventure_id", {
@@ -268,10 +269,18 @@ async function executeJob(job: AiJobRow) {
                 throw new Error("Missing payload.adventure_id");
             }
 
+            if (!userId) {
+                Log.warning("ai_worker.execute.briefing.missing_user_id", {
+                    status_code: 400,
+                    metadata: { job_id: job.id, has_payload: !!job.payload },
+                });
+                throw new Error("Missing payload.user_id");
+            }
+
             patchRequestContext({ adventure_id: adventureId });
 
             const g0 = Date.now();
-            const result = await generateBriefingForAdventureId(adventureId);
+            const result = await generateBriefingForAdventureId(adventureId, userId);
 
             Log.success("ai_worker.execute.briefing.generated", {
                 status_code: 200,

@@ -1,5 +1,6 @@
 // src/lib/briefing/generateBriefing.ts
 import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { openai } from "@/lib/openai";
 
 // ✅ Logs + Journal
@@ -83,7 +84,7 @@ function emojiForAdventureTypeCode(code?: string | null): string {
  * Récupère display_name + style du personnage via player_profiles(user_id)
  */
 async function loadPlayerContextByUserId(userId: string): Promise<PlayerContext> {
-    const supabase = await supabaseServer();
+    const supabase = await supabaseAdmin();
 
     const { data, error } = await supabase
         .from("player_profiles")
@@ -140,7 +141,7 @@ type AdventureTypeRow = {
  * Donc emoji/base_goal/steps = fallback côté instance.
  */
 async function loadAdventureInfoById(adventureId: string): Promise<AdventureInfo> {
-    const supabase = await supabaseServer();
+    const supabase = await supabaseAdmin();
 
     // 1) adventure instance (ton schéma adventures)
     const { data: adv, error: advErr } = await supabase
@@ -204,9 +205,9 @@ async function loadAdventureInfoById(adventureId: string): Promise<AdventureInfo
  * - Charge les infos utiles depuis la BDD
  * - Délègue à generateBriefingForAdventure()
  */
-export async function generateBriefingForAdventureId(adventureId: string) {
+export async function generateBriefingForAdventureId(adventureId: string, userId: string) {
     const adventure = await loadAdventureInfoById(adventureId);
-    return generateBriefingForAdventure(adventure);
+    return generateBriefingForAdventure(adventure, userId);
 }
 
 /* ============================================================================
@@ -224,15 +225,15 @@ export async function generateBriefingForAdventureId(adventureId: string) {
  * ⚠️ Note: cette fonction n’a pas de session_id en param.
  * On le récupère via player_profiles.session_id si présent, sinon on log en best-effort.
  */
-export async function generateBriefingForAdventure(adventure: AdventureInfo) {
+export async function generateBriefingForAdventure(adventure: AdventureInfo, userId: string) {
     const supabase = await supabaseServer();
 
     // ✅ Auth obligatoire (login-only)
-    const { data: authData, error: authErr } = await supabase.auth.getUser();
-    if (authErr) throw new Error(authErr.message);
+    // const { data: authData, error: authErr } = await supabase.auth.getUser();
+    // if (authErr) throw new Error(authErr.message);
 
-    const userId = authData?.user?.id ?? "";
-    if (!userId) throw new Error("Not authenticated");
+    // const userId = authData?.user?.id ?? "";
+    // if (!userId) throw new Error("Not authenticated");
 
     // 0) Charger contexte joueur/personnage + (best-effort) session_id depuis player_profiles
     const player = await loadPlayerContextByUserId(userId);
