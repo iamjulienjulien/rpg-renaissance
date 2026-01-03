@@ -14,8 +14,8 @@ export async function buildMjContext(input: { chapterId: string }) {
 
     const [user, adventure, chapter] = await Promise.all([
         getUserContext(),
-        getAdventureContext(),
-        getChapterContext(chapterId),
+        getAdventureContext({ mode: "authenticated" }),
+        getChapterContext({ mode: "authenticated", chapter_id: chapterId }),
     ]);
 
     return {
