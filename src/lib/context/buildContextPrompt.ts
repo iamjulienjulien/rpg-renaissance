@@ -290,13 +290,13 @@ export function buildContextPrompt(args: BuildContextPromptArgs) {
             }
 
             if (qRoom) {
-                sections.push("", "Pièce :", qDesc);
+                sections.push("", "Pièce :", qRoom);
             } else {
                 sections.push("", "Pièce (non renseignée)");
             }
 
             if (qMission) {
-                sections.push("", "🎯 Ordre de mission :", qDesc);
+                sections.push("", "🎯 Ordre de mission :", qMission);
             } else {
                 sections.push("", "🎯 Ordre de mission (non renseigné)");
             }
