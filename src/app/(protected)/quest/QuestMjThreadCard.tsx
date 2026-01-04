@@ -209,14 +209,16 @@ export default function QuestMjThreadCard({ chapterQuestId }: Props) {
 
     const sessionId = useSessionStore((s) => s.activeSessionId);
 
-    const { questMissionGenerating } = useAiStore();
+    const { questEncouragementGenerating, questPhotoMessageGenerating } = useAiStore();
 
     const thread = questThreadsByChapterQuestId[chapterQuestId];
     const threadLoading = questThreadsLoadingByChapterQuestId[chapterQuestId];
 
     const messages = thread ? (questMessagesByThreadId[thread.id] ?? []) : [];
     const messagesLoading = thread
-        ? questMessagesLoadingByThreadId[thread.id] || questMissionGenerating
+        ? questMessagesLoadingByThreadId[thread.id] ||
+          questEncouragementGenerating ||
+          questPhotoMessageGenerating
         : false;
     // const messagesLoading = true;
 

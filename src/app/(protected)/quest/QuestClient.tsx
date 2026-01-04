@@ -146,6 +146,7 @@ export default function QuestClient() {
         questEncouragementGenerating,
         questPhotoMessageGenerating,
         startQuestPhotoMessageGenerating,
+        loadPendingJobs,
     } = useAiStore();
 
     const [photosLoading, setPhotosLoading] = useState(false);
@@ -160,6 +161,25 @@ export default function QuestClient() {
         if (!photoFilter.length) return photos;
         return photos.filter((p) => photoFilter.includes(p.category));
     }, [photos, photoFilter]);
+
+    const photosByCategories = React.useMemo(() => {
+        const filtered = {
+            initial: photos.filter((p) => p.category === "initial"),
+            final: photos.filter((p) => p.category === "final"),
+            other: photos.filter((p) => p.category === "other"),
+        };
+        console.log("filtered", filtered);
+        return filtered;
+    }, [photos]);
+
+    const countCategoriesWithPhotos = React.useMemo(() => {
+        let photoCounter = 0;
+        if (photosByCategories.initial.length > 0) photoCounter++;
+        if (photosByCategories.final.length > 0) photoCounter++;
+        if (photosByCategories.other.length > 0) photoCounter++;
+        console.log("c", photoCounter);
+        return photoCounter;
+    }, [photosByCategories]);
 
     const lightboxItems: UiLightboxItem[] = React.useMemo(() => {
         return (filteredPhotos ?? [])
@@ -583,58 +603,64 @@ export default function QuestClient() {
                             >
                                 <div className="grid">
                                     {/* ✅ Espace réduit entre subtitle et pills */}
-                                    <div className="-mt-1 flex flex-wrap gap-2">
-                                        {(photos.some((p) => p.category === "initial") ||
-                                            photos.some((p) => p.category === "final") ||
-                                            photos.some((p) => p.category === "other")) && (
-                                            <>
-                                                {(
-                                                    ["initial", "final", "other"] as PhotoCategory[]
-                                                ).map((cat) => {
-                                                    const exists = photos.some(
-                                                        (p) => p.category === cat
-                                                    );
-                                                    if (!exists) return null;
+                                    {countCategoriesWithPhotos > 1 && (
+                                        <div className="-mt-1 mb-5 flex flex-wrap gap-2">
+                                            {(photos.some((p) => p.category === "initial") ||
+                                                photos.some((p) => p.category === "final") ||
+                                                photos.some((p) => p.category === "other")) && (
+                                                <>
+                                                    {(
+                                                        [
+                                                            "initial",
+                                                            "final",
+                                                            "other",
+                                                        ] as PhotoCategory[]
+                                                    ).map((cat) => {
+                                                        const exists = photos.some(
+                                                            (p) => p.category === cat
+                                                        );
+                                                        if (!exists) return null;
 
-                                                    const active = photoFilter.includes(cat);
+                                                        const active = photoFilter.includes(cat);
 
-                                                    return (
-                                                        <div
-                                                            key={cat}
-                                                            className="group inline-flex"
-                                                        >
-                                                            <UiTooltip
-                                                                content={categoryLabel(cat)}
-                                                                side="top"
-                                                                singleLine
+                                                        return (
+                                                            <div
+                                                                key={cat}
+                                                                className="group inline-flex"
                                                             >
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        toggleCategory(cat)
-                                                                    }
-                                                                    className={cn(
-                                                                        "inline-flex items-center justify-center",
-                                                                        "rounded-full px-3 py-1 text-xs ring-1 transition",
-                                                                        active
-                                                                            ? "bg-white/20 text-white ring-white/20"
-                                                                            : "bg-white/5 text-white/70 ring-white/10 hover:bg-white/10"
-                                                                    )}
-                                                                    aria-pressed={active}
-                                                                    title={categoryLabel(cat)}
+                                                                <UiTooltip
+                                                                    content={categoryLabel(cat)}
+                                                                    side="top"
+                                                                    singleLine
                                                                 >
-                                                                    {categoryEmoji(cat)}
-                                                                </button>
-                                                            </UiTooltip>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </>
-                                        )}
-                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            toggleCategory(cat)
+                                                                        }
+                                                                        className={cn(
+                                                                            "inline-flex items-center justify-center",
+                                                                            "rounded-full px-3 py-1 text-xs ring-1 transition",
+                                                                            active
+                                                                                ? "bg-white/20 text-white ring-white/20"
+                                                                                : "bg-white/5 text-white/70 ring-white/10 hover:bg-white/10"
+                                                                        )}
+                                                                        aria-pressed={active}
+                                                                        title={categoryLabel(cat)}
+                                                                    >
+                                                                        {categoryEmoji(cat)}
+                                                                    </button>
+                                                                </UiTooltip>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
 
                                     {/* ✅ Espace augmenté entre pills et grille */}
-                                    <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                                         {filteredPhotos.map((p) => {
                                             const catEmoji = categoryEmoji(p.category);
                                             const catLabel = categoryLabel(p.category);
@@ -1004,12 +1030,14 @@ export default function QuestClient() {
                 }}
             />
             <QuestPhotoUploadModal
-                onCreated={() => {
+                onCreated={async () => {
                     if (!chapterQuestId) return;
                     void loadPhotos(chapterQuestId);
                     void loadJournal(120);
-                    void startQuestPhotoMessageGenerating();
-                    void refreshQuestMessages(currentQuestThreadId ?? "");
+                    await loadPendingJobs();
+                    // void startQuestPhotoMessageGenerating();
+                    setWaitForQuestPhotoMessage(true);
+                    // void refreshQuestMessages(currentQuestThreadId ?? "");
                 }}
             />
             <UiLightbox
