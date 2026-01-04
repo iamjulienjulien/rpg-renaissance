@@ -2,7 +2,7 @@
 
 import React, { useMemo } from "react";
 import { UiModal } from "@/components/ui/UiModal";
-import MasterCard from "@/components/ui/MasterCard";
+import MasterCard from "@/components/MasterCard";
 import { ActionButton } from "@/components/RpgUi";
 import { UiMotionDiv } from "@/components/motion/UiMotion";
 

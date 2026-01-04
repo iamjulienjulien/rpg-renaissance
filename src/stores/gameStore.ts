@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import { useToastStore } from "@/stores/toastStore";
 import { useJournalStore } from "@/stores/journalStore";
+import { useAiStore } from "./aiStore";
 import { useSessionStore, type GameSession } from "@/stores/sessionStore";
 
 import type {
@@ -650,6 +651,9 @@ export const useGameStore = create<GameStore>((set, get) => {
             const data = (await res.json()) as CurrentPlayer;
 
             set({ currentPlayer: data });
+
+            const userId = data?.user_id ?? null;
+            if (userId) set({ currentUserId: userId });
             return data;
         },
 
@@ -1254,6 +1258,56 @@ export const useGameStore = create<GameStore>((set, get) => {
                     return false;
                 }
 
+                // ------------------------------------------------------------
+                // 1) Récupérer les chapter_quest_id créés
+                // ------------------------------------------------------------
+                const chapterQuestIds: string[] = [];
+
+                if (Array.isArray(res.data?.items)) {
+                    for (const item of res.data?.items) {
+                        if (item?.id) {
+                            chapterQuestIds.push(item.id);
+                        }
+                    }
+                }
+
+                // Sécurité: rien à faire si vide
+                if (!chapterQuestIds.length) {
+                    console.warn(
+                        "[startChapter] No chapter quests returned, skipping AI generation"
+                    );
+                    // return false;
+                } else {
+                    // ------------------------------------------------------------
+                    // 2) Lancer la génération IA pour chaque quête
+                    // ------------------------------------------------------------
+                    const currentUserId = get().currentUserId;
+
+                    if (!currentUserId) {
+                        console.warn(
+                            "[startChapter] Missing currentUserId, cannot generate quest messages"
+                        );
+                        // return false;
+                    } else {
+                        const { generateQuestMessage } = useAiStore.getState();
+
+                        for (const chapter_quest_id of chapterQuestIds) {
+                            try {
+                                await generateQuestMessage({
+                                    chapter_quest_id,
+                                    user_id: currentUserId,
+                                });
+                            } catch (e) {
+                                console.error(
+                                    "[startChapter] Failed to enqueue quest message",
+                                    chapter_quest_id,
+                                    e
+                                );
+                            }
+                        }
+                    }
+                }
+
                 // best-effort journal
                 void useJournalStore.getState().create({
                     kind: "chapter_started",
@@ -1343,18 +1397,18 @@ export const useGameStore = create<GameStore>((set, get) => {
                 /* ------------------------------------------------------------
         2.5) Enqueue job briefing (best-effort)
         ------------------------------------------------------------ */
-                const jobRes = await apiPost<{ jobId: string }>("/api/ai/jobs/enqueue", {
-                    job_type: "adventure_briefing",
-                    adventure_id: started.adventureId,
-                    priority: 50,
-                    payload: {
-                        adventure_id: started.adventureId,
-                    },
-                });
+                // const jobRes = await apiPost<{ jobId: string }>("/api/ai/jobs/enqueue", {
+                //     job_type: "adventure_briefing",
+                //     adventure_id: started.adventureId,
+                //     priority: 50,
+                //     payload: {
+                //         adventure_id: started.adventureId,
+                //     },
+                // });
 
-                if (!jobRes.ok) {
-                    console.warn("Failed to enqueue adventure briefing job:", jobRes.error);
-                }
+                // if (!jobRes.ok) {
+                //     console.warn("Failed to enqueue adventure briefing job:", jobRes.error);
+                // }
 
                 /* ------------------------------------------------------------
         3) Rafraîchir l’état global (best-effort)
@@ -1642,6 +1696,7 @@ export const useGameStore = create<GameStore>((set, get) => {
                 let profile: Profile = null;
                 let selectedId: string | null = null;
                 let currentCharacter: Character | null | undefined = null;
+                let currentUserId: string | null = null;
 
                 if (profRes.status === "fulfilled") {
                     const profJson = await fetchJson(profRes.value);
@@ -1649,6 +1704,7 @@ export const useGameStore = create<GameStore>((set, get) => {
                         profile = (profJson?.profile ?? null) as Profile;
                         selectedId = (profile?.character_id ?? null) as string | null;
                         currentCharacter = characters.find((c) => c.id === selectedId);
+                        currentUserId = profile?.user_id ?? null;
                     }
                 }
 
@@ -1787,7 +1843,7 @@ export const useGameStore = create<GameStore>((set, get) => {
                     profile,
                     selectedId,
                     currentCharacter,
-
+                    currentUserId,
                     chapter,
                     currentChapter: chapter,
 
@@ -2007,7 +2063,11 @@ export const useGameStore = create<GameStore>((set, get) => {
 
                 if (requested.has("adventure")) {
                     if (!adventureId) {
-                        set({ currentAdventure: null });
+                        const r = await safeFetch(`/api/adventures?current=true`);
+                        if (r.ok)
+                            set({
+                                currentAdventure: (r.json?.adventure ?? null) as Adventure | null,
+                            });
                     } else {
                         const r = await safeFetch(
                             `/api/adventures?id=${encodeURIComponent(adventureId)}`
@@ -2577,6 +2637,55 @@ export const useGameStore = create<GameStore>((set, get) => {
                 if (!res.ok) {
                     toast.error("Affectation impossible", json?.error ?? "Erreur serveur");
                     return false;
+                }
+
+                // ------------------------------------------------------------
+                // 1) Extraire les chapter_quest_id
+                // ------------------------------------------------------------
+                const chapterQuestIds: string[] = [];
+
+                if (Array.isArray(json.items)) {
+                    for (const item of json.items) {
+                        if (item?.id) {
+                            chapterQuestIds.push(item.id);
+                        }
+                    }
+                }
+
+                if (!chapterQuestIds.length) {
+                    console.warn(
+                        "[chapterQuest] No chapter quests returned, skipping AI generation"
+                    );
+                    // return;
+                } else {
+                    // ------------------------------------------------------------
+                    // 2) Lancer la génération IA
+                    // ------------------------------------------------------------
+                    const currentUserId = get().currentUserId;
+
+                    if (!currentUserId) {
+                        console.warn(
+                            "[chapterQuest] Missing currentUserId, cannot generate quest messages"
+                        );
+                        // return;
+                    } else {
+                        const { generateQuestMessage } = useAiStore.getState();
+
+                        for (const chapter_quest_id of chapterQuestIds) {
+                            try {
+                                await generateQuestMessage({
+                                    chapter_quest_id,
+                                    user_id: currentUserId,
+                                });
+                            } catch (e) {
+                                console.error(
+                                    "[chapterQuest] Failed to enqueue quest message",
+                                    chapter_quest_id,
+                                    e
+                                );
+                            }
+                        }
+                    }
                 }
 
                 toast.success("Quête affectée", "Ajoutée au chapitre courant.");

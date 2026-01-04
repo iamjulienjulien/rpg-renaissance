@@ -101,7 +101,7 @@ export default function OnboardingFinishPage() {
 
         const finish = await completeOnboarding();
         if (finish) {
-            router.push("/adventure"); // ou /adventure
+            router.push("/onboarding/welcome"); // ou /adventure
         }
     };
 

@@ -8,6 +8,7 @@ import { ActionButton, Panel } from "@/components/RpgUi";
 import CharacterGrid from "@/components/CharacterGrid";
 import { useGameStore } from "@/stores/gameStore";
 import UIActionButton from "@/components/ui/UiActionButton";
+import { UiPanel } from "@/components/ui";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -102,8 +103,8 @@ export default function OnboardingAdventurePage() {
 
     return (
         <RpgShell
-            title="Prologue"
-            subtitle="🧭 Choisis ton aventure, puis la voix qui t’accompagnera. ✨"
+            title="Bienvenue"
+            subtitle="🧭 Choisis ton aventure, puis la voix qui t’accompagnera. 🧙‍♂️"
             noRightSlot
             returnButton={false}
             largeLogo
@@ -154,6 +155,23 @@ export default function OnboardingAdventurePage() {
                         ⚠️ {error}
                     </div>
                 ) : null}
+
+                <UiPanel variant="soft">
+                    <p>
+                        <strong className="text-white/90">Bienvenue, voyageur.</strong> ✨<br />
+                        Tu entres dans <strong className="text-white/90">Renaissance</strong>.
+                    </p>
+
+                    <p className="mt-3">
+                        Avant que l’aventure ne commence vraiment, il faut en définir les fondations
+                        : le chemin que tu veux suivre, et la voix qui t’accompagnera tout au long
+                        du voyage.
+                    </p>
+
+                    <p className="mt-3 text-white/60">
+                        Ces étapes ne sont pas des formalités. Elles donnent forme à ton expérience.
+                    </p>
+                </UiPanel>
 
                 {/* AVENTURE PICK */}
                 <Panel

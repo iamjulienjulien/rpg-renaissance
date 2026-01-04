@@ -155,27 +155,27 @@ export async function POST(req: Request) {
     if (chapterErr) return NextResponse.json({ error: chapterErr.message }, { status: 500 });
 
     // 3️⃣ Génération auto des briefs (si possible)
-    const apiKey = process.env.OPENAI_API_KEY ?? "";
-    if (apiKey) {
-        const { generateMissionForChapterQuest } = await import("@/lib/mission/generateMission");
+    // const apiKey = process.env.OPENAI_API_KEY ?? "";
+    // if (apiKey) {
+    //     const { generateMissionForChapterQuest } = await import("@/lib/mission/generateMission");
 
-        await Promise.all(
-            items.map(async (it) => {
-                try {
-                    // ✅ login-only: generateMission va récupérer le style via auth.user -> player_profiles
-                    await generateMissionForChapterQuest(it.id, false);
-                } catch (e) {
-                    console.error("Mission generation failed for", it.id, e);
-                }
-            })
-        );
-    }
+    //     await Promise.all(
+    //         items.map(async (it) => {
+    //             try {
+    //                 // ✅ login-only: generateMission va récupérer le style via auth.user -> player_profiles
+    //                 await generateMissionForChapterQuest(it.id, false);
+    //             } catch (e) {
+    //                 console.error("Mission generation failed for", it.id, e);
+    //             }
+    //         })
+    //     );
+    // }
 
     return NextResponse.json(
         {
             items,
             chapter: { id: chapter_id, status: "active" },
-            missionGeneration: apiKey ? "queued" : "skipped_missing_api_key",
+            // missionGeneration: apiKey ? "queued" : "skipped_missing_api_key",
             session_id: session.id,
         },
         { status: 201 }

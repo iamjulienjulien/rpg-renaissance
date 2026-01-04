@@ -1,6 +1,7 @@
 import { QuestPriorityPill, QuestPriorityChip } from "./questPriority";
 import { QuestDifficultyPill, QuestDifficultyChip } from "./questDifficulty";
 import { QuestRoomPill, QuestRoomChip } from "./questRoom";
+import { CurrentCharacterChip, CurrentCharacterPill } from "./adventure";
 
 const Helpers = {
     Pill: {
@@ -12,6 +13,12 @@ const Helpers = {
         priority: QuestPriorityChip,
         difficulty: QuestDifficultyChip,
         room: QuestRoomChip,
+    },
+    Adventure: {
+        Character: {
+            Pill: CurrentCharacterPill,
+            Chip: CurrentCharacterChip,
+        },
     },
 };
 

@@ -1,4 +1,5 @@
 import { Pill } from "@/components/RpgUi";
+import { UiChip, UiPill } from "@/components/ui";
 import { useGameStore } from "@/stores/gameStore";
 
 /**
@@ -112,10 +113,23 @@ export function CurrentCharacterPill() {
 
     if (currentCharacter?.name) {
         return (
-            <Pill>
+            <UiPill>
                 {currentCharacter?.emoji ?? currentCharacter.emoji + " "}
                 {currentCharacter.name}
-            </Pill>
+            </UiPill>
+        );
+    }
+}
+
+export function CurrentCharacterChip() {
+    const { currentCharacter } = useGameStore.getState();
+
+    if (currentCharacter?.name) {
+        return (
+            <UiChip>
+                {currentCharacter?.emoji ?? currentCharacter.emoji + " "}
+                {currentCharacter.name}
+            </UiChip>
         );
     }
 }

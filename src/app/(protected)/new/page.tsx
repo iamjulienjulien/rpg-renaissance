@@ -9,7 +9,7 @@ import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
 
 import { useGameStore } from "@/stores/gameStore";
-import MasterCard from "@/components/ui/MasterCard";
+import MasterCard from "@/components/MasterCard";
 import { UiAnimatePresence, UiMotionDiv } from "@/components/motion/UiMotion";
 
 import { type Character } from "@/types/game";

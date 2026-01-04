@@ -4,7 +4,7 @@
 import React, { useMemo, useState } from "react";
 import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
-import MasterCard from "@/components/ui/MasterCard";
+import MasterCard from "@/components/MasterCard";
 
 // ✅ NEW: Onboarding components showcase
 import { OnboardingStepper } from "@/components/onboarding/OnboardingStepper";

@@ -6,7 +6,7 @@ import React, { useEffect, useMemo, useState } from "react";
 // Components
 import RpgShell from "@/components/RpgShell";
 import { Panel, Pill, ActionButton } from "@/components/RpgUi";
-import MasterCard from "@/components/ui/MasterCard";
+import MasterCard from "@/components/MasterCard";
 
 // Stores
 import { useJournalStore } from "@/stores/journalStore";

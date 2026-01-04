@@ -14,7 +14,7 @@ import { useUiStore } from "@/stores/uiStore";
 // Components
 import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
-import MasterCard from "@/components/ui/MasterCard";
+import MasterCard from "@/components/MasterCard";
 import { UiAnimatePresence, UiMotionDiv } from "@/components/motion/UiMotion";
 import UiTooltip from "@/components/ui/UiTooltip";
 import UiLightbox, { type UiLightboxItem } from "@/components/ui/UiLightbox";

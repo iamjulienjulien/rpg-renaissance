@@ -28,6 +28,7 @@ const selectWithType = `
     created_at,
     instance_code,
     context_text,
+    welcome_text,
     type_id,
     adventure_types:type_id (
         code,
@@ -56,8 +57,11 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const id = url.searchParams.get("id");
     const instance_code = url.searchParams.get("instance_code");
+    const current = url.searchParams.get("current") === "true";
 
-    // 🎯 CAS 1 — aventure ciblée par ID
+    /* ------------------------------------------------------------
+     🎯 CAS 1 — aventure ciblée par ID
+    ------------------------------------------------------------ */
     if (id) {
         const { data, error } = await supabase
             .from("adventures")
@@ -66,13 +70,20 @@ export async function GET(req: Request) {
             .eq("session_id", session.id)
             .maybeSingle();
 
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-        if (!data) return NextResponse.json({ error: "Adventure not found" }, { status: 404 });
+        if (error) {
+            return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+
+        if (!data) {
+            return NextResponse.json({ error: "Adventure not found" }, { status: 404 });
+        }
 
         return NextResponse.json({ adventure: mapAdventure(data) });
     }
 
-    // 🎯 CAS 1bis — aventure ciblée par instance_code ✅
+    /* ------------------------------------------------------------
+     🎯 CAS 1bis — aventure ciblée par instance_code
+    ------------------------------------------------------------ */
     if (instance_code) {
         const { data, error } = await supabase
             .from("adventures")
@@ -81,22 +92,58 @@ export async function GET(req: Request) {
             .eq("session_id", session.id)
             .maybeSingle();
 
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-        if (!data) return NextResponse.json({ error: "Adventure not found" }, { status: 404 });
+        if (error) {
+            return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+
+        if (!data) {
+            return NextResponse.json({ error: "Adventure not found" }, { status: 404 });
+        }
 
         return NextResponse.json({ adventure: mapAdventure(data) });
     }
 
-    // 📜 CAS 2 — liste de la session
+    /* ------------------------------------------------------------
+     ⭐ CAS 2 — aventure courante (current=true)
+     👉 récupérée via la session active
+    ------------------------------------------------------------ */
+    if (current) {
+        const { data, error } = await supabase
+            .from("adventures")
+            .select(selectWithType)
+            .eq("session_id", session.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+
+        if (!data) {
+            return NextResponse.json({ error: "No current adventure found" }, { status: 404 });
+        }
+
+        return NextResponse.json({ adventure: mapAdventure(data) });
+    }
+
+    /* ------------------------------------------------------------
+     📜 CAS 3 — liste des aventures de la session
+    ------------------------------------------------------------ */
     const { data, error } = await supabase
         .from("adventures")
         .select(selectWithType)
         .eq("session_id", session.id)
         .order("created_at", { ascending: false });
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
-    return NextResponse.json({ adventures: (data ?? []).map(mapAdventure), session });
+    return NextResponse.json({
+        adventures: (data ?? []).map(mapAdventure),
+        session,
+    });
 }
 
 export async function POST(req: Request) {

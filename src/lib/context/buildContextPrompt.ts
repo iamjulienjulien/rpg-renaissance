@@ -4,12 +4,14 @@ import type { AdventureContextResult } from "./getAdventureContext";
 import type { PlayerContextResult } from "./getPlayerContext";
 import type { CharacterContextResult } from "./getCharacterContext";
 import type { ChapterContextResult } from "./getChapterContext";
+import type { QuestContextResult } from "./getQuestContext";
 
 export type BuildContextPromptArgs = {
     adventure?: AdventureContextResult;
     player?: PlayerContextResult;
     character?: CharacterContextResult;
     chapter?: ChapterContextResult;
+    quest?: QuestContextResult;
 };
 
 /* ============================================================================
@@ -251,6 +253,53 @@ export function buildContextPrompt(args: BuildContextPromptArgs) {
     }
 
     /* =========================================================================
+    🎯 CONTEXTE DE QUÊTE
+    ========================================================================= */
+
+    const quest = args.quest ?? null;
+
+    if (quest) {
+        const qTitle = cleanLine(quest.quest_title ?? "");
+        const qDesc = (quest.quest_description ?? "").trim();
+        const qStatus = cleanLine(quest.quest_status ?? "");
+
+        if (qTitle || qDesc || qStatus) {
+            if (sections.length) sections.push("");
+
+            sections.push(
+                ...blockHeader("🎯 CONTEXTE DE QUÊTE"),
+                "Ce contexte décrit l’objectif concret à traiter maintenant (la quête).",
+                "Il doit orienter ta réponse vers l’exécution: actions réalistes, critères de réussite, prochaine étape immédiate.",
+                "Ne remplace pas la quête par une autre: si elle est floue, clarifie-la en 1 à 3 questions maximum.",
+                "",
+                qTitle ? `Quête: ${qTitle}` : "Quête: (non renseignée)"
+            );
+
+            if (qStatus) {
+                sections.push(`Statut: ${qStatus}`);
+            } else {
+                sections.push("Statut: (non renseigné)");
+            }
+
+            if (qDesc) {
+                sections.push("", "🧾 Description:", qDesc);
+            } else {
+                sections.push("", "🧾 Description: (non renseignée)");
+            }
+
+            sections.push(
+                "",
+                "✅ Directives:",
+                "• Convertis l’intention en étapes jouables (courtes, ordonnées, actionnables).",
+                "• Donne au joueur un 'prochain pas' clair, faisable aujourd’hui.",
+                "• Définis un critère de réussite observable (comment savoir que c’est fait).",
+                "• Si le statut implique une reprise (ex: in_progress), propose une relance: où reprendre, quoi simplifier, quoi terminer.",
+                "• Si le joueur est en difficulté, propose une variante plus simple (plan B) sans changer l’objectif."
+            );
+        }
+    }
+
+    /* =========================================================================
     🧩 FINAL
     ========================================================================= */
 
@@ -262,5 +311,6 @@ export function buildContextPrompt(args: BuildContextPromptArgs) {
         hasAdventure: !!adventure,
         hasCharacter: !!character,
         hasChapter: !!chapter,
+        hasQuest: !!quest,
     };
 }

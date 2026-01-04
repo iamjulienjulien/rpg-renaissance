@@ -5,7 +5,7 @@ import AppHotkeys from "@/components/AppHotKeys";
 import CommandPalette from "@/components/CommandPalette";
 import Toasts from "@/components/toasts/Toasts";
 import DevHud from "@/components/DevHud";
-import SettingsApplier from "@/components/ui/SettingsApplier";
+import SettingsApplier from "@/components/SettingsApplier";
 import { UiMotionConfig } from "@/components/motion/UiMotion";
 
 import "./globals.css";
