@@ -52,10 +52,14 @@ Ton rôle:
 `.trim();
 
 const PROMPT_INTRO = `
+════════════════════════════════════
+📐 TÂCHE DEMANDÉE / TEXTE À GÉNÉRER
+════════════════════════════════════
 Ta tâche maintenant est d’écrire un **ENCOURAGEMENT** pour une quête en cours.
+Le détails de la quête en cours sont dans bloc **🎯 CONTEXTE DE QUÊTE**.
 
 Un encouragement doit:
-- rebooster sans juger
+- rebooster le joueur dans sa quête, sans juger 
 - recentrer l’attention
 - donner UN mini prochain pas (une micro-consigne unique, pas une liste)
 - rester concret et humain, avec une touche RPG moderne
@@ -342,32 +346,6 @@ export async function generateQuestEncouragement(args: {
                 });
 
                 /* ------------------------------------------------------------
-                 2bis) Charger hint mission_md (best-effort)
-                ------------------------------------------------------------ */
-                let mission_md: string | null = null;
-
-                try {
-                    const m0 = Date.now();
-                    const { data: cachedMission, error: mErr } = await supabase
-                        .from("quest_mission_orders")
-                        .select("mission_md, session_id")
-                        .eq("chapter_quest_id", chapter_quest_id)
-                        .eq("session_id", session_id)
-                        .maybeSingle();
-
-                    if (mErr) {
-                        Log.debug("quest_encouragement.mission_hint.not_available", {
-                            metadata: { ms: msSince(m0), reason: mErr.message },
-                        });
-                    } else {
-                        const md = safeTrim((cachedMission as any)?.mission_md);
-                        mission_md = md.length ? md : null;
-                    }
-                } catch {
-                    // ignore
-                }
-
-                /* ------------------------------------------------------------
                  3) Construire prompt
                 ------------------------------------------------------------ */
                 const ctxPrompt = buildContextPrompt({
@@ -387,11 +365,6 @@ export async function generateQuestEncouragement(args: {
                     PROMPT_CONSTRAINTS,
                     "",
                     `Indice de longueur: ${lineHint.min} à ${lineHint.max} lignes (message).`,
-                    mission_md
-                        ? `Mission existante (hint, ne pas recopier mot pour mot):\n${safeTrim(
-                              mission_md
-                          ).slice(0, 1200)}`
-                        : null,
                 ]
                     .filter(Boolean)
                     .join("\n");
@@ -483,9 +456,6 @@ export async function generateQuestEncouragement(args: {
                                 quest: questCtx,
                                 chapter: chapterCtx,
                                 adventure: adventureCtx,
-                                mission_md_hint: mission_md
-                                    ? safeTrim(mission_md).slice(0, 600)
-                                    : null,
                             },
 
                             response_json: null,
@@ -588,7 +558,6 @@ export async function generateQuestEncouragement(args: {
                             quest: questCtx,
                             chapter: chapterCtx,
                             adventure: adventureCtx,
-                            mission_md_hint: mission_md ? safeTrim(mission_md).slice(0, 600) : null,
                             persisted: { thread_id, message_id },
                         },
 

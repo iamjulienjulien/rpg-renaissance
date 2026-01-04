@@ -262,6 +262,8 @@ export function buildContextPrompt(args: BuildContextPromptArgs) {
         const qTitle = cleanLine(quest.quest_title ?? "");
         const qDesc = (quest.quest_description ?? "").trim();
         const qStatus = cleanLine(quest.quest_status ?? "");
+        const qRoom = cleanLine(quest.quest_room ?? "");
+        const qMission = cleanLine(quest.mission_md ?? "");
 
         if (qTitle || qDesc || qStatus) {
             if (sections.length) sections.push("");
@@ -285,6 +287,18 @@ export function buildContextPrompt(args: BuildContextPromptArgs) {
                 sections.push("", "🧾 Description:", qDesc);
             } else {
                 sections.push("", "🧾 Description: (non renseignée)");
+            }
+
+            if (qRoom) {
+                sections.push("", "Pièce :", qDesc);
+            } else {
+                sections.push("", "Pièce (non renseignée)");
+            }
+
+            if (qMission) {
+                sections.push("", "🎯 Ordre de mission :", qDesc);
+            } else {
+                sections.push("", "🎯 Ordre de mission (non renseigné)");
             }
 
             sections.push(
