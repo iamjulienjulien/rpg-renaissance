@@ -258,10 +258,6 @@ async function executeJob(job: AiJobRow) {
     });
 
     switch (job.job_type) {
-        case "quest_photo_message": {
-            return { ok: true, job_type: job.job_type };
-        }
-
         case "adventure_briefing": {
             const adventureId = (job.payload as any)?.adventure_id ?? job.adventure_id ?? null;
             const userId = (job.payload as any)?.user_id ?? job.user_id ?? null;
