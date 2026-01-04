@@ -5,6 +5,7 @@ import { generateBriefingForAdventureId } from "@/lib/briefing/generateBriefing"
 import { generateWelcomeMessage } from "@/lib/prompts/generateWelcomeMessage";
 import { generateQuestMission } from "@/lib/prompts/generateQuestMission";
 import { generateQuestEncouragement } from "@/lib/prompts/generateQuestEncouragement";
+import { generateQuestPhotoMessage } from "@/lib/prompts/generateQuestPhotoMessage";
 
 // ✅ System logs + request context
 import { Log } from "@/lib/systemLog/Log";
@@ -479,6 +480,99 @@ async function executeJob(job: AiJobRow) {
                 user_id: userId,
                 title: (result as any)?.title ?? null,
                 message: (result as any)?.message ?? null,
+            };
+        }
+
+        case "quest_photo_message": {
+            const chapterQuestId =
+                (job.payload as any)?.chapter_quest_id ?? job.chapter_quest_id ?? null;
+            const userId = (job.payload as any)?.user_id ?? job.user_id ?? null;
+
+            const photoId = (job.payload as any)?.photo_id ?? null;
+            const photoCategory = (job.payload as any)?.photo_category ?? "other";
+            const photoCaption = (job.payload as any)?.photo_caption ?? null;
+            const photoSignedUrl = (job.payload as any)?.photo_signed_url ?? null;
+
+            if (!chapterQuestId) {
+                Log.warning("ai_worker.execute.quest_photo_message.missing_chapter_quest_id", {
+                    status_code: 400,
+                    metadata: { job_id: job.id, has_payload: !!job.payload },
+                });
+                throw new Error("Missing payload.chapter_quest_id");
+            }
+
+            if (!userId) {
+                Log.warning("ai_worker.execute.quest_photo_message.missing_user_id", {
+                    status_code: 400,
+                    metadata: { job_id: job.id, has_payload: !!job.payload },
+                });
+                throw new Error("Missing payload.user_id");
+            }
+
+            if (!photoId) {
+                Log.warning("ai_worker.execute.quest_photo_message.missing_photo_id", {
+                    status_code: 400,
+                    metadata: { job_id: job.id, has_payload: !!job.payload },
+                });
+                throw new Error("Missing payload.photo_id");
+            }
+
+            if (!photoSignedUrl) {
+                Log.warning("ai_worker.execute.quest_photo_message.missing_photo_signed_url", {
+                    status_code: 400,
+                    metadata: {
+                        job_id: job.id,
+                        photo_id: photoId,
+                        has_payload: !!job.payload,
+                    },
+                });
+                throw new Error("Missing payload.photo_signed_url");
+            }
+
+            patchRequestContext({
+                user_id: userId,
+                chapter_quest_id: chapterQuestId,
+                photo_id: photoId,
+            } as any);
+
+            const g0 = Date.now();
+
+            // ✅ La persistance est gérée dans generateQuestPhotoMessage.ts
+            // (thread + quest_messages + createAiGenerationLog + createJournalEntry + update photos.ai_description)
+            const result = await generateQuestPhotoMessage({
+                chapter_quest_id: chapterQuestId,
+                user_id: userId,
+                photo_id: photoId,
+                photo_category: photoCategory,
+                photo_caption: photoCaption,
+                photo_signed_url: photoSignedUrl,
+                // optionnel (si tu le passes dans le payload, utile pour la cohérence)
+                // force: !!(job.payload as any)?.force,
+            });
+
+            Log.success("ai_worker.execute.quest_photo_message.generated", {
+                status_code: 200,
+                metadata: {
+                    ms: msSince(g0),
+                    job_id: job.id,
+                    chapter_quest_id: chapterQuestId,
+                    user_id: userId,
+                    photo_id: photoId,
+                    photo_category: photoCategory,
+                    has_title: !!(result as any)?.photo_message_json?.title,
+                    has_description: !!(result as any)?.photo_message_json?.description,
+                    has_message: !!(result as any)?.photo_message_json?.message,
+                },
+            });
+
+            return {
+                chapter_quest_id: chapterQuestId,
+                user_id: userId,
+                photo_id: photoId,
+                photo_category: photoCategory,
+                title: (result as any)?.photo_message_json?.title ?? null,
+                description: (result as any)?.photo_message_json?.description ?? null,
+                message: (result as any)?.photo_message_json?.message ?? null,
             };
         }
 

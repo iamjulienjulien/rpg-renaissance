@@ -144,6 +144,8 @@ export default function QuestClient() {
         questMissionGenerating,
         generateQuestEncouragement,
         questEncouragementGenerating,
+        questPhotoMessageGenerating,
+        startQuestPhotoMessageGenerating,
     } = useAiStore();
 
     const [photosLoading, setPhotosLoading] = useState(false);
@@ -314,6 +316,17 @@ export default function QuestClient() {
             setWaitForEncouragement(false);
         }
     }, [questEncouragementGenerating, waitForEncouragement]);
+
+    const [waitForQuestPhotoMessage, setWaitForQuestPhotoMessage] = useState(false);
+
+    useEffect(() => {
+        console.log("questPhotoMessageGenerating change", questPhotoMessageGenerating);
+        if (waitForQuestPhotoMessage && !questPhotoMessageGenerating) {
+            console.log("reloadMission");
+            void refreshQuestMessages(currentQuestThreadId ?? "");
+            setWaitForQuestPhotoMessage(false);
+        }
+    }, [questPhotoMessageGenerating, waitForQuestPhotoMessage]);
 
     const questJournal = React.useMemo(() => {
         if (!quest?.id) return [];
@@ -995,6 +1008,7 @@ export default function QuestClient() {
                     if (!chapterQuestId) return;
                     void loadPhotos(chapterQuestId);
                     void loadJournal(120);
+                    void startQuestPhotoMessageGenerating();
                     void refreshQuestMessages(currentQuestThreadId ?? "");
                 }}
             />

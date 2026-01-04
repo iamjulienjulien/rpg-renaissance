@@ -51,6 +51,7 @@ type AiStore = {
     updateJobStatus: (jobId: string, patch: Partial<AiJobPending>) => void;
     checkQuestMissionJobs: () => void;
     checkQuestEncouragementJobs: () => void;
+    checkQuestPhotoMessageJobs: () => void;
 
     loadPendingJobs: () => Promise<void>;
     subscribeToAiJobs: (user_id: string) => () => void;
@@ -68,6 +69,10 @@ type AiStore = {
     generateQuestEncouragement: (
         args: GenerateQuestEncouragementArgs
     ) => Promise<GenerateResult | null>;
+
+    questPhotoMessageGenerating: boolean;
+
+    startQuestPhotoMessageGenerating: () => void;
 };
 
 /* ============================================================================
@@ -88,6 +93,7 @@ export const useAiStore = create<AiStore>((set, get) => ({
         // recalcul automatique
         get().checkQuestMissionJobs();
         get().checkQuestEncouragementJobs();
+        get().checkQuestPhotoMessageJobs();
     },
 
     /* ------------------------------------------------------------
@@ -119,6 +125,19 @@ export const useAiStore = create<AiStore>((set, get) => ({
         set({ questEncouragementGenerating: hasRunning });
     },
 
+    checkQuestPhotoMessageJobs() {
+        const jobs = get().aiJobsPending.filter((j) => j.jobType === "quest_photo_message");
+
+        if (!jobs.length) {
+            set({ questPhotoMessageGenerating: false });
+            return;
+        }
+
+        const hasRunning = jobs.some((j) => j.status === "queued" || j.status === "running");
+
+        set({ questPhotoMessageGenerating: hasRunning });
+    },
+
     /* ------------------------------------------------------------
      Update job (Realtime)
     ------------------------------------------------------------ */
@@ -131,6 +150,7 @@ export const useAiStore = create<AiStore>((set, get) => ({
 
         get().checkQuestMissionJobs();
         get().checkQuestEncouragementJobs();
+        get().checkQuestPhotoMessageJobs();
     },
 
     /* ------------------------------------------------------------
@@ -295,5 +315,10 @@ export const useAiStore = create<AiStore>((set, get) => ({
         } finally {
             set({ questEncouragementLoading: false });
         }
+    },
+
+    questPhotoMessageGenerating: false,
+    startQuestPhotoMessageGenerating() {
+        set({ questPhotoMessageGenerating: true });
     },
 }));

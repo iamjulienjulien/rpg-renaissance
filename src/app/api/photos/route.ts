@@ -6,6 +6,7 @@ import { getActiveSessionOrThrow } from "@/lib/sessions/getActiveSession";
 import { createJournalEntry } from "@/lib/journal/createJournalEntry";
 import { type PhotoCategory } from "@/types/game";
 import { generatePhotoQuestMessageForQuest } from "@/lib/questMessages/generatePhotoQuestMessage";
+import { enqueueAiJobServer } from "@/lib/aiJobs/enqueueAiJob";
 
 // ✅ System logs + request context
 import { Log } from "@/lib/systemLog/Log";
@@ -576,10 +577,11 @@ export async function POST(req: NextRequest) {
                         },
                     });
 
-                    // ✅ MJ (best-effort)
+                    // ✅ MJ via Job Queue (best-effort enqueue)
                     if (signedUrl) {
                         const ai0 = Date.now();
-                        Log.info("photos.POST.mj.generate.start", {
+
+                        Log.info("photos.POST.mj.enqueue.start", {
                             metadata: {
                                 ms_since_start: msSince(startedAt),
                                 photo_id: photoId,
@@ -588,30 +590,50 @@ export async function POST(req: NextRequest) {
                             },
                         });
 
-                        const settled = await Promise.allSettled([
-                            generatePhotoQuestMessageForQuest({
-                                chapter_quest_id: chapterQuestId!,
-                                photo_id: photoId,
-                                photo_category: category as any,
-                                photo_caption: caption,
-                                photo_signed_url: signedUrl,
-                            }),
-                        ]);
+                        try {
+                            const { jobId } = await enqueueAiJobServer({
+                                user_id: userId,
+                                job_type: "quest_photo_message",
+                                payload: {
+                                    // Identité
+                                    user_id: userId,
 
-                        const r = settled[0];
-                        if (r.status === "fulfilled") {
-                            Log.success("photos.POST.mj.generate.ok", {
-                                metadata: { ms: msSince(ai0), photo_id: photoId },
+                                    // Cible
+                                    chapter_quest_id: chapterQuestId!,
+                                    photo_id: photoId,
+                                    photo_category: category,
+                                    photo_caption: caption,
+
+                                    // Vision input (URL signée courte)
+                                    photo_signed_url: signedUrl,
+
+                                    // Bonus debug/persist
+                                    session_id: sessionId,
+                                },
+                                priority: 60,
+                                max_attempts: 3,
                             });
-                        } else {
-                            Log.warning("photos.POST.mj.generate.failed", {
+
+                            Log.success("photos.POST.mj.enqueue.ok", {
+                                status_code: 202,
+                                metadata: {
+                                    ms: msSince(ai0),
+                                    job_id: jobId,
+                                    photo_id: photoId,
+                                    chapter_quest_id: chapterQuestId,
+                                    photo_category: category,
+                                },
+                            });
+
+                            // Optionnel: tu peux renvoyer jobId au client via la réponse JSON
+                            // en le stockant dans une variable externe au try/catch (voir plus bas).
+                        } catch (e: any) {
+                            Log.warning("photos.POST.mj.enqueue.failed", {
+                                status_code: 200,
                                 metadata: {
                                     ms: msSince(ai0),
                                     photo_id: photoId,
-                                    reason:
-                                        r.reason instanceof Error
-                                            ? r.reason.message
-                                            : String(r.reason),
+                                    error: e instanceof Error ? e.message : String(e),
                                 },
                             });
                         }

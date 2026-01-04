@@ -46,6 +46,8 @@ export default React.memo(function ChapterTransitionModal(props: {
         onSubmit,
     } = props;
 
+    console.log("car", carryOver);
+
     return (
         <UiModal
             id="chapterTransition"
@@ -91,7 +93,7 @@ export default React.memo(function ChapterTransitionModal(props: {
                                 className="rounded-2xl bg-black/30 p-3 ring-1 ring-white/10"
                             >
                                 <div className="font-semibold truncate text-white/85">
-                                    {(cq as any)?.title ?? "Quête"}
+                                    {(cq as any)?.adventure_quests.title ?? "Quête"}
                                 </div>
                             </div>
                         ))}
