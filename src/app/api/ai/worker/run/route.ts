@@ -253,6 +253,7 @@ async function executeJob(job: AiJobRow) {
             chapter_quest_id: job.chapter_quest_id,
             attempts: job.attempts,
             max_attempts: job.max_attempts,
+            payload: job.payload,
         },
     });
 
