@@ -1,7 +1,6 @@
 // src/lib/prompts/generateQuestEncouragement.ts
 import { openai } from "@/lib/openai";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { supabaseServer } from "@/lib/supabase/server";
 import { createAiGenerationLog } from "@/lib/logs/createAiGenerationLog";
 import { createJournalEntry } from "@/lib/journal/createJournalEntry";
 
@@ -108,7 +107,7 @@ async function ensureQuestThreadId(input: {
     session_id: string;
     chapter_quest_id: string;
 }): Promise<string | null> {
-    const supabase = await supabaseServer();
+    const supabase = await supabaseAdmin();
 
     const q0 = Date.now();
     const { data: existing, error: exErr } = await supabase
@@ -154,7 +153,7 @@ async function createQuestMessageRow(input: {
     title: string;
     content: string;
 }) {
-    const supabase = await supabaseServer();
+    const supabase = await supabaseAdmin();
 
     const id = crypto.randomUUID();
 

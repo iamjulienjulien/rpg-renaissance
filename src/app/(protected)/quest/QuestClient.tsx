@@ -803,9 +803,9 @@ export default function QuestClient() {
                                         <UIActionButton
                                             variant="magic"
                                             onClick={onEncourage}
-                                            disabled={questMissionGenerating}
+                                            disabled={questEncouragementGenerating}
                                         >
-                                            {waitForMission && questMissionGenerating
+                                            {waitForEncouragement && questEncouragementGenerating
                                                 ? "⏳ Génération en cours"
                                                 : "✨ Demander un encouragement"}
                                         </UIActionButton>
