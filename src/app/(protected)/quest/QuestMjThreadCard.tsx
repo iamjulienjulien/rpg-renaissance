@@ -7,6 +7,7 @@ import { useGameStore } from "@/stores/gameStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { getCurrentCharacterEmoji, getCurrentCharacterName } from "@/helpers/adventure";
 import { Panel } from "@/components/RpgUi";
+import { useAiStore } from "@/stores/aiStore";
 
 type QuestThread = {
     id: string;
@@ -208,11 +209,15 @@ export default function QuestMjThreadCard({ chapterQuestId }: Props) {
 
     const sessionId = useSessionStore((s) => s.activeSessionId);
 
+    const { questMissionGenerating } = useAiStore();
+
     const thread = questThreadsByChapterQuestId[chapterQuestId];
     const threadLoading = questThreadsLoadingByChapterQuestId[chapterQuestId];
 
     const messages = thread ? (questMessagesByThreadId[thread.id] ?? []) : [];
-    const messagesLoading = thread ? questMessagesLoadingByThreadId[thread.id] : false;
+    const messagesLoading = thread
+        ? questMessagesLoadingByThreadId[thread.id] || questMissionGenerating
+        : false;
     // const messagesLoading = true;
 
     const [expanded, setExpanded] = React.useState(true);

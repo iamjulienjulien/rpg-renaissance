@@ -1289,11 +1289,11 @@ export const useGameStore = create<GameStore>((set, get) => {
                         );
                         // return false;
                     } else {
-                        const { generateQuestMessage } = useAiStore.getState();
+                        const { generateQuestMission } = useAiStore.getState();
 
                         for (const chapter_quest_id of chapterQuestIds) {
                             try {
-                                await generateQuestMessage({
+                                await generateQuestMission({
                                     chapter_quest_id,
                                     user_id: currentUserId,
                                 });
@@ -2669,11 +2669,11 @@ export const useGameStore = create<GameStore>((set, get) => {
                         );
                         // return;
                     } else {
-                        const { generateQuestMessage } = useAiStore.getState();
+                        const { generateQuestMission } = useAiStore.getState();
 
                         for (const chapter_quest_id of chapterQuestIds) {
                             try {
-                                await generateQuestMessage({
+                                await generateQuestMission({
                                     chapter_quest_id,
                                     user_id: currentUserId,
                                 });

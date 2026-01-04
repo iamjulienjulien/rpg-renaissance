@@ -316,7 +316,7 @@ export default function Toasts() {
     const toasts = useToastStore((s) => s.toasts);
     const dismiss = useToastStore((s) => s.dismiss);
 
-    console.log("toasts", toasts);
+    // console.log("toasts", toasts);
 
     if (toasts.length === 0) return null;
 

@@ -10,6 +10,7 @@ import { UiMotionConfig } from "@/components/motion/UiMotion";
 
 import "./globals.css";
 import ToastEngine from "@/components/toasts/ToastEngine";
+import AiJobsEngine from "@/components/ai/AiJobsEngine";
 
 export const metadata = {
     title: "RPG Renaissance — Le jeu dont tu es le héros",
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <AppHotkeys />
                 <CommandPalette />
                 <ToastEngine />
+                <AiJobsEngine />
                 <Toasts />
                 <DevHud />
                 <UiMotionConfig>{children}</UiMotionConfig>

@@ -41,7 +41,7 @@ export default function UiLightbox({ open, items, startIndex, onClose, onIndexCh
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, startIndex]);
 
-    console.log(items);
+    // console.log(items);
 
     const count = items.length;
 

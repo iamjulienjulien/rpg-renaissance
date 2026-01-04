@@ -34,6 +34,7 @@ import QuestMjThreadCard from "./QuestMjThreadCard";
 import { useDevStore } from "@/stores/devStore";
 import QuestEditModal from "@/components/modals/QuestEditModal";
 import UIActionButton from "@/components/ui/UiActionButton";
+import { useAiStore } from "@/stores/aiStore";
 
 type Quest = {
     id: string;
@@ -136,7 +137,14 @@ export default function QuestClient() {
     const encouragement = chapterQuestId ? encouragementById[chapterQuestId] : undefined;
 
     const { openModal } = useUiStore();
-    const { generateQuestMission, refreshQuestMessages, currentQuestThreadId } = useGameStore();
+    const { refreshQuestMessages, currentQuestThreadId, currentUserId } = useGameStore();
+
+    const {
+        generateQuestMission,
+        questMissionGenerating,
+        generateQuestEncouragement,
+        questEncouragementGenerating,
+    } = useAiStore();
 
     const [photosLoading, setPhotosLoading] = useState(false);
     const [photos, setPhotos] = useState<QuestPhoto[]>([]);
@@ -166,7 +174,7 @@ export default function QuestClient() {
             }));
     }, [filteredPhotos]);
 
-    console.log("f", filteredPhotos);
+    // console.log("f", filteredPhotos);
 
     const toggleCategory = (cat: PhotoCategory) => {
         setPhotoFilter((prev) =>
@@ -285,6 +293,28 @@ export default function QuestClient() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    const [waitForMission, setWaitForMission] = useState(false);
+
+    useEffect(() => {
+        console.log("questMissionGenerating change", questMissionGenerating);
+        if (waitForMission && !questMissionGenerating) {
+            console.log("reloadMission");
+            reloadMission();
+            setWaitForMission(false);
+        }
+    }, [questMissionGenerating, waitForMission]);
+
+    const [waitForEncouragement, setWaitForEncouragement] = useState(false);
+
+    useEffect(() => {
+        console.log("questEncouragementGenerating change", questEncouragementGenerating);
+        if (waitForEncouragement && !questEncouragementGenerating) {
+            console.log("reloadMission");
+            void refreshQuestMessages(currentQuestThreadId ?? "");
+            setWaitForEncouragement(false);
+        }
+    }, [questEncouragementGenerating, waitForEncouragement]);
+
     const questJournal = React.useMemo(() => {
         if (!quest?.id) return [];
 
@@ -338,30 +368,26 @@ export default function QuestClient() {
     };
 
     const onEncourage = async () => {
-        if (!chapterQuestId || !quest) return;
+        if (!chapterQuestId) return;
+        if (!currentUserId) return;
 
-        // On ouvre la modal tout de suite (style “invocation du MJ”)
-        // setEncOpen(true);
-
-        // Si déjà en cache store, on ne regen pas forcément
-        // if (encouragement?.message) return;
-
-        await askEncouragement(chapterQuestId, {
+        await generateQuestEncouragement({
             chapter_quest_id: chapterQuestId,
-            quest_title: quest.title,
-            room_code: quest.room_code ?? null,
-            difficulty: quest.difficulty ?? null,
-            mission_md: missionMd ?? null,
+            user_id: currentUserId,
         });
-
-        void refreshQuestMessages(currentQuestThreadId ?? "");
+        setWaitForEncouragement(true);
     };
 
     const onRegenerateMission = async () => {
         if (!chapterQuestId) return;
+        if (!currentUserId) return;
 
-        await generateQuestMission(chapterQuestId, devModeEnabled);
-        await reloadMission();
+        await generateQuestMission({
+            chapter_quest_id: chapterQuestId,
+            user_id: currentUserId,
+            force: true,
+        });
+        setWaitForMission(true);
     };
 
     const onEdit = async () => {
@@ -721,9 +747,11 @@ export default function QuestClient() {
                                             <UIActionButton
                                                 variant="magic"
                                                 onClick={onRegenerateMission}
-                                                disabled={busy}
+                                                disabled={questMissionGenerating}
                                             >
-                                                ✨ Générer l'ordre de mission
+                                                {waitForMission && questMissionGenerating
+                                                    ? "⏳ Génération en cours"
+                                                    : "✨ Générer l'ordre de mission"}
                                             </UIActionButton>
                                         )}
 
@@ -775,18 +803,22 @@ export default function QuestClient() {
                                         <UIActionButton
                                             variant="magic"
                                             onClick={onEncourage}
-                                            disabled={busy}
+                                            disabled={questMissionGenerating}
                                         >
-                                            ✨ Demander un encouragement
+                                            {waitForMission && questMissionGenerating
+                                                ? "⏳ Génération en cours"
+                                                : "✨ Demander un encouragement"}
                                         </UIActionButton>
 
                                         {(!missionMd || devModeEnabled) && (
                                             <UIActionButton
                                                 variant="magic"
                                                 onClick={onRegenerateMission}
-                                                disabled={busy}
+                                                disabled={questMissionGenerating}
                                             >
-                                                ✨ Générer l'ordre de mission
+                                                {waitForMission && questMissionGenerating
+                                                    ? "⏳ Génération en cours"
+                                                    : "✨ Générer l'ordre de mission"}
                                             </UIActionButton>
                                         )}
 

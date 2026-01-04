@@ -4,6 +4,7 @@ import { qstashPublishJSON } from "@/lib/qstash/publish";
 import { generateBriefingForAdventureId } from "@/lib/briefing/generateBriefing";
 import { generateWelcomeMessage } from "@/lib/prompts/generateWelcomeMessage";
 import { generateQuestMission } from "@/lib/prompts/generateQuestMission";
+import { generateQuestEncouragement } from "@/lib/prompts/generateQuestEncouragement";
 
 // ✅ System logs + request context
 import { Log } from "@/lib/systemLog/Log";
@@ -426,6 +427,58 @@ async function executeJob(job: AiJobRow) {
                 mission_md: result?.mission_md ?? null,
                 mission_json: result?.mission_json ?? null,
                 // meta: result?.meta ?? null,
+            };
+        }
+
+        case "quest_encouragement": {
+            const chapterQuestId =
+                (job.payload as any)?.chapter_quest_id ?? job.chapter_quest_id ?? null;
+            const userId = (job.payload as any)?.user_id ?? job.user_id ?? null;
+
+            if (!chapterQuestId) {
+                Log.warning("ai_worker.execute.quest_encouragement.missing_chapter_quest_id", {
+                    status_code: 400,
+                    metadata: { job_id: job.id, has_payload: !!job.payload },
+                });
+                throw new Error("Missing payload.chapter_quest_id");
+            }
+
+            if (!userId) {
+                Log.warning("ai_worker.execute.quest_encouragement.missing_user_id", {
+                    status_code: 400,
+                    metadata: { job_id: job.id, has_payload: !!job.payload },
+                });
+                throw new Error("Missing payload.user_id");
+            }
+
+            patchRequestContext({ user_id: userId, chapter_quest_id: chapterQuestId });
+
+            const g0 = Date.now();
+
+            // ✅ La persistance en BDD est gérée dans generateQuestEncouragement.ts
+            // (thread + quest_messages + createAiGenerationLog + createJournalEntry)
+            const result = await generateQuestEncouragement({
+                chapter_quest_id: chapterQuestId,
+                user_id: userId,
+            });
+
+            Log.success("ai_worker.execute.quest_encouragement.generated", {
+                status_code: 200,
+                metadata: {
+                    ms: msSince(g0),
+                    job_id: job.id,
+                    chapter_quest_id: chapterQuestId,
+                    user_id: userId,
+                    has_title: !!(result as any)?.title,
+                    has_message: !!(result as any)?.message,
+                },
+            });
+
+            return {
+                chapter_quest_id: chapterQuestId,
+                user_id: userId,
+                title: (result as any)?.title ?? null,
+                message: (result as any)?.message ?? null,
             };
         }
 
