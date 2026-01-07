@@ -342,7 +342,20 @@ export async function generateJournalChapterStory(args: {
                         started_at: startedAt,
                         finished_at: new Date(),
                         duration_ms: msSince(startedAtMs),
+
                         request_json: requestPayload,
+                        system_text: systemText,
+                        user_input_text: userText,
+                        context_json: {
+                            player: player,
+                            character: character,
+                            doneQuests: doneQuests,
+                            chapter: chapterCtx,
+
+                            adventure: adventureCtx,
+                        },
+                        response_json: response,
+                        // output_text: outputText,
                         parsed_json: storyJson,
                         rendered_md: storyMd,
                     } as any);
