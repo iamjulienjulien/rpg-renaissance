@@ -5,6 +5,7 @@ import type { PlayerContextResult } from "./getPlayerContext";
 import type { CharacterContextResult } from "./getCharacterContext";
 import type { ChapterContextResult } from "./getChapterContext";
 import type { QuestContextResult } from "./getQuestContext";
+import type { ChapterDoneQuestsContextResult } from "./getChapterDoneQuestsContext";
 
 export type BuildContextPromptArgs = {
     adventure?: AdventureContextResult;
@@ -12,6 +13,7 @@ export type BuildContextPromptArgs = {
     character?: CharacterContextResult;
     chapter?: ChapterContextResult;
     quest?: QuestContextResult;
+    doneQuests?: ChapterDoneQuestsContextResult;
 };
 
 /* ============================================================================
@@ -250,6 +252,38 @@ export function buildContextPrompt(args: BuildContextPromptArgs) {
                 "• Si tu fais avancer l’histoire, fais-le par petites unités actionnables."
             );
         }
+    }
+
+    /* =========================================================================
+    🎯 CONTEXTE DE QUÊTE DE CHAPITRE TERMINEES
+    ========================================================================= */
+
+    const doneQuests = args.doneQuests ?? null;
+
+    if (doneQuests) {
+        if (sections.length) sections.push("");
+
+        sections.push(
+            ...blockHeader("✅ QUÊTES TERMINÉES (CHAPITRE)"),
+            "Ces quêtes sont déjà accomplies. Utilise-les pour ancrer le récit: faits concrets, progression, rythme.",
+            "Respecte l'ordre (order_hint)."
+        );
+
+        for (const q of doneQuests) {
+            const title = cleanLine(q.quest_title);
+            const room = q.room_code ? ` · 🏠 ${q.room_code}` : "";
+            const diff = q.difficulty != null ? ` · ⚔️ diff=${q.difficulty}` : "";
+            const est = q.estimate_min != null ? ` · ⏱️ est=${q.estimate_min}min` : "";
+            const completed = q.completed_at ? ` · 🕰️ ${q.completed_at}` : "";
+
+            sections.push(
+                `- [${q.order_hint}] ${title}${room}${diff}${est}${completed} (id=${
+                    q.chapter_quest_id
+                })`
+            );
+        }
+
+        sections.push(``);
     }
 
     /* =========================================================================

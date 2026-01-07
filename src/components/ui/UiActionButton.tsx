@@ -248,8 +248,8 @@ export function UIActionButton(props: UIActionButtonProps) {
                         ? "bg-[hsl(var(--accent)/0.2)] ring-[hsl(var(--accent)/0.4)]"
                         : "bg-[hsl(var(--accent)/0.12)] ring-[hsl(var(--accent)/0.25)]"
                     : active
-                      ? "bg-[hsl(var(--panel-2)/0.75)] ring-[hsl(var(--accent)/0.35)]"
-                      : "bg-[hsl(var(--panel-2)/0.55)] ring-[hsl(var(--ring))]",
+                      ? "bg-[hsl(var(--panel-2)/0.95)] ring-[hsl(var(--accent)/0.35)]"
+                      : "bg-[hsl(var(--panel-2)/0.35)] ring-[hsl(var(--ring))]",
                 "text-[hsl(var(--text))]",
                 disabled && "opacity-60 pointer-events-none"
             )}

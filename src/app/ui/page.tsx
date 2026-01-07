@@ -22,6 +22,8 @@ import { UiFormSelect } from "@/components/ui/UiFormSelect";
 import UiFormSelectPanel from "./_panels/UiFormSelectPanel";
 import UiFormTextPanelV2 from "./_panels/UiFormTextPanelV2";
 import UiCardPanel from "./_panels/UiCardPanel";
+import UiEmojiPickerPanelV2 from "./_panels/UiEmojiPickerPanelV2";
+import UiToolbarPanelV2 from "./_panels/UiToolbarPanelV2";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -234,11 +236,13 @@ import { Pill } from "@/components/RpgUi";
                 <UiActionButtonGroupPanel />
                 <UiPillPanel />
                 <UiChipPanel />
+                <UiToolbarPanelV2 />
                 <UiCardPanel />
                 <UiPanelPanel />
                 <UiGradientPanelPanel />
                 <UiFormTextPanelV2 />
                 <UiFormSelectPanel />
+                <UiEmojiPickerPanelV2 />
 
                 {/* ✅ NEW: Onboarding UI */}
                 <Panel

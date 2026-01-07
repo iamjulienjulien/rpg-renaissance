@@ -7,7 +7,7 @@ function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
 }
 
-export type UiCardVariant = "default" | "soft" | "ghost";
+export type UiCardVariant = "default" | "classic" | "soft" | "ghost";
 export type UiCardTone = "theme" | "neutral";
 
 /**
@@ -57,18 +57,20 @@ export function UiCard({
 }: UiCardProps) {
     // Base proche de UiPanel, mais un poil plus discret
     const baseStyle =
-        variant === "ghost"
-            ? "bg-transparent ring-white/10"
-            : variant === "soft"
-              ? "bg-[hsl(var(--panel)/0.45)] ring-[hsl(var(--ring)/0.55)]"
-              : "bg-[hsl(var(--panel)/0.65)] ring-[hsl(var(--ring)/0.75)]";
+        variant === "classic"
+            ? "bg-black/30 ring-white/10"
+            : variant === "ghost"
+              ? "bg-transparent ring-white/10"
+              : variant === "soft"
+                ? "bg-[hsl(var(--panel)/0.45)] ring-[hsl(var(--ring)/0.55)]"
+                : "bg-[hsl(var(--panel)/0.65)] ring-[hsl(var(--ring)/0.75)]";
 
     // Tone: léger réglage (utile si un jour tu veux élargir)
     const toneStyle = tone === "neutral" ? "text-white/80" : "text-white/85"; // theme par défaut
 
     // Un peu de profondeur, mais moins que UiPanel (pour nesting)
     const glowStyle =
-        variant === "ghost"
+        variant === "ghost" || variant === "classic"
             ? ""
             : "shadow-[0_0_0_1px_hsl(var(--border)/0.65),0_10px_22px_hsl(var(--shadow)/0.55)]";
 

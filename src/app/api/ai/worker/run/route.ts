@@ -6,6 +6,8 @@ import { generateWelcomeMessage } from "@/lib/prompts/generateWelcomeMessage";
 import { generateQuestMission } from "@/lib/prompts/generateQuestMission";
 import { generateQuestEncouragement } from "@/lib/prompts/generateQuestEncouragement";
 import { generateQuestPhotoMessage } from "@/lib/prompts/generateQuestPhotoMessage";
+import { generateJournalChapterStory } from "@/lib/prompts/generateJournalChapterStory";
+import { generateQuestCongrat } from "@/lib/prompts/generateQuestCongrat";
 
 // ✅ System logs + request context
 import { Log } from "@/lib/systemLog/Log";
@@ -480,6 +482,61 @@ async function executeJob(job: AiJobRow) {
             };
         }
 
+        case "quest_congrat": {
+            const chapterQuestId =
+                (job.payload as any)?.chapter_quest_id ?? job.chapter_quest_id ?? null;
+            const userId = (job.payload as any)?.user_id ?? job.user_id ?? null;
+
+            if (!chapterQuestId) {
+                Log.warning("ai_worker.execute.quest_congrat.missing_chapter_quest_id", {
+                    status_code: 400,
+                    metadata: { job_id: job.id, has_payload: !!job.payload },
+                });
+                throw new Error("Missing payload.chapter_quest_id");
+            }
+
+            if (!userId) {
+                Log.warning("ai_worker.execute.quest_congrat.missing_user_id", {
+                    status_code: 400,
+                    metadata: { job_id: job.id, has_payload: !!job.payload },
+                });
+                throw new Error("Missing payload.user_id");
+            }
+
+            patchRequestContext({
+                user_id: userId,
+                chapter_quest_id: chapterQuestId,
+            });
+
+            const g0 = Date.now();
+
+            // ✅ Toute la persistance est gérée dans generateQuestCongrat.ts
+            // (thread + quest_messages + ai_generations + journal)
+            const result = await generateQuestCongrat({
+                chapter_quest_id: chapterQuestId,
+                user_id: userId,
+            });
+
+            Log.success("ai_worker.execute.quest_congrat.generated", {
+                status_code: 200,
+                metadata: {
+                    ms: msSince(g0),
+                    job_id: job.id,
+                    chapter_quest_id: chapterQuestId,
+                    user_id: userId,
+                    has_title: !!result?.congrat_json?.title,
+                    has_message: !!result?.congrat_json?.message,
+                },
+            });
+
+            return {
+                chapter_quest_id: chapterQuestId,
+                user_id: userId,
+                title: result?.congrat_json?.title ?? null,
+                message: result?.congrat_json?.message ?? null,
+            };
+        }
+
         case "quest_photo_message": {
             const chapterQuestId =
                 (job.payload as any)?.chapter_quest_id ?? job.chapter_quest_id ?? null;
@@ -570,6 +627,70 @@ async function executeJob(job: AiJobRow) {
                 title: (result as any)?.photo_message_json?.title ?? null,
                 description: (result as any)?.photo_message_json?.description ?? null,
                 message: (result as any)?.photo_message_json?.message ?? null,
+            };
+        }
+
+        case "journal_chapter_story": {
+            const chapterId = (job.payload as any)?.chapter_id ?? job.chapter_id ?? null;
+            const userId = (job.payload as any)?.user_id ?? job.user_id ?? null;
+            const force = !!((job.payload as any)?.force ?? false);
+
+            if (!chapterId) {
+                Log.warning("ai_worker.execute.journal_chapter_story.missing_chapter_id", {
+                    status_code: 400,
+                    metadata: { job_id: job.id, has_payload: !!job.payload },
+                });
+                throw new Error("Missing payload.chapter_id");
+            }
+
+            if (!userId) {
+                Log.warning("ai_worker.execute.journal_chapter_story.missing_user_id", {
+                    status_code: 400,
+                    metadata: { job_id: job.id, has_payload: !!job.payload },
+                });
+                throw new Error("Missing payload.user_id");
+            }
+
+            patchRequestContext({
+                user_id: userId,
+                chapter_id: chapterId,
+            } as any);
+
+            const g0 = Date.now();
+
+            // ✅ La persistance est gérée dans generateJournalChapterStory.ts
+            // (cache chapter_stories + createAiGenerationLog + createJournalEntry)
+            const result = await generateJournalChapterStory({
+                chapter_id: chapterId,
+                user_id: userId,
+                force,
+            });
+
+            Log.success("ai_worker.execute.journal_chapter_story.generated", {
+                status_code: 200,
+                metadata: {
+                    ms: msSince(g0),
+                    job_id: job.id,
+                    chapter_id: chapterId,
+                    user_id: userId,
+                    force,
+                    cached: !!(result as any)?.cached,
+                    model: (result as any)?.model ?? null,
+                    has_md: !!(result as any)?.story_md,
+                    has_json: !!(result as any)?.story_json,
+                    has_title: !!(result as any)?.story_json?.title,
+                },
+            });
+
+            return {
+                chapter_id: chapterId,
+                user_id: userId,
+                force,
+                cached: !!(result as any)?.cached,
+                model: (result as any)?.model ?? null,
+                title: (result as any)?.story_json?.title ?? null,
+                story_md: (result as any)?.story_md ?? null,
+                story_json: (result as any)?.story_json ?? null,
             };
         }
 

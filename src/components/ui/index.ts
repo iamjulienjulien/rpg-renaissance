@@ -13,7 +13,7 @@ export { UiModal } from "./UiModal";
 export * from "./UiCard";
 // Form
 export * from "./UiFormSelect";
-// export * from "./UiFormText";
+export * from "./UiFormDate";
 
 /* ============================================================================
 🧭 Actions & Controls (alias UiXXXX)

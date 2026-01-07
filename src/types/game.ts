@@ -410,22 +410,74 @@ export type QuestMessage = {
 };
 
 export type CurrentPlayer = {
+    /* ------------------------------------------------------------------
+     * Identité
+     * ------------------------------------------------------------------ */
     user_id: string;
+    email: string | null;
 
-    profile: {
-        first_name: string | null;
-        last_name: string | null;
-        avatar_url: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
+    locale: string | null;
+    onboarding_done: boolean;
+    created_at: string | null;
+
+    /* ------------------------------------------------------------------
+     * Profil joueur
+     * ------------------------------------------------------------------ */
+    display_name: string | null;
+
+    character: {
+        character_id: string;
+        code: string;
+        name: string;
+        emoji: string | null;
+        kind: string;
+        archetype: string | null;
+        vibe: string | null;
+        motto: string | null;
+        ai_style: Record<string, any>;
+    } | null;
+
+    /* ------------------------------------------------------------------
+     * Player profile details (nouveau contexte IA)
+     * ------------------------------------------------------------------ */
+    details: {
+        gender: string | null;
+        birth_date: string | null;
         locale: string | null;
-        onboarding_done: boolean;
-        created_at: string | null;
+        country_code: string | null;
+
+        main_goal: string | null;
+        wants: string[];
+        avoids: string[];
+
+        life_rhythm: string | null;
+        energy_peak: string | null;
+        daily_time_budget: string | null;
+
+        effort_style: string | null;
+        challenge_preference: string | null;
+        motivation_primary: string | null;
+        failure_response: string | null;
+
+        values: string[];
+        authority_relation: string | null;
+
+        archetype: string | null;
+        symbolism_relation: string | null;
+        resonant_elements: string[];
+
+        extra: Record<string, any>;
+
+        created_at: string;
+        updated_at: string;
     } | null;
 
-    player_profile: {
-        character_id: string | null;
-        display_name: string | null;
-    } | null;
-
+    /* ------------------------------------------------------------------
+     * Contextes narratifs (user_contexts)
+     * ------------------------------------------------------------------ */
     contexts: {
         context_self: string | null;
         context_family: string | null;
@@ -434,6 +486,9 @@ export type CurrentPlayer = {
         context_challenges: string | null;
     } | null;
 
+    /* ------------------------------------------------------------------
+     * Progression
+     * ------------------------------------------------------------------ */
     renown: {
         value: number;
         updated_at: string | null;
@@ -457,5 +512,12 @@ export type CurrentPlayer = {
         metadata: any;
     }>;
 
-    active_session: { id: string; title: string; is_active: boolean } | null;
+    /* ------------------------------------------------------------------
+     * Session
+     * ------------------------------------------------------------------ */
+    active_session: {
+        id: string;
+        title: string;
+        is_active: boolean;
+    } | null;
 };

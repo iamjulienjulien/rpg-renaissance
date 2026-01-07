@@ -81,6 +81,47 @@ export type ReloadKey =
 
 export type ReloadInput = ReloadKey | ReloadKey[];
 
+export type PatchMePayload = {
+    // user_profiles
+    first_name?: string | null;
+    last_name?: string | null;
+    avatar_url?: string | null;
+    locale?: string | null;
+    onboarding_done?: boolean;
+
+    // player_profiles
+    display_name?: string | null;
+
+    // player_profile_details
+    gender?: string | null;
+    birth_date?: string | null; // YYYY-MM-DD
+    country_code?: string | null;
+    main_goal?: string | null;
+
+    wants?: string[];
+    avoids?: string[];
+
+    life_rhythm?: string | null;
+    energy_peak?: string | null;
+    daily_time_budget?: string | null;
+
+    effort_style?: string | null;
+    challenge_preference?: string | null;
+    motivation_primary?: string | null;
+    failure_response?: string | null;
+
+    values?: string[];
+    authority_relation?: string | null;
+
+    archetype?: string | null;
+    symbolism_relation?: string | null;
+    resonant_elements?: string[];
+
+    extra?: Record<string, any>;
+};
+
+type PatchMeResult = { status: "ok" };
+
 export type ApiResult<T> =
     | { ok: true; status: number; data: T }
     | { ok: false; status: number; error: string; data?: undefined };
@@ -407,6 +448,8 @@ type GameStore = {
     refreshProfile: () => Promise<void>;
     activateCharacter: (characterId: string) => Promise<void>;
     loadActiveCharacter: () => Promise<void>;
+
+    updateMe: (patch: PatchMePayload) => Promise<boolean>;
 
     /* ---------------------------- 🧺 BACKLOG ---------------------------- */
     adventureBacklog: AdventureQuestWithStatus[];
@@ -2246,6 +2289,44 @@ export const useGameStore = create<GameStore>((set, get) => {
             await get().refreshProfile();
         },
 
+        updateMe: async (patch) => {
+            const toast = useToastStore.getState();
+
+            // Sécurité: si patch vide, on évite un call inutile
+            if (!patch || typeof patch !== "object" || Object.keys(patch).length === 0) {
+                toast.error("Profil", "Aucune donnée à mettre à jour");
+                return false;
+            }
+
+            set({ saving: true, error: null });
+
+            try {
+                const res = await apiPatch<PatchMeResult>("/api/me", patch);
+
+                if (!res.ok) {
+                    const msg = res.error ?? "Mise à jour impossible";
+                    set({ error: msg });
+                    toast.error("Profil", msg);
+                    return false;
+                }
+
+                toast.success("Profil", "Mis à jour");
+
+                // Best-effort: resync ce que l'app utilise déjà
+                // (player_profiles.display_name + user_profiles et autres sont consommés dans plusieurs endroits)
+                void get().bootstrap();
+
+                return true;
+            } catch (e) {
+                const msg = e instanceof Error ? e.message : "Erreur réseau";
+                set({ error: msg });
+                toast.error("Profil", msg);
+                return false;
+            } finally {
+                set({ saving: false });
+            }
+        },
+
         /* =========================================================================
         🧺 BACKLOG (nouveau)
         ========================================================================= */
@@ -2368,6 +2449,13 @@ export const useGameStore = create<GameStore>((set, get) => {
                         questId: quest?.id ?? null,
                     });
                     return null;
+                }
+
+                const userId = get().currentUserId;
+
+                if (userId) {
+                    const { generateQuestCongrat } = useAiStore.getState();
+                    generateQuestCongrat({ chapter_quest_id: chapterQuestId, user_id: userId });
                 }
 
                 const cq = json?.chapterQuest ?? null;

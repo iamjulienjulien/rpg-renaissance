@@ -171,13 +171,13 @@ function defaultFilter(opt: UiFormSelectOption, q: string) {
 
 const toneRing: Record<UiFormSelectTone, string> = {
     theme: "ring-[hsl(var(--accent)/0.35)]",
-    neutral: "ring-white/15",
+    neutral: "ring-white/10",
     danger: "ring-rose-400/25",
 };
 
 const toneGlow: Record<UiFormSelectTone, string> = {
     theme: "bg-[radial-gradient(240px_140px_at_18%_20%,hsl(var(--accent)/0.18),transparent_65%)]",
-    neutral: "bg-[radial-gradient(240px_140px_at_18%_20%,rgba(255,255,255,0.10),transparent_70%)]",
+    neutral: "bg-[radial-gradient(280px_160px_at_15%_20%,rgba(255,255,255,0.10),transparent_70%)]",
     danger: "bg-[radial-gradient(240px_140px_at_18%_20%,rgba(244,63,94,0.18),transparent_65%)]",
 };
 
@@ -763,7 +763,7 @@ export function UiFormSelect({
             {label ? (
                 <label
                     htmlFor={ariaId}
-                    className="mb-2 block text-[11px] tracking-[0.18em] text-white/55"
+                    className="mb-2 block text-[11px] tracking-[0.18em] text-white/55 uppercase"
                 >
                     {label}
                 </label>
@@ -784,7 +784,7 @@ export function UiFormSelect({
                     aria-expanded={open}
                     className={cn(
                         "relative w-full overflow-hidden ring-1 backdrop-blur-md transition",
-                        "bg-black/30 text-left",
+                        "bg-black/25 text-left",
                         sizeTrigger[size],
                         error ? "ring-rose-400/25" : toneRing[tone],
                         isDisabled && "opacity-50 cursor-not-allowed",

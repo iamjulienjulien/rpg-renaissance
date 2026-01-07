@@ -61,6 +61,7 @@ export async function GET(req: NextRequest) {
                 }
 
                 const user_id = auth.user.id;
+                const email = auth.user.email ?? null;
                 patchRequestContext({ user_id });
 
                 Log.debug("player.GET.auth.ok", {
@@ -115,6 +116,56 @@ export async function GET(req: NextRequest) {
 
                 Log.debug("player.GET.player_profiles.ok", {
                     metadata: { ms: msSince(qPP), has_character: !!playerProfile?.character_id },
+                });
+
+                /* ------------------------------------------------------------------
+                 * player_profile_details
+                 * ------------------------------------------------------------------ */
+                const qPPD = Date.now();
+                const { data: details, error: ppdErr } = await supabase
+                    .from("player_profile_details")
+                    .select(
+                        `
+                            gender,
+                            birth_date,
+                            locale,
+                            country_code,
+                            main_goal,
+                            wants,
+                            avoids,
+                            life_rhythm,
+                            energy_peak,
+                            daily_time_budget,
+                            effort_style,
+                            challenge_preference,
+                            motivation_primary,
+                            failure_response,
+                            values,
+                            authority_relation,
+                            archetype,
+                            symbolism_relation,
+                            resonant_elements,
+                            extra,
+                            created_at,
+                            updated_at
+                        `
+                    )
+                    .eq("user_id", user_id)
+                    .maybeSingle();
+
+                if (ppdErr) {
+                    Log.error("player.GET.player_profile_details.error", ppdErr, {
+                        status_code: 500,
+                        metadata: { ms: msSince(qPPD) },
+                    });
+                    t.endError("GET /api/player.player_profile_details_failed", ppdErr, {
+                        status_code: 500,
+                    });
+                    return jsonError("Failed to fetch player_profile_details", 500);
+                }
+
+                Log.debug("player.GET.player_profile_details.ok", {
+                    metadata: { ms: msSince(qPPD), found: !!details },
                 });
 
                 /* ------------------------------------------------------------------
@@ -319,6 +370,7 @@ export async function GET(req: NextRequest) {
 
                 return NextResponse.json({
                     user_id,
+                    email,
 
                     first_name: profile?.first_name ?? null,
                     last_name: profile?.last_name ?? null,
@@ -328,6 +380,8 @@ export async function GET(req: NextRequest) {
                     created_at: profile?.created_at ?? null,
 
                     display_name: playerProfile?.display_name ?? null,
+
+                    details: details ?? null,
 
                     character,
 

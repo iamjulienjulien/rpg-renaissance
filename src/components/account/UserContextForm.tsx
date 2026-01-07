@@ -4,6 +4,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useToastStore } from "@/stores/toastStore";
 import { Panel } from "../RpgUi";
+import { UiFormText } from "../ui";
 
 export type UserContext = {
     context_self: string | null;
@@ -60,13 +61,19 @@ function UserContextField(p: {
                 </div>
                 <div className="text-xs opacity-70">{p.hint}</div>
             </div>
-
-            <textarea
+            <UiFormText
+                tone="neutral"
+                placeholder={p.placeholder}
+                value={p.value ?? ""}
+                onChange={(e) => p.onChange(p.k, e)}
+                multiline
+            />
+            {/* <textarea
                 className="w-full min-h-[120px] rounded-2xl border border-white/10 bg-black/30 p-3 text-sm outline-none focus:border-white/20"
                 placeholder={p.placeholder}
                 value={p.value ?? ""}
                 onChange={(e) => p.onChange(p.k, e.target.value)}
-            />
+            /> */}
 
             {!p.hideActions ? (
                 <div className="flex items-center gap-3 text-xs">

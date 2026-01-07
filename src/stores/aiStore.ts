@@ -16,6 +16,12 @@ type GenerateQuestEncouragementArgs = {
     user_id: string;
 };
 
+type GenerateJournalChapterStoryArgs = {
+    chapter_id: string;
+    user_id: string | null;
+    force?: boolean;
+};
+
 type GenerateQuestMissionResult = {
     jobId: string;
     status: "queued";
@@ -32,6 +38,7 @@ export type AiJobPending = {
     jobId: string;
     jobType: string;
     chapter_quest_id?: string;
+    chapter_id?: string;
     status: AiJobStatus;
     result?: any | null;
     error?: string | null;
@@ -51,6 +58,7 @@ type AiStore = {
     updateJobStatus: (jobId: string, patch: Partial<AiJobPending>) => void;
     checkQuestMissionJobs: () => void;
     checkQuestEncouragementJobs: () => void;
+    checkQuestCongratJobs: () => void;
     checkQuestPhotoMessageJobs: () => void;
 
     loadPendingJobs: () => Promise<void>;
@@ -70,9 +78,20 @@ type AiStore = {
         args: GenerateQuestEncouragementArgs
     ) => Promise<GenerateResult | null>;
 
+    questCongratLoading: boolean;
+    questCongratGenerating: boolean;
+
+    generateQuestCongrat: (args: GenerateQuestEncouragementArgs) => Promise<GenerateResult | null>;
+
     questPhotoMessageGenerating: boolean;
 
     startQuestPhotoMessageGenerating: () => void;
+
+    journalChapterStoryLoading: boolean;
+    journalChapterStoryGenerating: boolean;
+    generateJournalChapterStory: (
+        args: GenerateJournalChapterStoryArgs
+    ) => Promise<GenerateResult | null>;
 };
 
 /* ============================================================================
@@ -93,6 +112,7 @@ export const useAiStore = create<AiStore>((set, get) => ({
         // recalcul automatique
         get().checkQuestMissionJobs();
         get().checkQuestEncouragementJobs();
+        get().checkQuestCongratJobs();
         get().checkQuestPhotoMessageJobs();
     },
 
@@ -125,6 +145,19 @@ export const useAiStore = create<AiStore>((set, get) => ({
         set({ questEncouragementGenerating: hasRunning });
     },
 
+    checkQuestCongratJobs() {
+        const jobs = get().aiJobsPending.filter((j) => j.jobType === "quest_congrat");
+
+        if (!jobs.length) {
+            set({ questCongratGenerating: false });
+            return;
+        }
+
+        const hasRunning = jobs.some((j) => j.status === "queued" || j.status === "running");
+
+        set({ questCongratGenerating: hasRunning });
+    },
+
     checkQuestPhotoMessageJobs() {
         const jobs = get().aiJobsPending.filter((j) => j.jobType === "quest_photo_message");
 
@@ -150,6 +183,7 @@ export const useAiStore = create<AiStore>((set, get) => ({
 
         get().checkQuestMissionJobs();
         get().checkQuestEncouragementJobs();
+        get().checkQuestCongratJobs();
         get().checkQuestPhotoMessageJobs();
     },
 
@@ -317,8 +351,119 @@ export const useAiStore = create<AiStore>((set, get) => ({
         }
     },
 
+    /* ------------------------------------------------------------
+ Generate quest congrat
+------------------------------------------------------------ */
+    questCongratLoading: false,
+    questCongratGenerating: false,
+
+    async generateQuestCongrat({ chapter_quest_id, user_id }) {
+        if (!chapter_quest_id || !user_id) {
+            console.warn("[aiStore] Missing chapter_quest_id or user_id");
+            return null;
+        }
+
+        set({ questCongratLoading: true, questCongratGenerating: true });
+
+        try {
+            const res = await fetch("/api/ai/quest-congrat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    chapter_quest_id,
+                    user_id,
+                }),
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => null);
+                console.error("[aiStore] quest-congrat failed", err);
+                return null;
+            }
+
+            const data = (await res.json()) as GenerateResult;
+
+            get().pushPendingJob({
+                jobId: data.jobId,
+                jobType: "quest_congrat",
+                chapter_quest_id,
+                status: "queued",
+            });
+
+            return data;
+        } catch (err) {
+            console.error("[aiStore] quest-congrat error", err);
+            return null;
+        } finally {
+            set({ questCongratLoading: false });
+        }
+    },
+
+    /* ------------------------------------------------------------
+     Generate quest photo message
+    ------------------------------------------------------------ */
+
     questPhotoMessageGenerating: false,
     startQuestPhotoMessageGenerating() {
         set({ questPhotoMessageGenerating: true });
+    },
+
+    /* ------------------------------------------------------------
+     Generate quest encouragement
+    ------------------------------------------------------------ */
+
+    journalChapterStoryLoading: false,
+    journalChapterStoryGenerating: false,
+
+    async generateJournalChapterStory({ chapter_id, user_id, force }) {
+        if (!chapter_id || !user_id) {
+            console.warn("[aiStore] Missing chapter_id or user_id");
+            return null;
+        }
+
+        set({
+            journalChapterStoryLoading: true,
+            journalChapterStoryGenerating: true,
+        });
+
+        try {
+            const res = await fetch("/api/ai/journal-chapter-story", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    chapter_id,
+                    user_id,
+                    force: !!force,
+                }),
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => null);
+                console.error("[aiStore] journal-chapter-story failed", err);
+                return null;
+            }
+
+            const data = (await res.json()) as {
+                jobId: string;
+                status: "queued";
+            };
+
+            get().pushPendingJob({
+                jobId: data.jobId,
+                jobType: "journal_chapter_story",
+                chapter_id,
+                status: "queued",
+            });
+
+            return data;
+        } catch (err) {
+            console.error("[aiStore] journal-chapter-story error", err);
+            return null;
+        } finally {
+            set({
+                journalChapterStoryLoading: false,
+                journalChapterStoryGenerating: false,
+            });
+        }
     },
 }));

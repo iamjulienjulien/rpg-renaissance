@@ -224,24 +224,24 @@ export default function SettingsPage() {
 
     const devActions = useMemo(() => {
         return [
-            {
-                key: "seed",
-                emoji: "🌱",
-                title: "Seed de démo",
-                description: "Recrée une aventure + pièces + backlog (pour tests rapides).",
-                value: "Placeholder",
-                action: () => alert("TODO: seed demo"),
-                cta: "🌱 Seed",
-            },
-            {
-                key: "snap",
-                emoji: "📸",
-                title: "Snapshot UI",
-                description: "Capture/trace l’état UI pour débugger plus tard.",
-                value: "Placeholder",
-                action: () => alert("TODO: snapshot"),
-                cta: "📸 Capturer",
-            },
+            // {
+            //     key: "seed",
+            //     emoji: "🌱",
+            //     title: "Seed de démo",
+            //     description: "Recrée une aventure + pièces + backlog (pour tests rapides).",
+            //     value: "Placeholder",
+            //     action: () => alert("TODO: seed demo"),
+            //     cta: "🌱 Seed",
+            // },
+            // {
+            //     key: "snap",
+            //     emoji: "📸",
+            //     title: "Snapshot UI",
+            //     description: "Capture/trace l’état UI pour débugger plus tard.",
+            //     value: "Placeholder",
+            //     action: () => alert("TODO: snapshot"),
+            //     cta: "📸 Capturer",
+            // },
         ];
     }, []);
 
@@ -278,14 +278,14 @@ export default function SettingsPage() {
                             }
                         />
 
-                        <SettingRow
+                        {/* <SettingRow
                             emoji="🧼"
                             title="Nettoyer l’interface"
                             description="Plus tard: masquer labels DEV, hints, badges."
                             value="À venir"
                             right={<Pill>à venir</Pill>}
                             faded
-                        />
+                        /> */}
                     </div>
                 </Panel>
 
@@ -335,7 +335,7 @@ export default function SettingsPage() {
                             }
                         />
 
-                        <SettingRow
+                        {/* <SettingRow
                             emoji="🌓"
                             title="Contraste"
                             description="High: plus lisible. Balanced: plus doux."
@@ -351,21 +351,21 @@ export default function SettingsPage() {
                                 </ActionButton>
                             }
                             faded
-                        />
+                        /> */}
 
-                        <SettingRow
+                        {/* <SettingRow
                             emoji="🎯"
                             title="Focus visible"
                             description="Plus tard: anneau de focus renforcé pour navigation clavier."
                             value="À venir"
                             right={<Pill>à venir</Pill>}
                             faded
-                        />
+                        /> */}
                     </div>
                 </Panel>
 
                 {/* 🔻 AMBIANCE (moins visible) */}
-                <Panel
+                {/* <Panel
                     title="Ambiance"
                     emoji="🎧"
                     subtitle="Sons, feedback, atmosphère."
@@ -414,10 +414,10 @@ export default function SettingsPage() {
                             right={<Pill>à venir</Pill>}
                         />
                     </div>
-                </Panel>
+                </Panel> */}
 
                 {/* 🔻 MAÎTRE DU JEU (moins visible) */}
-                <Panel
+                {/* <Panel
                     title="Maître du Jeu"
                     emoji="🧙"
                     subtitle="Le ton de l’IA, sa façon de te guider."
@@ -508,10 +508,10 @@ export default function SettingsPage() {
                             }
                         />
                     </div>
-                </Panel>
+                </Panel> */}
 
                 {/* 🔻 CLAVIER (moins visible) */}
-                <Panel title="Clavier" emoji="⌨️" subtitle="Raccourcis et navigation.">
+                {/* <Panel title="Clavier" emoji="⌨️" subtitle="Raccourcis et navigation.">
                     <div className={cn("grid gap-2", fadedPanel)}>
                         <SettingRow
                             emoji="🧭"
@@ -537,10 +537,10 @@ export default function SettingsPage() {
                             right={<Pill>à venir</Pill>}
                         />
                     </div>
-                </Panel>
+                </Panel> */}
 
                 {/* 🔻 DONNÉES (moins visible) */}
-                <Panel title="Données" emoji="🗄️" subtitle="Sauvegarde et confidentialité.">
+                {/* <Panel title="Données" emoji="🗄️" subtitle="Sauvegarde et confidentialité.">
                     <div className={cn("grid gap-2", fadedPanel)}>
                         <SettingRow
                             emoji="☁️"
@@ -577,7 +577,7 @@ export default function SettingsPage() {
                             }
                         />
                     </div>
-                </Panel>
+                </Panel> */}
 
                 {/* ✅ DEV (bien visible car Overlays + Danger Zone) */}
                 <Panel
@@ -594,7 +594,7 @@ export default function SettingsPage() {
                     }
                 >
                     <div className="grid gap-2">
-                        <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
+                        {/* <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
                             <div className="flex items-center justify-between gap-3">
                                 <div>
                                     <div className="rpg-text-sm font-semibold text-white/85">
@@ -618,9 +618,9 @@ export default function SettingsPage() {
                                     {logsVerbose ? "🟢 On" : "⚫ Off"}
                                 </ActionButton>
                             </div>
-                        </div>
+                        </div> */}
 
-                        <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
+                        {/* <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
                             <div className="flex items-center justify-between gap-3">
                                 <div>
                                     <div className="rpg-text-sm font-semibold text-white/85">
@@ -663,7 +663,7 @@ export default function SettingsPage() {
                                     </ActionButton>
                                 </div>
                             </div>
-                        </div>
+                        </div> */}
 
                         {/* ✅ Overlays DEV (bien visible) */}
                         <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
@@ -692,7 +692,7 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        <div className="mt-2 grid gap-2 opacity-45">
+                        {/* <div className="mt-2 grid gap-2 opacity-45">
                             {devActions.map((a) => (
                                 <SettingRow
                                     key={a.key}
@@ -707,7 +707,7 @@ export default function SettingsPage() {
                                     }
                                 />
                             ))}
-                        </div>
+                        </div> */}
 
                         {/* ✅ Danger Zone (bien visible) */}
                         <div className="rounded-2xl bg-red-500/10 p-4 ring-1 ring-red-500/20">

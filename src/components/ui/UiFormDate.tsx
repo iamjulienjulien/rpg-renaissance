@@ -1,4 +1,4 @@
-// src/components/ui/UiFormText.tsx
+// src/components/ui/UiFormDate.tsx
 "use client";
 
 import * as React from "react";
@@ -8,10 +8,12 @@ function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
 }
 
-export type UiFormTextSize = "sm" | "md" | "lg";
-export type UiFormTextTone = "theme" | "neutral" | "danger" | "success";
+export type UiFormDateSize = "sm" | "md" | "lg";
+export type UiFormDateTone = "theme" | "neutral" | "danger" | "success";
 
-export type UiFormTextProps = {
+export type UiFormDateValue = string; // attendu: "YYYY-MM-DD"
+
+export type UiFormDateProps = {
     /** Identifiant HTML (sinon auto) */
     id?: string;
 
@@ -21,7 +23,7 @@ export type UiFormTextProps = {
     /** Tooltip sur le label (utilise UiTooltip) */
     labelTooltip?: React.ReactNode;
 
-    /** Placeholder */
+    /** Placeholder (si affichage texte) */
     placeholder?: string;
 
     /** Hint sous le champ (info légère) */
@@ -46,39 +48,26 @@ export type UiFormTextProps = {
     readOnly?: boolean;
 
     /** Taille visuelle */
-    size?: UiFormTextSize;
+    size?: UiFormDateSize;
 
     /** Ton visuel (neutral/theme/danger/success) */
-    tone?: UiFormTextTone;
+    tone?: UiFormDateTone;
 
-    /** Input ou Textarea */
-    multiline?: boolean;
+    /** Valeur contrôlée (format "YYYY-MM-DD") */
+    value?: UiFormDateValue;
 
-    /** Rows textarea (si multiline) */
-    rows?: number;
+    /** Valeur non contrôlée (format "YYYY-MM-DD") */
+    defaultValue?: UiFormDateValue;
 
-    /** Auto-resize textarea (si multiline) */
-    autoResize?: boolean;
-
-    /** Min/Max pour autoResize (en rows) */
-    autoResizeMinRows?: number;
-    autoResizeMaxRows?: number;
-
-    /** Valeur contrôlée */
-    value?: string;
-
-    /** Valeur non contrôlée */
-    defaultValue?: string;
-
-    /** Change */
-    onChange?: (value: string) => void;
+    /** Change (renvoie "YYYY-MM-DD" ou "" si clear) */
+    onChange?: (value: UiFormDateValue) => void;
 
     /** Blur/Focus */
-    onBlur?: React.FocusEventHandler<HTMLInputElement | HTMLTextAreaElement>;
-    onFocus?: React.FocusEventHandler<HTMLInputElement | HTMLTextAreaElement>;
+    onBlur?: React.FocusEventHandler<HTMLInputElement>;
+    onFocus?: React.FocusEventHandler<HTMLInputElement>;
 
     /** KeyDown */
-    onKeyDown?: React.KeyboardEventHandler<HTMLInputElement | HTMLTextAreaElement>;
+    onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
 
     /** Nom HTML */
     name?: string;
@@ -86,8 +75,9 @@ export type UiFormTextProps = {
     /** Autocomplete */
     autoComplete?: string;
 
-    /** Type input (si !multiline) */
-    type?: React.HTMLInputTypeAttribute;
+    /** Min/Max (format "YYYY-MM-DD") */
+    min?: UiFormDateValue;
+    max?: UiFormDateValue;
 
     /** Icone/prefixe à gauche dans le champ */
     leftIcon?: React.ReactNode;
@@ -101,30 +91,26 @@ export type UiFormTextProps = {
     /** Appelé quand clear est déclenché */
     onClear?: () => void;
 
-    /** Limite de caractères (affiche compteur si set) */
-    maxLength?: number;
-
-    /** Afficher compteur (par défaut true si maxLength) */
-    showCounter?: boolean;
+    /** Force l’ouverture du picker natif si dispo (sur click / focus) */
+    openOnFocus?: boolean;
 
     /** Classe wrapper */
     className?: string;
 
-    /** Classe input/textarea */
+    /** Classe input */
     inputClassName?: string;
 
     /** Test id */
     "data-testid"?: string;
 };
 
-const sizeMap: Record<UiFormTextSize, { pad: string; text: string; radius: string }> = {
+const sizeMap: Record<UiFormDateSize, { pad: string; text: string; radius: string }> = {
     sm: { pad: "px-3 py-2", text: "text-sm", radius: "rounded-2xl" },
     md: { pad: "px-3.5 py-2.5", text: "text-sm", radius: "rounded-[18px]" },
     lg: { pad: "px-4 py-3", text: "text-base", radius: "rounded-[20px]" },
 };
 
-function toneClasses(tone: UiFormTextTone, hasError: boolean, hasSuccess: boolean) {
-    // priorité: error > success > tone
+function toneClasses(tone: UiFormDateTone, hasError: boolean, hasSuccess: boolean) {
     if (hasError) {
         return {
             ring: "ring-rose-400/30 focus-within:ring-rose-400/45",
@@ -170,7 +156,6 @@ function toneClasses(tone: UiFormTextTone, hasError: boolean, hasSuccess: boolea
         };
     }
 
-    // neutral
     return {
         ring: "ring-white/10 focus-within:ring-white/20",
         bg: "bg-black/25",
@@ -181,41 +166,36 @@ function toneClasses(tone: UiFormTextTone, hasError: boolean, hasSuccess: boolea
 
 function useStableId(explicit?: string) {
     const reactId = React.useId();
-    return explicit ?? `uift_${reactId.replaceAll(":", "")}`;
+    return explicit ?? `uifd_${reactId.replaceAll(":", "")}`;
 }
 
-function clamp(n: number, min: number, max: number) {
-    return Math.max(min, Math.min(max, n));
+function isValidYmd(s: string) {
+    // On reste pragmatique: forme YYYY-MM-DD
+    return /^\d{4}-\d{2}-\d{2}$/.test(s);
 }
 
-function useAutosizeTextarea(
-    ref: React.RefObject<HTMLTextAreaElement | null>,
-    value: string | undefined,
-    enabled: boolean,
-    minRows: number,
-    maxRows: number
-) {
-    React.useLayoutEffect(() => {
-        const el = ref.current;
-        if (!el || !enabled) return;
-
-        // reset height to measure scrollHeight correctly
-        el.style.height = "auto";
-
-        const styles = window.getComputedStyle(el);
-        const lineHeight = Number.parseFloat(styles.lineHeight || "0") || 20;
-        const paddingTop = Number.parseFloat(styles.paddingTop || "0") || 0;
-        const paddingBottom = Number.parseFloat(styles.paddingBottom || "0") || 0;
-
-        const minH = minRows * lineHeight + paddingTop + paddingBottom;
-        const maxH = maxRows * lineHeight + paddingTop + paddingBottom;
-
-        const next = clamp(el.scrollHeight, minH, maxH);
-        el.style.height = `${next}px`;
-    }, [ref, value, enabled, minRows, maxRows]);
+function pad2(n: number) {
+    return String(n).padStart(2, "0");
 }
 
-export function UiFormText(props: UiFormTextProps) {
+function formatYmdFromDate(d: Date) {
+    const y = d.getFullYear();
+    const m = pad2(d.getMonth() + 1);
+    const day = pad2(d.getDate());
+    return `${y}-${m}-${day}`;
+}
+
+function parseYmdToDate(ymd: string): Date | null {
+    if (!isValidYmd(ymd)) return null;
+    const [y, m, d] = ymd.split("-").map((x) => Number.parseInt(x, 10));
+    if (!y || !m || !d) return null;
+    const dt = new Date(y, m - 1, d);
+    // validation anti "2026-02-31"
+    if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;
+    return dt;
+}
+
+export function UiFormDate(props: UiFormDateProps) {
     const {
         id,
         label,
@@ -230,11 +210,6 @@ export function UiFormText(props: UiFormTextProps) {
         readOnly,
         size = "md",
         tone = "theme",
-        multiline,
-        rows = 4,
-        autoResize,
-        autoResizeMinRows = 2,
-        autoResizeMaxRows = 10,
         value,
         defaultValue,
         onChange,
@@ -243,13 +218,13 @@ export function UiFormText(props: UiFormTextProps) {
         onKeyDown,
         name,
         autoComplete,
-        type = "text",
+        min,
+        max,
         leftIcon,
         rightIcon,
         clearable,
         onClear,
-        maxLength,
-        showCounter = true,
+        openOnFocus = true,
         className,
         inputClassName,
     } = props;
@@ -267,28 +242,41 @@ export function UiFormText(props: UiFormTextProps) {
         : typeof defaultValue === "string"
           ? defaultValue
           : "";
+
     const canClear =
         !!clearable && !disabled && !readOnly && (isControlled ? value.length > 0 : false);
 
-    const taRef = React.useRef<HTMLTextAreaElement | null>(null);
-    useAutosizeTextarea(
-        taRef,
-        value,
-        !!multiline && !!autoResize,
-        autoResizeMinRows,
-        autoResizeMaxRows
-    );
+    const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+    const openNativePicker = React.useCallback(() => {
+        const el = inputRef.current as any;
+        if (!el || disabled || readOnly) return;
+
+        // Chrome/Edge support
+        if (typeof el.showPicker === "function") {
+            try {
+                el.showPicker();
+            } catch {
+                // ignore
+            }
+        }
+    }, [disabled, readOnly]);
 
     const onInternalChange = (next: string) => {
+        // Le input type="date" renvoie "" ou "YYYY-MM-DD"
         onChange?.(next);
     };
 
-    const showBottomHint = hasError || hasSuccess || !!hint || (showCounter && !!maxLength);
+    const showBottomHint = hasError || hasSuccess || !!hint;
 
-    const counter =
-        showCounter && typeof maxLength === "number"
-            ? `${(value ?? "").length}/${maxLength}`
-            : null;
+    // Petit helper d’affichage (optionnel) si tu veux afficher une version “humaine”
+    // Pour l’instant on garde natif et simple.
+    const calendarFallbackLabel = React.useMemo(() => {
+        // Affiche un petit texte si la valeur est invalide (rare)
+        if (!currentValue) return null;
+        if (isValidYmd(currentValue) && parseYmdToDate(currentValue)) return null;
+        return "Date invalide (format attendu: YYYY-MM-DD)";
+    }, [currentValue]);
 
     return (
         <div className={cn("w-full", className)} data-testid={props["data-testid"]}>
@@ -335,71 +323,43 @@ export function UiFormText(props: UiFormTextProps) {
                     className={cn("pointer-events-none absolute inset-0 opacity-70", toneCls.glow)}
                 />
 
-                <div
-                    className={cn(
-                        "relative flex items-stretch gap-2",
-                        sizes.pad,
-                        // si multiline: aligne en haut
-                        multiline ? "items-start" : "items-center"
-                    )}
-                >
-                    {leftIcon ? (
-                        <div className={cn("shrink-0", multiline ? "mt-0.5" : "")}>{leftIcon}</div>
-                    ) : null}
+                <div className={cn("relative flex items-center gap-2", sizes.pad)}>
+                    {leftIcon ? <div className="shrink-0">{leftIcon}</div> : null}
 
                     <div className="min-w-0 flex-1">
-                        {multiline ? (
-                            <textarea
-                                ref={taRef}
-                                id={inputId}
-                                name={name}
-                                placeholder={placeholder}
-                                disabled={disabled}
-                                readOnly={readOnly}
-                                rows={autoResize ? autoResizeMinRows : rows}
-                                value={value}
-                                defaultValue={defaultValue}
-                                maxLength={maxLength}
-                                onChange={(e) => onInternalChange(e.target.value)}
-                                onBlur={onBlur as any}
-                                onFocus={onFocus as any}
-                                onKeyDown={onKeyDown as any}
-                                className={cn(
-                                    "w-full bg-transparent outline-none resize-none",
-                                    sizes.text,
-                                    toneCls.text,
-                                    "leading-relaxed",
-                                    inputClassName
-                                )}
-                            />
-                        ) : (
-                            <input
-                                id={inputId}
-                                name={name}
-                                type={type}
-                                placeholder={placeholder}
-                                disabled={disabled}
-                                readOnly={readOnly}
-                                autoComplete={autoComplete}
-                                value={value}
-                                defaultValue={defaultValue}
-                                maxLength={maxLength}
-                                onChange={(e) => onInternalChange(e.target.value)}
-                                onBlur={onBlur as any}
-                                onFocus={onFocus as any}
-                                onKeyDown={onKeyDown as any}
-                                className={cn(
-                                    "w-full bg-transparent outline-none",
-                                    sizes.text,
-                                    toneCls.text,
-                                    inputClassName
-                                )}
-                            />
-                        )}
+                        <input
+                            ref={inputRef}
+                            id={inputId}
+                            name={name}
+                            type="date"
+                            placeholder={placeholder}
+                            disabled={disabled}
+                            readOnly={readOnly}
+                            autoComplete={autoComplete}
+                            value={value}
+                            defaultValue={defaultValue}
+                            min={min}
+                            max={max}
+                            onChange={(e) => onInternalChange(e.target.value)}
+                            onBlur={onBlur as any}
+                            onFocus={(e) => {
+                                onFocus?.(e);
+                                if (openOnFocus) openNativePicker();
+                            }}
+                            onClick={() => {
+                                if (openOnFocus) openNativePicker();
+                            }}
+                            onKeyDown={onKeyDown as any}
+                            className={cn(
+                                "w-full bg-transparent outline-none",
+                                sizes.text,
+                                toneCls.text,
+                                inputClassName
+                            )}
+                        />
                     </div>
 
-                    {/* Right side actions */}
-                    <div className={cn("shrink-0 flex items-center gap-2", multiline && "mt-0.5")}>
+                    <div className="shrink-0 flex items-center gap-2">
                         {rightIcon ? <div>{rightIcon}</div> : null}
 
                         {canClear ? (
@@ -407,7 +367,6 @@ export function UiFormText(props: UiFormTextProps) {
                                 type="button"
                                 onClick={() => {
                                     onClear?.();
-                                    // clear côté parent (composant contrôlé)
                                     onChange?.("");
                                 }}
                                 className={cn(
@@ -419,9 +378,29 @@ export function UiFormText(props: UiFormTextProps) {
                                 ✖
                             </button>
                         ) : null}
+
+                        {/* Petit bouton calendrier (utile si le navigateur ne montre pas d’icône) */}
+                        <button
+                            type="button"
+                            onClick={() => openNativePicker()}
+                            disabled={disabled || readOnly}
+                            className={cn(
+                                "rounded-xl px-2 py-1 text-xs ring-1",
+                                "bg-white/5 text-white/65 ring-white/10 hover:bg-white/10",
+                                (disabled || readOnly) && "opacity-50 cursor-not-allowed"
+                            )}
+                            aria-label="Open date picker"
+                            title="Choisir une date"
+                        >
+                            📅
+                        </button>
                     </div>
                 </div>
             </div>
+
+            {calendarFallbackLabel ? (
+                <div className="mt-2 text-xs text-rose-200/90">{calendarFallbackLabel}</div>
+            ) : null}
 
             {showBottomHint ? (
                 <div className="mt-2 flex items-start justify-between gap-3">
@@ -434,12 +413,20 @@ export function UiFormText(props: UiFormTextProps) {
                             <div className="text-white/45">{hint}</div>
                         ) : null}
                     </div>
-
-                    {counter ? (
-                        <div className="shrink-0 text-xs text-white/35">{counter}</div>
-                    ) : null}
                 </div>
             ) : null}
         </div>
     );
 }
+
+/**
+ * Helpers optionnels (si tu veux les utiliser ailleurs)
+ * -----------------------------------------------------
+ * - parseYmdToDate: convertit "YYYY-MM-DD" en Date (local), avec validation
+ * - formatYmdFromDate: convertit Date -> "YYYY-MM-DD"
+ */
+export const UiFormDateHelpers = {
+    isValidYmd,
+    parseYmdToDate,
+    formatYmdFromDate,
+};

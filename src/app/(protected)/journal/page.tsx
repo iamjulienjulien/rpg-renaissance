@@ -2,6 +2,7 @@
 
 // React
 import React, { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 
 // Components
 import RpgShell from "@/components/RpgShell";
@@ -12,6 +13,8 @@ import MasterCard from "@/components/MasterCard";
 import { useJournalStore } from "@/stores/journalStore";
 import { useGameStore } from "@/stores/gameStore";
 import { type ChapterStoryRow } from "@/types/game";
+import { UiChip, UiGradientPanel, UiPanel } from "@/components/ui";
+import { useAiStore } from "@/stores/aiStore";
 
 // Interfaces
 type Entry = {
@@ -301,6 +304,10 @@ function StoryView() {
     const chapters = adventureId ? (chaptersByAdventureId?.[adventureId] ?? []) : [];
     const chaptersLoading = adventureId ? !!chaptersLoadingByAdventureId?.[adventureId] : false;
 
+    const { generateJournalChapterStory } = useAiStore();
+
+    const { currentUserId } = useGameStore();
+
     // 1) Charger tous les chapitres de l’aventure
     useEffect(() => {
         if (!adventureId) return;
@@ -318,7 +325,7 @@ function StoryView() {
     }, [chapters.map((c) => c.id).join("|")]);
 
     const onGenerateOne = async (chapterId: string, force: boolean) => {
-        await generateChapterStory(chapterId, force);
+        await generateJournalChapterStory({ chapter_id: chapterId, user_id: currentUserId, force });
         await getChapterStory(chapterId);
     };
 
@@ -550,53 +557,6 @@ type RenownEvent = {
     questTitle?: string;
 };
 
-function fakeRenownData() {
-    const now = Date.now();
-    const iso = (t: number) => new Date(t).toISOString();
-
-    const events: RenownEvent[] = [
-        {
-            id: "r1",
-            created_at: iso(now - 1000 * 60 * 45),
-            delta: +20,
-            reason: "Quête terminée: Ranger le salon",
-            chapterTitle: "Chapitre I",
-            questTitle: "Ranger le salon",
-        },
-        {
-            id: "r2",
-            created_at: iso(now - 1000 * 60 * 90),
-            delta: +10,
-            reason: "Quête terminée: Vider le lave-vaisselle",
-            chapterTitle: "Chapitre I",
-            questTitle: "Vider le lave-vaisselle",
-        },
-        {
-            id: "r3",
-            created_at: iso(now - 1000 * 60 * 180),
-            delta: +35,
-            reason: "Quête difficile: Trier les papiers",
-            chapterTitle: "Chapitre I",
-            questTitle: "Trier les papiers",
-        },
-        {
-            id: "r4",
-            created_at: iso(now - 1000 * 60 * 60 * 24),
-            delta: -5,
-            reason: "Pénalité (placeholder): quête abandonnée",
-            chapterTitle: "Chapitre I",
-        },
-    ];
-
-    const total = events.reduce((acc, e) => acc + e.delta, 0);
-    const base = 140; // fake
-    const value = Math.max(0, base + total);
-    const level = Math.max(1, Math.floor(value / 100) + 1);
-    const into = value % 100;
-
-    return { value, level, into, events };
-}
-
 function RenownView() {
     const currentPlayer = useGameStore((s) => s.currentPlayer);
 
@@ -626,30 +586,26 @@ function RenownView() {
     const pct = Math.max(0, Math.min(100, (into / 100) * 100));
 
     return (
-        <Panel
+        <UiPanel
             title="Renommée"
             emoji="🏆"
             subtitle="Ta trace dans le monde: niveau, titre, et badges gagnés."
-            right={
-                <div className="flex items-center gap-2">
-                    <Pill>🏷️ {displayName}</Pill>
-                    <Pill>🏅 {badges.length}</Pill>
-                </div>
-            }
+            // variant="ghost"
+            // right={
+            //     <div className="flex items-center gap-2">
+            //         <Pill>🏷️ {displayName}</Pill>
+            //         <Pill>🏅 {badges.length}</Pill>
+            //     </div>
+            // }
         >
             <div className="grid gap-4">
                 {/* Carte Renommée */}
-                <div
-                    className={cn(
-                        "rounded-[28px] p-5 ring-1 ring-white/10",
-                        "bg-gradient-to-b from-amber-200/10 via-white/5 to-black/30"
-                    )}
-                >
+                <UiGradientPanel innerClassName="p-4">
                     <div className="flex flex-col gap-4">
                         <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                                 <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
-                                    Rang actuel
+                                    Niveau actuel
                                 </div>
 
                                 <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -658,9 +614,9 @@ function RenownView() {
                                     </div>
 
                                     {levelTitle ? (
-                                        <span className="rounded-full bg-white/8 px-3 py-1 text-xs text-white/80 ring-1 ring-white/10">
+                                        <UiChip size="md" tone="theme">
                                             ✨ {levelTitle}
-                                        </span>
+                                        </UiChip>
                                     ) : null}
 
                                     {tierTitle ? (
@@ -669,11 +625,11 @@ function RenownView() {
                                         </span>
                                     ) : null}
 
-                                    {levelSuffix ? (
+                                    {/* {levelSuffix ? (
                                         <span className="rounded-full bg-white/6 px-3 py-1 text-xs text-white/70 ring-1 ring-white/10">
                                             {levelSuffix}
                                         </span>
-                                    ) : null}
+                                    ) : null} */}
 
                                     {isMilestone ? (
                                         <span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200 ring-1 ring-emerald-400/20">
@@ -683,21 +639,32 @@ function RenownView() {
                                 </div>
 
                                 <div className="mt-2 text-sm text-white/60">
-                                    Valeur totale:{" "}
+                                    Renommée totale:{" "}
                                     <span className="text-white/85">{renownValue}</span>
                                 </div>
 
-                                <div className="mt-1 text-xs text-white/45">
+                                {/* <div className="mt-1 text-xs text-white/45">
                                     Maj: {formatShortDateFR(renownUpdatedAt)}
-                                </div>
+                                </div> */}
                             </div>
-
-                            <div className="rounded-2xl bg-white/5 px-3 py-2 ring-1 ring-white/10">
-                                <div className="text-xs text-white/55">Progression</div>
-                                <div className="mt-1 text-sm text-white/85 font-semibold">
-                                    ✨ {into}/100
+                            <div className="flex">
+                                <div className="mr-4 ring-1 ring-white/10 p-1 rounded">
+                                    <img
+                                        src={`/assets/images/levels/1.png`}
+                                        alt="level"
+                                        className="w-[98px] h-[98px] rounded"
+                                    />
                                 </div>
-                                <div className="mt-1 text-[11px] text-white/45">(indicatif)</div>
+                                <div className="rounded-2xl bg-white/5 px-3 py-2 ring-1 ring-white/10">
+                                    <div className="text-xs text-white/55">Progression</div>
+                                    <div className="mt-1 text-sm text-white/85 font-semibold">
+                                        ✨ {into}/100
+                                    </div>
+                                    <div className="mt-1 text-[11px] text-white/45">
+                                        {" "}
+                                        Maj: {formatShortDateFR(renownUpdatedAt)}
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -709,20 +676,20 @@ function RenownView() {
                                     style={{ width: `${pct}%` }}
                                 />
                             </div>
-                            <div className="mt-2 flex items-center justify-between text-xs text-white/55">
+                            {/* <div className="mt-2 flex items-center justify-between text-xs text-white/55">
                                 <span>Chaque pas compte.</span>
                                 <span>Reste: {100 - into}</span>
-                            </div>
+                            </div> */}
                         </div>
 
                         {/* Petit texte narratif */}
-                        <div className="rounded-2xl bg-black/20 p-4 ring-1 ring-white/10 text-sm text-white/70 leading-7">
+                        {/* <div className="rounded-2xl bg-black/20 p-4 ring-1 ring-white/10 text-sm text-white/70 leading-7">
                             <span className="text-white/85 font-semibold">Le MJ note:</span> ta
                             renommée n’est pas une note, c’est une trace. Elle grimpe quand tu
                             avances, même lentement. Elle reste quand tu reviens. 👁️‍🗨️
-                        </div>
+                        </div> */}
                     </div>
-                </div>
+                </UiGradientPanel>
 
                 {/* Badges acquis */}
                 <div className="rounded-[28px] bg-black/20 p-4 ring-1 ring-white/10">
@@ -798,7 +765,7 @@ function RenownView() {
                     </div>
                 </div>
             </div>
-        </Panel>
+        </UiPanel>
     );
 }
 

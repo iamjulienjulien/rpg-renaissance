@@ -4,21 +4,44 @@ import React, { useEffect, useMemo, useState } from "react";
 import RpgShell from "@/components/RpgShell";
 import { Panel, Pill, ActionButton } from "@/components/RpgUi";
 import { usePlayerStore } from "@/stores/playerStore";
-import { useGameStore } from "@/stores/gameStore";
+import { useGameStore, type PatchMePayload } from "@/stores/gameStore";
 import { useAuthStore } from "@/stores/authStore";
 import { UserContextForm } from "@/components/account/UserContextForm";
+import { ProfileDetailsForm } from "@/components/account/ProfileDetailsForm";
+import { UiActionButton, UiCard, UiFormDate, UiFormText, UiPanel } from "@/components/ui";
+import { usePlayerProfileDetails } from "@/hooks/usePlayerProfileDetails";
+import { useProfileOptions } from "@/hooks/useProfileOptions";
+import { UiFormSelect, type UiFormSelectOption } from "@/components/ui/UiFormSelect";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
 }
 
 export default function AccountPage() {
-    const { user, profile, session, loading, saving, error, bootstrap, updateDisplayName } =
-        usePlayerStore();
+    const {
+        user,
+        profile,
+        session,
+        loading,
+        saving,
+        error,
+        bootstrap: charsBootstrap,
+        updateDisplayName,
+    } = usePlayerStore();
 
     const { signOut } = useAuthStore();
 
-    const charsBootstrap = useGameStore((s) => s.bootstrap);
+    const { bootstrap, currentPlayer } = useGameStore();
+
+    const { update, loading: updateLoading } = usePlayerProfileDetails();
+
+    const {
+        list: genderOptions,
+        loading: optLoading,
+        format: formatOptions,
+    } = useProfileOptions({ field: "gender" });
+
+    // const charsBootstrap = useGameStore((s) => s.bootstrap);
     const characters = useGameStore((s) => s.characters);
     const selectedId = useGameStore((s) => s.selectedId);
     const activateCharacter = useGameStore((s) => s.activateCharacter);
@@ -27,6 +50,9 @@ export default function AccountPage() {
 
     const [nameDraft, setNameDraft] = useState("");
 
+    const [savedData, setSavedData] = useState<PatchMePayload>({});
+    const [draftData, setDraftData] = useState<PatchMePayload>({});
+
     useEffect(() => {
         void bootstrap();
         void charsBootstrap();
@@ -34,101 +60,171 @@ export default function AccountPage() {
     }, []);
 
     useEffect(() => {
-        setNameDraft(profile?.display_name ?? "");
-    }, [profile?.display_name]);
+        console.info("currentPlayer", currentPlayer);
+        let originalData = {};
+        if (currentPlayer) {
+            if (currentPlayer.first_name) {
+                originalData = { ...originalData, first_name: currentPlayer.first_name };
+            }
+            if (currentPlayer.last_name) {
+                originalData = { ...originalData, last_name: currentPlayer.last_name };
+            }
+            if (currentPlayer.display_name) {
+                originalData = { ...originalData, display_name: currentPlayer.display_name };
+            }
+            if (currentPlayer.details?.gender) {
+                originalData = { ...originalData, gender: currentPlayer.details?.gender };
+            }
+            if (currentPlayer.details?.birth_date) {
+                originalData = { ...originalData, birth_date: currentPlayer.details?.birth_date };
+            }
+        }
+        setDraftData(originalData);
+        setSavedData(originalData);
+    }, [currentPlayer]);
 
-    const activeCharacterLabel = useMemo(() => {
-        const c =
-            characters.find((x) => x.id === (selectedId ?? profile?.character_id ?? "")) ?? null;
-        return c ? `${c.emoji ?? "🧙"} ${c.name}` : "—";
-    }, [characters, selectedId, profile?.character_id]);
+    const [genderOptionsFormatted, setGenderOptionsFormatted] = useState<UiFormSelectOption[]>([]);
+
+    useEffect(() => {
+        const formatted = formatOptions(genderOptions);
+        console.info("genderOptions", formatted);
+        setGenderOptionsFormatted(formatted);
+    }, [genderOptions]);
+
+    function onUpdateProfile() {
+        console.info("onUpdateProfile", draftData);
+        update({ ...draftData });
+    }
 
     return (
         <RpgShell
-            title="Compte"
-            subtitle="Ton identité dans le royaume: profil, personnage, session."
-            rightSlot={
-                <div className="flex items-center gap-2">
-                    <Pill>👤 {profile?.display_name ?? "Sans nom"}</Pill>
-                    <Pill>🔐 {user?.email ?? "…"}</Pill>
-                </div>
-            }
+            title="Atelier du Héros"
+            subtitle="🛠️ Définis qui tu es, comment tu avances, et ce qui te met en mouvement 🏁"
         >
-            <div className="grid gap-4 lg:grid-cols-2">
-                <div className="grid gap-4">
-                    <Panel title="Profil" emoji="👤" subtitle="Ce que le jeu sait de toi.">
-                        <div className="space-y-3">
-                            {error || charError ? (
+            <div className="flex gap-6">
+                <div className="flex-1 flex flex-col gap-6">
+                    <UiPanel title="Profil" emoji="👤" subtitle="Ce que le jeu sait de toi.">
+                        <div className="space-y-4">
+                            {/* {error || charError ? (
                                 <div className="rounded-2xl bg-red-500/10 p-4 text-sm text-white/80 ring-1 ring-red-500/20">
                                     {error ?? charError}
                                 </div>
-                            ) : null}
+                            ) : null} */}
 
-                            <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
-                                <div className="text-xs text-white/55">Email</div>
-                                <div className="mt-1 text-sm font-semibold text-white/90">
+                            <UiCard variant="classic">
+                                <div className="text-xs tracking-[0.18em] text-white/55 uppercase">
+                                    Email
+                                </div>
+                                <div className="mt-2 text-sm font-semibold text-white/90">
                                     {user?.email ?? "—"}
                                 </div>
+                            </UiCard>
+
+                            <div className="flex gap-4 mt-6">
+                                {/* <UiCard variant="ghost"> */}
+                                <UiFormText
+                                    value={draftData.first_name ?? ""}
+                                    onChange={(v) => {
+                                        const next = v == null ? null : String(v);
+                                        setDraftData((prev) => ({
+                                            ...prev,
+                                            first_name: next || null,
+                                        }));
+                                    }}
+                                    tone="neutral"
+                                    placeholder="Ton prénom"
+                                    label="Prénom"
+                                />
+                                {/* </UiCard> */}
+                                {/* <UiCard variant="classic"> */}
+                                <UiFormText
+                                    value={draftData.last_name ?? ""}
+                                    onChange={(v) => {
+                                        const next = v == null ? null : String(v);
+                                        setDraftData((prev) => ({
+                                            ...prev,
+                                            last_name: next || null,
+                                        }));
+                                    }}
+                                    tone="neutral"
+                                    placeholder="Ton nom de famille"
+                                    label="Nom de famille"
+                                />
+                                {/* </UiCard> */}
                             </div>
 
-                            <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
-                                <div className="text-xs text-white/55">Nom affiché</div>
+                            {/* <UiCard variant="classic"> */}
+                            <UiFormText
+                                value={draftData.display_name ?? ""}
+                                onChange={(v) => {
+                                    const next = v == null ? null : String(v);
+                                    setDraftData((prev) => ({
+                                        ...prev,
+                                        display_name: next || null,
+                                    }));
+                                }}
+                                tone="neutral"
+                                placeholder="Ton nom de joueur"
+                                label="Nom affiché"
+                            />
+                            {/* </UiCard> */}
 
-                                <div className="mt-2 flex items-center gap-2">
-                                    <input
-                                        value={nameDraft}
-                                        onChange={(e) => setNameDraft(e.target.value)}
-                                        placeholder="Ton nom de joueur"
-                                        className="w-full rounded-xl bg-black/40 px-3 py-2 text-sm text-white/90 ring-1 ring-white/10 outline-none placeholder:text-white/35 focus:ring-white/20"
-                                    />
-                                    <ActionButton
-                                        variant="soft"
-                                        disabled={saving || loading}
-                                        onClick={() => void updateDisplayName(nameDraft)}
-                                    >
-                                        💾 Sauver
-                                    </ActionButton>
-                                </div>
-                            </div>
+                            {/* <UiCard variant="classic"> */}
+                            <UiFormSelect
+                                label="Genre"
+                                options={genderOptionsFormatted}
+                                value={draftData.gender ?? ""}
+                                onChange={(v) => {
+                                    const next =
+                                        v == null
+                                            ? null
+                                            : Array.isArray(v)
+                                              ? String(v[0] ?? "")
+                                              : String(v);
 
-                            <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
-                                <div className="text-xs text-white/55">Personnage</div>
-                                <div className="mt-1 text-sm font-semibold text-white/90">
-                                    {activeCharacterLabel}
-                                </div>
+                                    setDraftData((prev) => ({
+                                        ...prev,
+                                        gender: next || null,
+                                    }));
+                                }}
+                                tone="neutral"
+                            />
+                            {/* </UiCard> */}
 
-                                <div className="mt-3 flex items-center gap-2">
-                                    <select
-                                        defaultValue={selectedId ?? profile?.character_id ?? ""}
-                                        onChange={(e) => void activateCharacter(e.target.value)}
-                                        className={cn(
-                                            "w-full rounded-xl bg-black/40 px-3 py-2 text-sm text-white/90 ring-1 ring-white/10 outline-none focus:ring-white/20",
-                                            charSaving ? "opacity-70" : ""
-                                        )}
-                                    >
-                                        <option value="">— Choisir —</option>
-                                        {characters.map((c) => (
-                                            <option key={c.id} value={c.id}>
-                                                {(c.emoji ?? "🧙") + " " + c.name}
-                                            </option>
-                                        ))}
-                                    </select>
+                            {/* <UiCard variant="classic"> */}
+                            <UiFormDate
+                                label="Date de naissance"
+                                tone="neutral"
+                                // options={genderOptionsFormatted}
+                                value={draftData.birth_date ?? ""}
+                                onChange={(v) => {
+                                    const next = v == null ? null : String(v);
+                                    setDraftData((prev) => ({
+                                        ...prev,
+                                        birth_date: next || null,
+                                    }));
+                                }}
+                            />
+                            {/* </UiCard> */}
 
-                                    <Pill>{charSaving ? "⏳" : "OK"}</Pill>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end">
-                                <ActionButton
-                                    variant="solid"
+                            <div className="flex justify-between mt-6">
+                                <UiActionButton
+                                    variant="soft"
                                     disabled={saving}
                                     onClick={() => void signOut()}
                                 >
                                     🚪 Se déconnecter
-                                </ActionButton>
+                                </UiActionButton>
+                                <UiActionButton
+                                    variant="solid"
+                                    disabled={saving}
+                                    onClick={onUpdateProfile}
+                                >
+                                    {updateLoading ? "⏳" : "💾 Sauver"}
+                                </UiActionButton>
                             </div>
                         </div>
-                    </Panel>
+                    </UiPanel>
 
                     <Panel title="Session" emoji="🎮" subtitle="Une seule partie active à la fois.">
                         <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
@@ -156,8 +252,9 @@ export default function AccountPage() {
                         </div>
                     </Panel>
                 </div>
-                <div>
-                    <UserContextForm />
+                <div className="flex-1 flex flex-col gap-6">
+                    <ProfileDetailsForm />
+                    <UserContextForm hideActions />
                 </div>
             </div>
         </RpgShell>

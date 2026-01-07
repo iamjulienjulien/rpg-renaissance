@@ -4,6 +4,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useDevStore } from "@/stores/devStore";
 import { useToastStore } from "@/stores/toastStore";
 import { ActionButton } from "./RpgUi";
+import { useAiStore } from "@/stores/aiStore";
+import { UiCard, UiChip } from "./ui";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -21,6 +23,8 @@ export default function DevHud(props: DevHudProps) {
     const apiLatencyMs = useDevStore((s) => s.apiLatencyMs);
 
     const { replayLastDbToast } = useToastStore();
+
+    const { aiJobsPending } = useAiStore();
 
     // ✅ init safe (évite un setState immédiat “gratuit”)
     const [href, setHref] = useState<string>(() =>
@@ -110,6 +114,18 @@ export default function DevHud(props: DevHudProps) {
         return () => window.removeEventListener("keydown", onKeyDown);
     }, []);
 
+    const [totalJobs, setTotalJobs] = useState<number>(0);
+    const [pendingJobs, setPendingJobs] = useState<number>(0);
+
+    useEffect(() => {
+        setTotalJobs(aiJobsPending.length);
+        setPendingJobs(
+            aiJobsPending.filter((j) => {
+                return j.status === "running" || j.status === "queued";
+            }).length
+        );
+    }, [aiJobsPending]);
+
     if (!show) return null;
 
     return (
@@ -139,7 +155,11 @@ export default function DevHud(props: DevHudProps) {
                         <div className="text-[11px] text-white/45">⌘⇧O</div>
                     </div>
                 </div>
-
+                <UiCard padded={false} className="mt-2 p-2 pt-1">
+                    <span className="text-xs mr-1 ml-1">Ai Jobs : </span>
+                    <UiChip tone="sky">{totalJobs}</UiChip>
+                    {pendingJobs >= 1 && <UiChip tone="rose">⏳ {pendingJobs}</UiChip>}
+                </UiCard>
                 <div className="mt-3 grid gap-2">
                     <div className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
                         {/* <div className="text-xs text-white/60">Toggles</div> */}

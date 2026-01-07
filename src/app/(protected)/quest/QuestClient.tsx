@@ -17,6 +17,7 @@ import { ActionButton, Panel, Pill } from "@/components/RpgUi";
 import MasterCard from "@/components/MasterCard";
 import { UiAnimatePresence, UiMotionDiv } from "@/components/motion/UiMotion";
 import UiTooltip from "@/components/ui/UiTooltip";
+import UIToolbar from "@/components/ui/UiToolbar";
 import UiLightbox, { type UiLightboxItem } from "@/components/ui/UiLightbox";
 import QuestCreateModal from "@/components/modals/QuestCreateModal";
 import QuestPhotoUploadModal from "@/components/modals/QuestPhotoUploadModal";
@@ -35,6 +36,7 @@ import { useDevStore } from "@/stores/devStore";
 import QuestEditModal from "@/components/modals/QuestEditModal";
 import UIActionButton from "@/components/ui/UiActionButton";
 import { useAiStore } from "@/stores/aiStore";
+import { QuestTimeline } from "./QuestTimeline";
 
 type Quest = {
     id: string;
@@ -145,6 +147,7 @@ export default function QuestClient() {
         generateQuestEncouragement,
         questEncouragementGenerating,
         questPhotoMessageGenerating,
+        questCongratGenerating,
         startQuestPhotoMessageGenerating,
         loadPendingJobs,
     } = useAiStore();
@@ -156,6 +159,8 @@ export default function QuestClient() {
 
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
+
+    const [tab, setTab] = useState("");
 
     const filteredPhotos = React.useMemo(() => {
         if (!photoFilter.length) return photos;
@@ -337,6 +342,17 @@ export default function QuestClient() {
         }
     }, [questEncouragementGenerating, waitForEncouragement]);
 
+    const [waitForCongrat, setWaitForCongrat] = useState(false);
+
+    useEffect(() => {
+        console.log("questCongratGenerating change", questCongratGenerating);
+        if (waitForCongrat && !questCongratGenerating) {
+            console.log("reloadMission");
+            void refreshQuestMessages(currentQuestThreadId ?? "");
+            setWaitForCongrat(false);
+        }
+    }, [questCongratGenerating, waitForCongrat]);
+
     const [waitForQuestPhotoMessage, setWaitForQuestPhotoMessage] = useState(false);
 
     useEffect(() => {
@@ -393,7 +409,7 @@ export default function QuestClient() {
 
             if (cq) {
                 setChapterQuest(cq);
-                router.push("/adventure");
+                // router.push("/adventure");
             }
         } finally {
             setBusy(false);
@@ -433,6 +449,52 @@ export default function QuestClient() {
         });
     };
 
+    const toolbarTodo = [
+        {
+            children: "✍️ Modifier",
+            onClick: onEdit,
+            // active: tab === "quests",
+        },
+        {
+            children: "▶️ Démarrer",
+            onClick: onStart,
+            // active: tab === "journal",
+        },
+    ];
+
+    const toolbarDoing = [
+        {
+            children: "✍️ Modifier",
+            onClick: onEdit,
+            // active: tab === "quests",
+        },
+        {
+            children: "✅ Terminer",
+            onClick: onFinish,
+            // active: tab === "journal",
+        },
+    ];
+
+    const toolbarDone = [
+        {
+            children: "↩️ Retour",
+            onClick: () => {
+                router.push("/adventure");
+            },
+            // active: tab === "quests",
+        },
+    ];
+
+    function getActionsToolbarItems() {
+        if (chapterQuest?.status === "todo") {
+            return toolbarTodo;
+        }
+        if (chapterQuest?.status === "doing") {
+            return toolbarDoing;
+        }
+        return toolbarDone;
+    }
+
     if (!chapterQuestId) {
         return (
             <RpgShell title="Quête">
@@ -456,497 +518,576 @@ export default function QuestClient() {
                     ⏳ Chargement de la quête…
                 </div>
             ) : (
-                <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-                    {/* LEFT */}
-                    <div className="flex flex-col gap-5">
-                        <Panel
-                            title="Quête"
-                            emoji="🔖"
-                            right={<QuestStatusPill status={chapterQuest.status} />}
-                        >
-                            <div className="flex flex-col gap-3">
-                                <div className="mb-2">
-                                    {/* Title */}
-                                    <div className="text-white/90 font-semibold">{quest.title}</div>
-
-                                    {/* Description (si présente) */}
-                                    {quest.description?.trim() ? (
-                                        <div className="whitespace-pre-line rpg-text-sm text-white/70">
-                                            {quest.description}
-                                        </div>
-                                    ) : null}
-                                </div>
-
-                                {/* Pills */}
-                                <div className="flex flex-wrap gap-2">
-                                    <QuestRoomPill roomCode={quest.room_code} />
-
-                                    <QuestDifficultyPill difficulty={quest.difficulty ?? null} />
-
-                                    {/* ✅ Priority (helper) */}
-                                    <QuestPriorityPill
-                                        priority={(quest as any)?.priority ?? null}
-                                    />
-
-                                    {/* ✅ Urgency (helper) - si dispo */}
-                                    {"urgency" in quest ? (
-                                        <QuestUrgencyPill
-                                            urgency={(quest as any)?.urgency ?? null}
-                                        />
-                                    ) : null}
-
-                                    {/* ✅ Estimate (simple pill) */}
-                                    {typeof quest.estimate_min === "number" &&
-                                    quest.estimate_min > 0 ? (
-                                        <Pill>⏱️ {quest.estimate_min} min</Pill>
-                                    ) : null}
-                                </div>
-
-                                {chainNext?.next_adventure_quest_id ? (
-                                    <div className="mt-3 rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <div className="min-w-0">
-                                                <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
-                                                    Chaîne
-                                                </div>
-                                                <div className="mt-1 text-sm text-white/80 truncate">
-                                                    ⛓️ Suite:{" "}
-                                                    {chainNext.next_title ?? "Quête suivante"}
-                                                </div>
-                                            </div>
-
-                                            <ActionButton
-                                                variant="solid"
-                                                disabled={!nextCqId}
-                                                onClick={() => {
-                                                    if (!nextCqId) return;
-                                                    router.push(
-                                                        `/quest?cq=${encodeURIComponent(nextCqId)}`
-                                                    );
-                                                }}
-                                                // title={
-                                                //     !nextCqId
-                                                //         ? "La quête suivante n’est pas dans ce chapitre"
-                                                //         : undefined
-                                                // }
-                                            >
-                                                ➡️ Aller
-                                            </ActionButton>
+                <div>
+                    <UIToolbar
+                        align="between"
+                        items={[
+                            {
+                                type: "button",
+                                variant: "soft",
+                                label: "↩️ Retour",
+                                onClick: () => {
+                                    router.push("/adventure");
+                                },
+                            },
+                            {
+                                type: "button",
+                                variant: "soft",
+                                label: "🗺️ Quêtes",
+                                onClick: () => {
+                                    router.push("/adventure");
+                                },
+                            },
+                            // {
+                            //     type: "group",
+                            //     variant: "solid",
+                            //     // size: "sm",
+                            //     buttons: [
+                            //         {
+                            //             children: "▶️ Démarrer",
+                            //             onClick: () => setTab("journal"),
+                            //             active: tab === "journal",
+                            //         },
+                            //         {
+                            //             children: "✍️ Modifier",
+                            //             onClick: () => {
+                            //                 router.push("/adventure");
+                            //             },
+                            //             active: tab === "quests",
+                            //         },
+                            //     ],
+                            // },
+                            // {
+                            //     type: "dropdown",
+                            //     label: "⚙️ Actions",
+                            //     items: [
+                            //         { label: "✨ Générer mission", action: "openPalette" },
+                            //         {
+                            //             label: "📖 Sceller le chapitre",
+                            //             action: "openPalette",
+                            //         },
+                            //         { label: "🗑️ Supprimer", onClick: () => {} },
+                            //     ],
+                            // },
+                        ]}
+                    />
+                    <div className="grid gap-4 mt-5 lg:grid-cols-[1.1fr_0.9fr]">
+                        {/* LEFT */}
+                        <div className="flex flex-col gap-5">
+                            <Panel
+                                title="Quête"
+                                emoji="🔖"
+                                right={<QuestStatusPill status={chapterQuest.status} />}
+                            >
+                                <div className="flex flex-col gap-3">
+                                    <div className="mb-2">
+                                        {/* Title */}
+                                        <div className="text-white/90 font-semibold">
+                                            {quest.title}
                                         </div>
 
-                                        {!nextCqId ? (
-                                            <div className="mt-2 text-xs text-white/45">
-                                                La suite existe, mais elle n’est pas affectée au
-                                                chapitre courant.
+                                        {/* Description (si présente) */}
+                                        {quest.description?.trim() ? (
+                                            <div className="whitespace-pre-line rpg-text-sm text-white/70">
+                                                {quest.description}
                                             </div>
                                         ) : null}
                                     </div>
-                                ) : null}
-                            </div>
-                        </Panel>
 
-                        <MasterCard
-                            title="Ordre de mission"
-                            emoji="📖"
-                            badgeText={getCurrentCharacterName()}
-                            badgeEmoji={getCurrentCharacterEmoji()}
-                        >
-                            {missionMd ? (
-                                <div
-                                    className="prose prose-invert max-w-none rpg-text-sm
+                                    {/* Pills */}
+                                    <div className="flex flex-wrap gap-2">
+                                        <QuestRoomPill roomCode={quest.room_code} />
+
+                                        <QuestDifficultyPill
+                                            difficulty={quest.difficulty ?? null}
+                                        />
+
+                                        {/* ✅ Priority (helper) */}
+                                        <QuestPriorityPill
+                                            priority={(quest as any)?.priority ?? null}
+                                        />
+
+                                        {/* ✅ Urgency (helper) - si dispo */}
+                                        {"urgency" in quest ? (
+                                            <QuestUrgencyPill
+                                                urgency={(quest as any)?.urgency ?? null}
+                                            />
+                                        ) : null}
+
+                                        {/* ✅ Estimate (simple pill) */}
+                                        {typeof quest.estimate_min === "number" &&
+                                        quest.estimate_min > 0 ? (
+                                            <Pill>⏱️ {quest.estimate_min} min</Pill>
+                                        ) : null}
+                                    </div>
+
+                                    {chainNext?.next_adventure_quest_id ? (
+                                        <div className="mt-3 rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <div className="text-xs tracking-[0.22em] text-white/55 uppercase">
+                                                        Chaîne
+                                                    </div>
+                                                    <div className="mt-1 text-sm text-white/80 truncate">
+                                                        ⛓️ Suite:{" "}
+                                                        {chainNext.next_title ?? "Quête suivante"}
+                                                    </div>
+                                                </div>
+
+                                                <ActionButton
+                                                    variant="solid"
+                                                    disabled={!nextCqId}
+                                                    onClick={() => {
+                                                        if (!nextCqId) return;
+                                                        router.push(
+                                                            `/quest?cq=${encodeURIComponent(nextCqId)}`
+                                                        );
+                                                    }}
+                                                    // title={
+                                                    //     !nextCqId
+                                                    //         ? "La quête suivante n’est pas dans ce chapitre"
+                                                    //         : undefined
+                                                    // }
+                                                >
+                                                    ➡️ Aller
+                                                </ActionButton>
+                                            </div>
+
+                                            {!nextCqId ? (
+                                                <div className="mt-2 text-xs text-white/45">
+                                                    La suite existe, mais elle n’est pas affectée au
+                                                    chapitre courant.
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    ) : null}
+                                </div>
+                            </Panel>
+
+                            <MasterCard
+                                title="Ordre de mission"
+                                emoji="📖"
+                                badgeText={getCurrentCharacterName()}
+                                badgeEmoji={getCurrentCharacterEmoji()}
+                            >
+                                {missionMd ? (
+                                    <div
+                                        className="prose prose-invert max-w-none rpg-text-sm
                                         prose-p:my-4
                                         prose-ul:my-4
                                         prose-li:my-1
                                         prose-strong:text-white
                                     "
-                                >
-                                    <ReactMarkdown
-                                        components={{
-                                            p: ({ children }) => <p className="my-4">{children}</p>,
-                                            ul: ({ children }) => (
-                                                <ul className="my-4 list-disc pl-6">{children}</ul>
-                                            ),
-                                            li: ({ children }) => (
-                                                <li className="my-1">{children}</li>
-                                            ),
-                                            strong: ({ children }) => (
-                                                <strong className="text-white">{children}</strong>
-                                            ),
-                                        }}
                                     >
-                                        {missionMd}
-                                    </ReactMarkdown>
-                                </div>
-                            ) : (
-                                <div className="rpg-text-sm text-white/60">
-                                    Aucun brief généré pour l’instant.
-                                </div>
-                            )}
-                        </MasterCard>
-                        {photosLoading ? (
-                            <Panel
-                                title="Preuves de quête"
-                                emoji="📸"
-                                subtitle="Ce qui a été fait, pour de vrai."
-                                right={<Pill>⏳</Pill>}
-                            >
-                                <div className="rounded-2xl bg-black/30 p-4 rpg-text-sm text-white/60 ring-1 ring-white/10">
-                                    ⏳ Chargement des preuves…
-                                </div>
-                            </Panel>
-                        ) : photos.length > 0 ? (
-                            <Panel
-                                title="Preuves de quête"
-                                emoji="📸"
-                                subtitle="Ce qui a été fait, pour de vrai."
-                                right={<Pill>{filteredPhotos.length}</Pill>}
-                            >
-                                <div className="grid">
-                                    {/* ✅ Espace réduit entre subtitle et pills */}
-                                    {countCategoriesWithPhotos > 1 && (
-                                        <div className="-mt-1 mb-5 flex flex-wrap gap-2">
-                                            {(photos.some((p) => p.category === "initial") ||
-                                                photos.some((p) => p.category === "final") ||
-                                                photos.some((p) => p.category === "other")) && (
-                                                <>
-                                                    {(
-                                                        [
-                                                            "initial",
-                                                            "final",
-                                                            "other",
-                                                        ] as PhotoCategory[]
-                                                    ).map((cat) => {
-                                                        const exists = photos.some(
-                                                            (p) => p.category === cat
-                                                        );
-                                                        if (!exists) return null;
+                                        <ReactMarkdown
+                                            components={{
+                                                p: ({ children }) => (
+                                                    <p className="my-4">{children}</p>
+                                                ),
+                                                ul: ({ children }) => (
+                                                    <ul className="my-4 list-disc pl-6">
+                                                        {children}
+                                                    </ul>
+                                                ),
+                                                li: ({ children }) => (
+                                                    <li className="my-1">{children}</li>
+                                                ),
+                                                strong: ({ children }) => (
+                                                    <strong className="text-white">
+                                                        {children}
+                                                    </strong>
+                                                ),
+                                            }}
+                                        >
+                                            {missionMd}
+                                        </ReactMarkdown>
+                                    </div>
+                                ) : (
+                                    <div className="rpg-text-sm text-white/60">
+                                        Aucun brief généré pour l’instant.
+                                    </div>
+                                )}
+                            </MasterCard>
+                            {photosLoading ? (
+                                <Panel
+                                    title="Preuves de quête"
+                                    emoji="📸"
+                                    subtitle="Ce qui a été fait, pour de vrai."
+                                    right={<Pill>⏳</Pill>}
+                                >
+                                    <div className="rounded-2xl bg-black/30 p-4 rpg-text-sm text-white/60 ring-1 ring-white/10">
+                                        ⏳ Chargement des preuves…
+                                    </div>
+                                </Panel>
+                            ) : photos.length > 0 ? (
+                                <Panel
+                                    title="Preuves de quête"
+                                    emoji="📸"
+                                    subtitle="Ce qui a été fait, pour de vrai."
+                                    right={<Pill>{filteredPhotos.length}</Pill>}
+                                >
+                                    <div className="grid">
+                                        {/* ✅ Espace réduit entre subtitle et pills */}
+                                        {countCategoriesWithPhotos > 1 && (
+                                            <div className="-mt-1 mb-5 flex flex-wrap gap-2">
+                                                {(photos.some((p) => p.category === "initial") ||
+                                                    photos.some((p) => p.category === "final") ||
+                                                    photos.some((p) => p.category === "other")) && (
+                                                    <>
+                                                        {(
+                                                            [
+                                                                "initial",
+                                                                "final",
+                                                                "other",
+                                                            ] as PhotoCategory[]
+                                                        ).map((cat) => {
+                                                            const exists = photos.some(
+                                                                (p) => p.category === cat
+                                                            );
+                                                            if (!exists) return null;
 
-                                                        const active = photoFilter.includes(cat);
+                                                            const active =
+                                                                photoFilter.includes(cat);
 
-                                                        return (
-                                                            <div
-                                                                key={cat}
-                                                                className="group inline-flex"
-                                                            >
-                                                                <UiTooltip
-                                                                    content={categoryLabel(cat)}
-                                                                    side="top"
-                                                                    singleLine
+                                                            return (
+                                                                <div
+                                                                    key={cat}
+                                                                    className="group inline-flex"
                                                                 >
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() =>
-                                                                            toggleCategory(cat)
-                                                                        }
-                                                                        className={cn(
-                                                                            "inline-flex items-center justify-center",
-                                                                            "rounded-full px-3 py-1 text-xs ring-1 transition",
-                                                                            active
-                                                                                ? "bg-white/20 text-white ring-white/20"
-                                                                                : "bg-white/5 text-white/70 ring-white/10 hover:bg-white/10"
-                                                                        )}
-                                                                        aria-pressed={active}
-                                                                        title={categoryLabel(cat)}
+                                                                    <UiTooltip
+                                                                        content={categoryLabel(cat)}
+                                                                        side="top"
+                                                                        singleLine
                                                                     >
-                                                                        {categoryEmoji(cat)}
-                                                                    </button>
-                                                                </UiTooltip>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* ✅ Espace augmenté entre pills et grille */}
-                                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                                        {filteredPhotos.map((p) => {
-                                            const catEmoji = categoryEmoji(p.category);
-                                            const catLabel = categoryLabel(p.category);
-
-                                            return (
-                                                <div
-                                                    key={p.id}
-                                                    className="group relative overflow-hidden rounded-2xl bg-black/25 ring-1 ring-white/10"
-                                                >
-                                                    {p.signed_url ? (
-                                                        <UiTooltip
-                                                            content={
-                                                                <div className="grid gap-1">
-                                                                    <div className="text-white/95 font-semibold">
-                                                                        {catEmoji} {catLabel}
-                                                                    </div>
-                                                                    {p.caption ? (
-                                                                        <div className="text-white/80">
-                                                                            {p.caption}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="text-white/60">
-                                                                            (pas de légende)
-                                                                        </div>
-                                                                    )}
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() =>
+                                                                                toggleCategory(cat)
+                                                                            }
+                                                                            className={cn(
+                                                                                "inline-flex items-center justify-center",
+                                                                                "rounded-full px-3 py-1 text-xs ring-1 transition",
+                                                                                active
+                                                                                    ? "bg-white/20 text-white ring-white/20"
+                                                                                    : "bg-white/5 text-white/70 ring-white/10 hover:bg-white/10"
+                                                                            )}
+                                                                            aria-pressed={active}
+                                                                            title={categoryLabel(
+                                                                                cat
+                                                                            )}
+                                                                        >
+                                                                            {categoryEmoji(cat)}
+                                                                        </button>
+                                                                    </UiTooltip>
                                                                 </div>
-                                                            }
-                                                            side="top"
-                                                            // align="center"
-                                                            maxWidthClassName="max-w-[280px]"
-                                                        >
-                                                            <button
-                                                                type="button"
-                                                                className="block w-full text-left"
-                                                                onClick={() => {
-                                                                    // index sur la liste filtrée (mais seulement les items qui ont une signed_url)
-                                                                    const idx =
-                                                                        lightboxItems.findIndex(
-                                                                            (it) => it.id === p.id
-                                                                        );
-                                                                    if (idx < 0) return;
-                                                                    setLightboxIndex(idx);
-                                                                    setLightboxOpen(true);
-                                                                }}
-                                                                aria-label="Ouvrir la photo"
-                                                            >
-                                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                                <img
-                                                                    src={p.signed_url}
-                                                                    alt={p.caption ?? catLabel}
-                                                                    className="aspect-square w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
-                                                                    loading="lazy"
-                                                                />
-                                                            </button>
-                                                        </UiTooltip>
-                                                    ) : (
-                                                        <div className="aspect-square grid place-items-center text-white/50 text-sm">
-                                                            Image indisponible
-                                                        </div>
-                                                    )}
+                                                            );
+                                                        })}
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
 
-                                                    {/* corner badges */}
-                                                    <div className="absolute left-2 top-2 flex items-center gap-2">
-                                                        <div className="group inline-flex">
+                                        {/* ✅ Espace augmenté entre pills et grille */}
+                                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                            {filteredPhotos.map((p) => {
+                                                const catEmoji = categoryEmoji(p.category);
+                                                const catLabel = categoryLabel(p.category);
+
+                                                return (
+                                                    <div
+                                                        key={p.id}
+                                                        className="group relative overflow-hidden rounded-2xl bg-black/25 ring-1 ring-white/10"
+                                                    >
+                                                        {p.signed_url ? (
                                                             <UiTooltip
-                                                                content={catLabel}
-                                                                side="bottom"
-                                                                align="start"
+                                                                content={
+                                                                    <div className="grid gap-1">
+                                                                        <div className="text-white/95 font-semibold">
+                                                                            {catEmoji} {catLabel}
+                                                                        </div>
+                                                                        {p.caption ? (
+                                                                            <div className="text-white/80">
+                                                                                {p.caption}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="text-white/60">
+                                                                                (pas de légende)
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                }
+                                                                side="top"
+                                                                // align="center"
+                                                                maxWidthClassName="max-w-[280px]"
                                                             >
-                                                                <span className="inline-flex items-center justify-center rounded-full bg-black/45 px-2 py-1 text-xs ring-1 ring-white/10 backdrop-blur-md">
-                                                                    {catEmoji}
-                                                                </span>
+                                                                <button
+                                                                    type="button"
+                                                                    className="block w-full text-left"
+                                                                    onClick={() => {
+                                                                        // index sur la liste filtrée (mais seulement les items qui ont une signed_url)
+                                                                        const idx =
+                                                                            lightboxItems.findIndex(
+                                                                                (it) =>
+                                                                                    it.id === p.id
+                                                                            );
+                                                                        if (idx < 0) return;
+                                                                        setLightboxIndex(idx);
+                                                                        setLightboxOpen(true);
+                                                                    }}
+                                                                    aria-label="Ouvrir la photo"
+                                                                >
+                                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                    <img
+                                                                        src={p.signed_url}
+                                                                        alt={p.caption ?? catLabel}
+                                                                        className="aspect-square w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                                                                        loading="lazy"
+                                                                    />
+                                                                </button>
                                                             </UiTooltip>
-                                                        </div>
+                                                        ) : (
+                                                            <div className="aspect-square grid place-items-center text-white/50 text-sm">
+                                                                Image indisponible
+                                                            </div>
+                                                        )}
 
-                                                        {p.is_cover ? (
+                                                        {/* corner badges */}
+                                                        <div className="absolute left-2 top-2 flex items-center gap-2">
                                                             <div className="group inline-flex">
                                                                 <UiTooltip
-                                                                    content="Photo mise en avant"
+                                                                    content={catLabel}
                                                                     side="bottom"
+                                                                    align="start"
                                                                 >
                                                                     <span className="inline-flex items-center justify-center rounded-full bg-black/45 px-2 py-1 text-xs ring-1 ring-white/10 backdrop-blur-md">
-                                                                        ⭐
+                                                                        {catEmoji}
                                                                     </span>
                                                                 </UiTooltip>
                                                             </div>
-                                                        ) : null}
+
+                                                            {p.is_cover ? (
+                                                                <div className="group inline-flex">
+                                                                    <UiTooltip
+                                                                        content="Photo mise en avant"
+                                                                        side="bottom"
+                                                                    >
+                                                                        <span className="inline-flex items-center justify-center rounded-full bg-black/45 px-2 py-1 text-xs ring-1 ring-white/10 backdrop-blur-md">
+                                                                            ⭐
+                                                                        </span>
+                                                                    </UiTooltip>
+                                                                </div>
+                                                            ) : null}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {photoFilter.length && filteredPhotos.length === 0 ? (
+                                            <div className="mt-3 rounded-2xl bg-black/20 p-3 ring-1 ring-white/10 text-xs text-white/60">
+                                                Aucun cliché ne correspond à ce filtre.
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                </Panel>
+                            ) : null}
+                        </div>
+
+                        {/* RIGHT */}
+                        <div className="flex flex-col gap-4">
+                            <UIToolbar
+                                align="between"
+                                fullWidth
+                                items={[
+                                    {
+                                        type: "group",
+                                        variant: "solid",
+                                        size: "sm",
+                                        buttons: getActionsToolbarItems(),
+                                    },
+                                ]}
+                            />
+                            {chapterQuest.status !== "done" && (
+                                <Panel title="Actions" emoji="⚔️">
+                                    <div className="flex flex-col gap-3">
+                                        {chapterQuest.status === "todo" && (
+                                            <>
+                                                {/* <ActionButton
+                                                variant="solid"
+                                                onClick={onStart}
+                                                disabled={busy}
+                                            >
+                                                ▶️ Démarrer la quête
+                                            </ActionButton>
+
+                                            <ActionButton variant="solid" onClick={onEdit}>
+                                                ✍️ Modifier la quête
+                                            </ActionButton> */}
+
+                                                {(!missionMd || devModeEnabled) && (
+                                                    <UIActionButton
+                                                        variant="magic"
+                                                        onClick={onRegenerateMission}
+                                                        disabled={questMissionGenerating}
+                                                    >
+                                                        {waitForMission && questMissionGenerating
+                                                            ? "⏳ Génération en cours"
+                                                            : "✨ Générer l'ordre de mission"}
+                                                    </UIActionButton>
+                                                )}
+
+                                                <ActionButton
+                                                    onClick={() => {
+                                                        openModal("questCreate", {
+                                                            mode: "chain",
+                                                            parent_chapter_quest_id:
+                                                                chapterQuest.id,
+                                                            parent_adventure_quest_id: quest.id,
+                                                        });
+                                                    }}
+                                                    disabled={busy}
+                                                >
+                                                    ⛓️ Ajouter une quête chainée
+                                                </ActionButton>
+
+                                                <ActionButton
+                                                    onClick={() => {
+                                                        openModal("questPhotoUpload", {
+                                                            chapter_quest_id: chapterQuest.id,
+                                                            quest_title: quest?.title ?? null,
+                                                        });
+                                                    }}
+                                                    disabled={busy}
+                                                >
+                                                    📷 Envoyer une photo
+                                                </ActionButton>
+
+                                                {/* <ActionButton onClick={() => router.push("/adventure")}>
+                                                ↩️ Retour
+                                            </ActionButton> */}
+                                            </>
+                                        )}
+
+                                        {chapterQuest.status === "doing" && (
+                                            <>
+                                                {/* <ActionButton
+                                                variant="solid"
+                                                onClick={onFinish}
+                                                disabled={busy}
+                                            >
+                                                ✅ Terminer la quête
+                                            </ActionButton>
+
+                                            <ActionButton variant="solid" onClick={onEdit}>
+                                                ✍️ Modifier la quête
+                                            </ActionButton> */}
+
+                                                <UIActionButton
+                                                    variant="magic"
+                                                    onClick={onEncourage}
+                                                    disabled={questEncouragementGenerating}
+                                                >
+                                                    {waitForEncouragement &&
+                                                    questEncouragementGenerating
+                                                        ? "⏳ Génération en cours"
+                                                        : "✨ Demander un encouragement"}
+                                                </UIActionButton>
+
+                                                {(!missionMd || devModeEnabled) && (
+                                                    <UIActionButton
+                                                        variant="magic"
+                                                        onClick={onRegenerateMission}
+                                                        disabled={questMissionGenerating}
+                                                    >
+                                                        {waitForMission && questMissionGenerating
+                                                            ? "⏳ Génération en cours"
+                                                            : "✨ Générer l'ordre de mission"}
+                                                    </UIActionButton>
+                                                )}
+
+                                                {/* ✅ NEW: Chain quest */}
+                                                <ActionButton
+                                                    onClick={() => {
+                                                        // TODO: ouvrira la modal "questCreate" en mode "chained"
+                                                        // ex: openModal("questCreate", { mode: "chain", parentQuestId: quest.id, ... })
+                                                        console.log("chain quest from", quest?.id);
+
+                                                        openModal("questCreate", {
+                                                            mode: "chain",
+                                                            parent_chapter_quest_id:
+                                                                chapterQuest.id,
+                                                            parent_adventure_quest_id: quest.id,
+                                                        });
+                                                    }}
+                                                    disabled={busy}
+                                                >
+                                                    ⛓️ Ajouter une quête chainée
+                                                </ActionButton>
+
+                                                <ActionButton
+                                                    onClick={() => {
+                                                        openModal("questPhotoUpload", {
+                                                            chapter_quest_id: chapterQuest.id,
+                                                            quest_title: quest?.title ?? null,
+                                                        });
+                                                    }}
+                                                    disabled={busy}
+                                                >
+                                                    📷 Envoyer une photo
+                                                </ActionButton>
+
+                                                {/* <ActionButton onClick={() => router.push("/adventure")}>
+                                                ↩️ Retour
+                                            </ActionButton> */}
+                                            </>
+                                        )}
+                                    </div>
+                                </Panel>
+                            )}
+                            {/* <QuestTimeline /> */}
+                            <Panel
+                                title="Chronique de quête"
+                                emoji="📓"
+                                subtitle="Tout ce qui s’écrit… et tout ce qui se prouve."
+                                right={
+                                    <Pill>{journalLoading ? "⏳" : `${questJournal.length}`}</Pill>
+                                }
+                            >
+                                {journalLoading ? (
+                                    <div className="rounded-2xl bg-black/30 p-4 rpg-text-sm text-white/60 ring-1 ring-white/10">
+                                        ⏳ Chargement du journal…
+                                    </div>
+                                ) : questJournal.length === 0 ? (
+                                    <div className="rounded-2xl bg-black/30 p-4 rpg-text-sm text-white/60 ring-1 ring-white/10">
+                                        Aucune entrée pour cette quête (encore). Lance-la et écris
+                                        l’histoire ✍️
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {questJournal.map((e) => {
+                                            const k = journalKindLabel(e.kind, e.meta);
+                                            return (
+                                                <div
+                                                    key={e.id}
+                                                    className="rounded-2xl bg-black/25 p-4 ring-1 ring-white/10"
+                                                >
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="truncate text-sm font-semibold text-white/90">
+                                                            {k.emoji} {k.label}
+                                                        </div>
+
+                                                        <div className="shrink-0 text-[11px] text-white/45">
+                                                            {formatJournalTime(e.created_at)}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
-
-                                    {photoFilter.length && filteredPhotos.length === 0 ? (
-                                        <div className="mt-3 rounded-2xl bg-black/20 p-3 ring-1 ring-white/10 text-xs text-white/60">
-                                            Aucun cliché ne correspond à ce filtre.
-                                        </div>
-                                    ) : null}
-                                </div>
+                                )}
                             </Panel>
-                        ) : null}
-                    </div>
-
-                    {/* RIGHT */}
-                    <div className="flex flex-col gap-4">
-                        <Panel title="Actions" emoji="⚔️">
-                            <div className="flex flex-col gap-3">
-                                {chapterQuest.status === "todo" && (
-                                    <>
-                                        <ActionButton
-                                            variant="solid"
-                                            onClick={onStart}
-                                            disabled={busy}
-                                        >
-                                            ▶️ Démarrer la quête
-                                        </ActionButton>
-
-                                        <ActionButton variant="solid" onClick={onEdit}>
-                                            ✍️ Modifier la quête
-                                        </ActionButton>
-
-                                        {(!missionMd || devModeEnabled) && (
-                                            <UIActionButton
-                                                variant="magic"
-                                                onClick={onRegenerateMission}
-                                                disabled={questMissionGenerating}
-                                            >
-                                                {waitForMission && questMissionGenerating
-                                                    ? "⏳ Génération en cours"
-                                                    : "✨ Générer l'ordre de mission"}
-                                            </UIActionButton>
-                                        )}
-
-                                        <ActionButton
-                                            onClick={() => {
-                                                openModal("questCreate", {
-                                                    mode: "chain",
-                                                    parent_chapter_quest_id: chapterQuest.id,
-                                                    parent_adventure_quest_id: quest.id,
-                                                });
-                                            }}
-                                            disabled={busy}
-                                        >
-                                            ⛓️ Ajouter une quête chainée
-                                        </ActionButton>
-
-                                        <ActionButton
-                                            onClick={() => {
-                                                openModal("questPhotoUpload", {
-                                                    chapter_quest_id: chapterQuest.id,
-                                                    quest_title: quest?.title ?? null,
-                                                });
-                                            }}
-                                            disabled={busy}
-                                        >
-                                            📷 Envoyer une photo
-                                        </ActionButton>
-
-                                        <ActionButton onClick={() => router.push("/adventure")}>
-                                            ↩️ Retour
-                                        </ActionButton>
-                                    </>
-                                )}
-
-                                {chapterQuest.status === "doing" && (
-                                    <>
-                                        <ActionButton
-                                            variant="solid"
-                                            onClick={onFinish}
-                                            disabled={busy}
-                                        >
-                                            ✅ Terminer la quête
-                                        </ActionButton>
-
-                                        <ActionButton variant="solid" onClick={onEdit}>
-                                            ✍️ Modifier la quête
-                                        </ActionButton>
-
-                                        <UIActionButton
-                                            variant="magic"
-                                            onClick={onEncourage}
-                                            disabled={questEncouragementGenerating}
-                                        >
-                                            {waitForEncouragement && questEncouragementGenerating
-                                                ? "⏳ Génération en cours"
-                                                : "✨ Demander un encouragement"}
-                                        </UIActionButton>
-
-                                        {(!missionMd || devModeEnabled) && (
-                                            <UIActionButton
-                                                variant="magic"
-                                                onClick={onRegenerateMission}
-                                                disabled={questMissionGenerating}
-                                            >
-                                                {waitForMission && questMissionGenerating
-                                                    ? "⏳ Génération en cours"
-                                                    : "✨ Générer l'ordre de mission"}
-                                            </UIActionButton>
-                                        )}
-
-                                        {/* ✅ NEW: Chain quest */}
-                                        <ActionButton
-                                            onClick={() => {
-                                                // TODO: ouvrira la modal "questCreate" en mode "chained"
-                                                // ex: openModal("questCreate", { mode: "chain", parentQuestId: quest.id, ... })
-                                                console.log("chain quest from", quest?.id);
-
-                                                openModal("questCreate", {
-                                                    mode: "chain",
-                                                    parent_chapter_quest_id: chapterQuest.id,
-                                                    parent_adventure_quest_id: quest.id,
-                                                });
-                                            }}
-                                            disabled={busy}
-                                        >
-                                            ⛓️ Ajouter une quête chainée
-                                        </ActionButton>
-
-                                        <ActionButton
-                                            onClick={() => {
-                                                openModal("questPhotoUpload", {
-                                                    chapter_quest_id: chapterQuest.id,
-                                                    quest_title: quest?.title ?? null,
-                                                });
-                                            }}
-                                            disabled={busy}
-                                        >
-                                            📷 Envoyer une photo
-                                        </ActionButton>
-
-                                        <ActionButton onClick={() => router.push("/adventure")}>
-                                            ↩️ Retour
-                                        </ActionButton>
-                                    </>
-                                )}
-
-                                {chapterQuest.status === "done" && (
-                                    <ActionButton
-                                        variant="solid"
-                                        onClick={() => router.push("/adventure")}
-                                    >
-                                        ↩️ Retour
-                                    </ActionButton>
-                                )}
-                            </div>
-                        </Panel>
-                        <Panel
-                            title="Chronique de quête"
-                            emoji="📓"
-                            subtitle="Tout ce qui s’écrit… et tout ce qui se prouve."
-                            right={<Pill>{journalLoading ? "⏳" : `${questJournal.length}`}</Pill>}
-                        >
-                            {journalLoading ? (
-                                <div className="rounded-2xl bg-black/30 p-4 rpg-text-sm text-white/60 ring-1 ring-white/10">
-                                    ⏳ Chargement du journal…
-                                </div>
-                            ) : questJournal.length === 0 ? (
-                                <div className="rounded-2xl bg-black/30 p-4 rpg-text-sm text-white/60 ring-1 ring-white/10">
-                                    Aucune entrée pour cette quête (encore). Lance-la et écris
-                                    l’histoire ✍️
-                                </div>
-                            ) : (
-                                <div className="space-y-2">
-                                    {questJournal.map((e) => {
-                                        const k = journalKindLabel(e.kind, e.meta);
-                                        return (
-                                            <div
-                                                key={e.id}
-                                                className="rounded-2xl bg-black/25 p-4 ring-1 ring-white/10"
-                                            >
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="truncate text-sm font-semibold text-white/90">
-                                                        {k.emoji} {k.label}
-                                                    </div>
-
-                                                    <div className="shrink-0 text-[11px] text-white/45">
-                                                        {formatJournalTime(e.created_at)}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </Panel>
-                        <QuestMjThreadCard chapterQuestId={chapterQuest.id} />
+                            <QuestMjThreadCard chapterQuestId={chapterQuest.id} />
+                        </div>
                     </div>
                 </div>
             )}
