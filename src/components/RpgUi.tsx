@@ -74,6 +74,7 @@ export type UiAction =
     | "openPalette"
     | "closePalette"
     | "togglePalette"
+    | "toggleQuestsPalette"
     | "enableDevMode"
     | "disableDevMode"
     | "toggleDevMode";
@@ -82,6 +83,7 @@ export function useUiAction(action?: UiAction) {
     const openPalette = useUiStore((s) => s.openCommandPalette);
     const closePalette = useUiStore((s) => s.closeCommandPalette);
     const togglePalette = useUiStore((s) => s.toggleCommandPalette);
+    const toggleQuestsPalette = useUiStore((s) => s.toggleQuestsPalette);
 
     const devMode = useUiStore((s) => s.devMode);
     const setDevMode = useUiStore((s) => s.setDevMode);
@@ -91,6 +93,8 @@ export function useUiAction(action?: UiAction) {
     if (action === "openPalette") return () => openPalette();
     if (action === "closePalette") return () => closePalette();
     if (action === "togglePalette") return () => togglePalette();
+
+    if (action === "toggleQuestsPalette") return () => toggleQuestsPalette();
 
     if (action === "enableDevMode") return () => setDevMode(true);
     if (action === "disableDevMode") return () => setDevMode(false);

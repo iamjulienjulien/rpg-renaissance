@@ -62,7 +62,7 @@ function normalizeDeduplicationId(raw?: string) {
     cleaned = cleaned.replaceAll(/-+/g, "-").replaceAll(/_+/g, "_");
 
     // Pas de début/fin crados
-    cleaned = cleaned.replaceAll(/^[-_.\/@]+/, "").replaceAll(/[-_.\/@]+$/, "");
+    cleaned = cleaned.replaceAll(/^[-_.\/@]+/g, "").replaceAll(/[-_.\/@]+$/g, "");
 
     // Limite raisonnable (header). Si tu veux: 128 ou 200.
     const MAX = 128;

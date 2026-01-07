@@ -11,6 +11,7 @@ import { UiMotionConfig } from "@/components/motion/UiMotion";
 import "./globals.css";
 import ToastEngine from "@/components/toasts/ToastEngine";
 import AiJobsEngine from "@/components/ai/AiJobsEngine";
+import ChapterQuestPalette from "@/components/quests/ChapterQuestPalette";
 
 export const metadata = {
     title: "RPG Renaissance — Le jeu dont tu es le héros",
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <SettingsApplier />
                 <AppHotkeys />
                 <CommandPalette />
+                <ChapterQuestPalette />
                 <ToastEngine />
                 <AiJobsEngine />
                 <Toasts />

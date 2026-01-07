@@ -534,9 +534,10 @@ export default function QuestClient() {
                                 type: "button",
                                 variant: "soft",
                                 label: "🗺️ Quêtes",
-                                onClick: () => {
-                                    router.push("/adventure");
-                                },
+                                action: "toggleQuestsPalette",
+                                // onClick: () => {
+                                //     router.push("/adventure");
+                                // },
                             },
                             // {
                             //     type: "group",
