@@ -4,6 +4,7 @@ import React from "react";
 import { Panel, ActionButton } from "@/components/RpgUi";
 import type { Adventure, Chapter } from "@/types/game";
 import { UiGradientPanel } from "@/components/ui/UiGradientPanel";
+import { UiActionButton, UiPanel } from "@/components/ui";
 
 export default React.memo(function AdventureBlock(props: {
     chapter: Chapter;
@@ -17,12 +18,14 @@ export default React.memo(function AdventureBlock(props: {
     const { adventure, advEmoji, advTitle, advDesc, onOpenAdventureConfig } = props;
 
     return (
-        <Panel
+        <UiPanel
             title="L'Aventure"
             emoji="🌌"
             subtitle="Le fil rouge de ton épopée actuelle."
             right={
-                <ActionButton onClick={onOpenAdventureConfig}>⚙️ Ajuster le destin</ActionButton>
+                <UiActionButton variant="solid" onClick={onOpenAdventureConfig}>
+                    ⚙️ Réglages de l'aventure
+                </UiActionButton>
             }
         >
             <div className="rounded-2xl bg-black/30 p-5 ring-1 ring-white/10">
@@ -45,6 +48,6 @@ export default React.memo(function AdventureBlock(props: {
                 </div>
                 {/* </UiGradientPanel> */}
             </div>
-        </Panel>
+        </UiPanel>
     );
 });

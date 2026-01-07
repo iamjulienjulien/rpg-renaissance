@@ -4,7 +4,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useToastStore } from "@/stores/toastStore";
 import { Panel } from "../RpgUi";
-import { UiFormText } from "../ui";
+import { UiActionButton, UiFormText, UiPanel } from "../ui";
+
+import { usePlayerProfileDetails } from "@/hooks/usePlayerProfileDetails";
 
 export type UserContext = {
     context_self: string | null;
@@ -119,11 +121,13 @@ export function UserContextForm(p?: {
      * (utile pour onboarding)
      */
     hideActions?: boolean;
+    footerActions?: boolean;
 }) {
     const toast = useToastStore.getState();
 
     const mode = p?.mode ?? "account";
     const hideActions = !!p?.hideActions;
+    const footerActions = !!p?.footerActions;
 
     // -------------------- STATE (account mode) --------------------
     const [loading, setLoading] = useState(mode === "account");
@@ -140,6 +144,9 @@ export function UserContextForm(p?: {
 
     const liveForm = mode === "draft" ? draftValue : form;
     const savedForm = mode === "draft" ? undefined : lastSavedRef.current;
+
+    // const updateLoading = false;
+    const { update, loading: updateLoading } = usePlayerProfileDetails();
 
     const setFieldValue = (key: keyof UserContext, v: string) => {
         if (mode === "draft") {
@@ -237,6 +244,11 @@ export function UserContextForm(p?: {
         }
     }
 
+    function onUpdateContext() {
+        console.log("form", form);
+        update({ ...form });
+    }
+
     if (mode === "account" && loading) {
         return <div className="text-sm opacity-80">Chargement du contexte…</div>;
     }
@@ -247,7 +259,7 @@ export function UserContextForm(p?: {
 
     return (
         <div className="space-y-6">
-            <Panel
+            <UiPanel
                 title="Contexte utilisateur"
                 emoji="🧠"
                 subtitle="Ces informations guident le Maître du Jeu."
@@ -330,7 +342,15 @@ export function UserContextForm(p?: {
                     onClear={mode === "account" ? clearField : undefined}
                     hideActions={hideActions || mode === "draft"}
                 />
-            </Panel>
+
+                {footerActions && (
+                    <div className="flex justify-end mt-6">
+                        <UiActionButton variant="solid" onClick={onUpdateContext}>
+                            {updateLoading ? "⏳" : "💾 Sauver"}
+                        </UiActionButton>
+                    </div>
+                )}
+            </UiPanel>
         </div>
     );
 }

@@ -367,6 +367,9 @@ export default function QuestClient() {
     const questJournal = React.useMemo(() => {
         if (!quest?.id) return [];
 
+        console.log("quest", quest);
+        console.log("journalEntries", journalEntries);
+
         return (journalEntries ?? [])
             .filter((e) => e.adventure_quest_id === quest.id)
             .slice()

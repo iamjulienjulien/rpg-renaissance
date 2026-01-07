@@ -132,22 +132,41 @@ export async function POST(req: Request) {
 
     const nextChapterId = created.id;
 
-    // 5) Pre-assign quests to new chapter
-    if (toAssign.length > 0) {
-        const rows = toAssign.map((adventureQuestId) => ({
+    // --- 5.A) Carry-over: déplacer les lignes existantes (sans rien changer d'autre)
+    if (carryOverIds.length > 0) {
+        const { error: moveErr } = await supabase
+            .from("chapter_quests")
+            .update({ chapter_id: nextChapterId })
+            .eq("session_id", session.id)
+            .eq("chapter_id", prevChapterId)
+            .in("status", ["todo", "doing"])
+            .in("adventure_quest_id", carryOverIds);
+
+        if (moveErr) {
+            return NextResponse.json({ error: moveErr.message }, { status: 500 });
+        }
+    }
+
+    // --- 5.B) Backlog: insérer seulement celles qui ne sont PAS déjà carry-over
+    const carrySet = new Set<string>(carryOverIds);
+    const backlogToInsert = backlogIds.filter((id: string) => !carrySet.has(id));
+
+    if (backlogToInsert.length > 0) {
+        const rows = backlogToInsert.map((adventureQuestId: any) => ({
             chapter_id: nextChapterId,
             adventure_quest_id: adventureQuestId,
             status: "todo",
             session_id: session.id,
         }));
 
-        // onConflict à ajuster selon ta contrainte unique
-        // (souvent UNIQUE(chapter_id, adventure_quest_id))
+        // Si tu as UNIQUE(chapter_id, adventure_quest_id), c’est parfait
         const { error: insErr } = await supabase
             .from("chapter_quests")
             .upsert(rows, { onConflict: "chapter_id,adventure_quest_id" });
 
-        if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
+        if (insErr) {
+            return NextResponse.json({ error: insErr.message }, { status: 500 });
+        }
     }
 
     return NextResponse.json({

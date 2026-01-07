@@ -6,17 +6,23 @@ import { supabaseServer } from "@/lib/supabase/server";
 ============================================================================ */
 
 export type PatchMePayload = {
-    // user_profiles
+    /* ============================================================================
+    1) user_profiles
+    ============================================================================ */
     first_name?: string | null;
     last_name?: string | null;
     avatar_url?: string | null;
     locale?: string | null;
     onboarding_done?: boolean;
 
-    // player_profiles
+    /* ============================================================================
+    2) player_profiles
+    ============================================================================ */
     display_name?: string | null;
 
-    // player_profile_details
+    /* ============================================================================
+    3) player_profile_details
+    ============================================================================ */
     gender?: string | null;
     birth_date?: string | null;
     country_code?: string | null;
@@ -42,6 +48,15 @@ export type PatchMePayload = {
     resonant_elements?: string[];
 
     extra?: Record<string, any>;
+
+    /* ============================================================================
+    4) user_contexts ✅ NEW
+    ============================================================================ */
+    context_self?: string | null;
+    context_family?: string | null;
+    context_home?: string | null;
+    context_routine?: string | null;
+    context_challenges?: string | null;
 };
 
 /* ============================================================================
@@ -50,6 +65,45 @@ export type PatchMePayload = {
 
 function hasAnyKey(obj: Record<string, any>) {
     return Object.keys(obj).length > 0;
+}
+
+type UserContextRow = {
+    context_self: string | null;
+    context_family: string | null;
+    context_home: string | null;
+    context_routine: string | null;
+    context_challenges: string | null;
+};
+
+const USER_CONTEXT_KEYS: Array<keyof UserContextRow> = [
+    "context_self",
+    "context_family",
+    "context_home",
+    "context_routine",
+    "context_challenges",
+];
+
+function pickUserContexts(payload: any): Partial<UserContextRow> {
+    const out: Partial<UserContextRow> = {};
+
+    for (const key of USER_CONTEXT_KEYS) {
+        if (!(key in (payload ?? {}))) continue;
+
+        const v = payload[key];
+
+        if (v === null) {
+            out[key] = null;
+            continue;
+        }
+
+        if (typeof v === "string") {
+            const trimmed = v.trim();
+            out[key] = trimmed.length ? trimmed : null;
+            continue;
+        }
+    }
+
+    return out;
 }
 
 /* ============================================================================
@@ -83,7 +137,7 @@ export async function GET() {
 }
 
 /* ============================================================================
-PATCH /api/me
+🧰 PATCH /api/me
 ============================================================================ */
 
 export async function PATCH(req: Request) {
@@ -102,9 +156,9 @@ export async function PATCH(req: Request) {
     // ------------------------------------------------------------
     // Body
     // ------------------------------------------------------------
-    let payload: PatchMePayload;
+    let payload: PatchMePayload & Partial<UserContextRow>;
     try {
-        payload = (await req.json()) as PatchMePayload;
+        payload = (await req.json()) as any;
     } catch {
         return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
@@ -114,11 +168,12 @@ export async function PATCH(req: Request) {
     ============================================================================ */
     const userProfilesPatch: Record<string, any> = {};
 
-    if ("first_name" in payload) userProfilesPatch.first_name = payload.first_name ?? null;
-    if ("last_name" in payload) userProfilesPatch.last_name = payload.last_name ?? null;
-    if ("avatar_url" in payload) userProfilesPatch.avatar_url = payload.avatar_url ?? null;
-    if ("locale" in payload) userProfilesPatch.locale = payload.locale ?? null;
-    if ("onboarding_done" in payload) userProfilesPatch.onboarding_done = payload.onboarding_done;
+    if ("first_name" in payload) userProfilesPatch.first_name = (payload as any).first_name ?? null;
+    if ("last_name" in payload) userProfilesPatch.last_name = (payload as any).last_name ?? null;
+    if ("avatar_url" in payload) userProfilesPatch.avatar_url = (payload as any).avatar_url ?? null;
+    if ("locale" in payload) userProfilesPatch.locale = (payload as any).locale ?? null;
+    if ("onboarding_done" in payload)
+        userProfilesPatch.onboarding_done = (payload as any).onboarding_done;
 
     if (hasAnyKey(userProfilesPatch)) {
         const { error } = await supabase
@@ -137,7 +192,7 @@ export async function PATCH(req: Request) {
     if ("display_name" in payload) {
         const { error } = await supabase
             .from("player_profiles")
-            .update({ display_name: payload.display_name ?? null })
+            .update({ display_name: (payload as any).display_name ?? null })
             .eq("user_id", userId);
 
         if (error) {
@@ -179,11 +234,29 @@ export async function PATCH(req: Request) {
     }
 
     if (hasAnyKey(detailsPatch)) {
-        // upsert pour gérer le cas où la ligne n'existe pas encore
         const { error } = await supabase.from("player_profile_details").upsert(
             {
                 user_id: userId,
                 ...detailsPatch,
+            },
+            { onConflict: "user_id" }
+        );
+
+        if (error) {
+            return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+    }
+
+    /* ============================================================================
+    4) user_contexts  ✅ NEW
+    ============================================================================ */
+    const contextsPatch = pickUserContexts(payload);
+
+    if (hasAnyKey(contextsPatch as any)) {
+        const { error } = await supabase.from("user_contexts").upsert(
+            {
+                user_id: userId,
+                ...contextsPatch,
             },
             { onConflict: "user_id" }
         );

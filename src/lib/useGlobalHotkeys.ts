@@ -6,6 +6,7 @@ import { useUiStore } from "@/stores/uiStore";
 export function useGlobalHotkeys() {
     const toggle = useUiStore((s) => s.toggleCommandPalette);
     const close = useUiStore((s) => s.closeCommandPalette);
+    const toggleQuestsPalette = useUiStore((s) => s.toggleQuestsPalette);
 
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
@@ -15,6 +16,15 @@ export function useGlobalHotkeys() {
             if (isCmdK) {
                 e.preventDefault();
                 toggle();
+                return;
+            }
+
+            const isQ = e.key.toLowerCase() === "g";
+            const isCmdQ = (e.metaKey || e.ctrlKey) && isQ;
+
+            if (isCmdQ) {
+                e.preventDefault();
+                toggleQuestsPalette();
                 return;
             }
 

@@ -34,6 +34,8 @@ import type {
     QuestThread as QuestThreadRow,
     QuestMessage as QuestMessageRow,
     CurrentPlayer,
+    MeStatsResponse,
+    PlayerStatsHighlights,
 } from "@/types/game";
 
 export type BadgeCatalogRow = {
@@ -82,19 +84,25 @@ export type ReloadKey =
 export type ReloadInput = ReloadKey | ReloadKey[];
 
 export type PatchMePayload = {
-    // user_profiles
+    /* ============================================================================
+    1) user_profiles
+    ============================================================================ */
     first_name?: string | null;
     last_name?: string | null;
     avatar_url?: string | null;
     locale?: string | null;
     onboarding_done?: boolean;
 
-    // player_profiles
+    /* ============================================================================
+    2) player_profiles
+    ============================================================================ */
     display_name?: string | null;
 
-    // player_profile_details
+    /* ============================================================================
+    3) player_profile_details
+    ============================================================================ */
     gender?: string | null;
-    birth_date?: string | null; // YYYY-MM-DD
+    birth_date?: string | null;
     country_code?: string | null;
     main_goal?: string | null;
 
@@ -118,9 +126,34 @@ export type PatchMePayload = {
     resonant_elements?: string[];
 
     extra?: Record<string, any>;
+
+    /* ============================================================================
+    4) user_contexts ✅ NEW
+    ============================================================================ */
+    context_self?: string | null;
+    context_family?: string | null;
+    context_home?: string | null;
+    context_routine?: string | null;
+    context_challenges?: string | null;
 };
 
 type PatchMeResult = { status: "ok" };
+
+export type PlayerPhotoKind = "portrait_source" | "avatar_generated";
+
+export type PlayerPhotoRow = {
+    id: string;
+    user_id: string;
+    kind: PlayerPhotoKind;
+    bucket: string;
+    storage_path: string;
+    mime_type: string;
+    size: number;
+    caption: string | null;
+    alt_text: string | null;
+    is_active: boolean;
+    created_at: string;
+};
 
 export type ApiResult<T> =
     | { ok: true; status: number; data: T }
@@ -325,6 +358,23 @@ type GameStore = {
     currentUserId: string | null;
 
     getCurrentPlayer: () => Promise<CurrentPlayer | null>;
+
+    /* --------------------------- 📊 PLAYER STATS -------------------------- */
+    currentPlayerStats: MeStatsResponse | null;
+    currentPlayerStatsLoading: boolean;
+    currentPlayerStatsError: string | null;
+    currentPlayerStatsFetchedAt: number | null;
+
+    getCurrentPlayerStats: (opts?: {
+        force?: boolean;
+        maxAgeMs?: number; // TTL cache (default: 60s)
+        silent?: boolean; // n'écrase pas loading global
+    }) => Promise<MeStatsResponse | null>;
+
+    refreshCurrentPlayerStats: () => Promise<MeStatsResponse | null>;
+    clearCurrentPlayerStats: () => void;
+
+    getCurrentPlayerStatsHighlights: () => PlayerStatsHighlights | null;
 
     /* --------------------------- 🗺️ ADVENTURE --------------------------- */
     startingAdventure: boolean;
@@ -581,6 +631,14 @@ type GameStore = {
 
     deletePhoto: (photoId: string, chapterQuestId?: string | null) => Promise<boolean>;
 
+    uploadPlayerPhoto: (input: {
+        file: File;
+        kind?: PlayerPhotoKind;
+        caption?: string | null;
+        alt_text?: string | null;
+        set_active?: boolean;
+    }) => Promise<PlayerPhotoRow | null>;
+
     /* --------------------------- 💬 QUEST THREADS --------------------------- */
 
     currentQuestThreadId: string | null;
@@ -701,6 +759,128 @@ export const useGameStore = create<GameStore>((set, get) => {
             const userId = data?.user_id ?? null;
             if (userId) set({ currentUserId: userId });
             return data;
+        },
+
+        /* =========================================================================
+        📊 PLAYER STATS
+        ========================================================================= */
+
+        currentPlayerStats: null,
+        currentPlayerStatsLoading: false,
+        currentPlayerStatsError: null,
+        currentPlayerStatsFetchedAt: null,
+
+        getCurrentPlayerStats: async (opts) => {
+            const force = !!opts?.force;
+            const silent = !!opts?.silent;
+            const maxAgeMs = typeof opts?.maxAgeMs === "number" ? opts.maxAgeMs : 60_000;
+
+            const cached = get().currentPlayerStats;
+            const fetchedAt = get().currentPlayerStatsFetchedAt;
+
+            if (!force && cached && fetchedAt && Date.now() - fetchedAt < maxAgeMs) {
+                return cached;
+            }
+
+            // évite double fetch concurrent simple
+            if (get().currentPlayerStatsLoading) return get().currentPlayerStats;
+
+            if (!silent) {
+                set({ currentPlayerStatsLoading: true, currentPlayerStatsError: null });
+            } else {
+                set({ currentPlayerStatsLoading: true });
+            }
+
+            try {
+                const res = await fetch("/api/me/stats", { cache: "no-store" });
+                const json = await res.json().catch(() => null);
+
+                if (!res.ok) {
+                    const msg =
+                        (json as any)?.error ??
+                        res.statusText ??
+                        `Failed to fetch stats (${res.status})`;
+
+                    set({
+                        currentPlayerStatsLoading: false,
+                        currentPlayerStatsError: msg,
+                    });
+                    return null;
+                }
+
+                const data = json as MeStatsResponse;
+
+                set({
+                    currentPlayerStats: data,
+                    currentPlayerStatsFetchedAt: Date.now(),
+                    currentPlayerStatsLoading: false,
+                    currentPlayerStatsError: null,
+                });
+
+                return data;
+            } catch (e) {
+                const msg = e instanceof Error ? e.message : "Network error";
+                set({
+                    currentPlayerStatsLoading: false,
+                    currentPlayerStatsError: msg,
+                });
+                return null;
+            }
+        },
+
+        refreshCurrentPlayerStats: async () => {
+            return await get().getCurrentPlayerStats({ force: true });
+        },
+
+        clearCurrentPlayerStats: () => {
+            set({
+                currentPlayerStats: null,
+                currentPlayerStatsFetchedAt: null,
+                currentPlayerStatsError: null,
+                currentPlayerStatsLoading: false,
+            });
+        },
+
+        getCurrentPlayerStatsHighlights: () => {
+            const s = get().currentPlayerStats;
+            if (!s) return null;
+
+            const renown = s.progression?.renown ?? null;
+            const quests = s.progression?.quests ?? null;
+            const activity = s.activity ?? null;
+            const aiGen = s.ai?.generations_last_30 ?? null;
+            const toasts = s.toasts ?? null;
+
+            const renownLabel =
+                renown && (renown.full_title || renown.tier_title)
+                    ? `${renown.full_title ?? renown.tier_title} (lvl ${renown.level})`
+                    : renown
+                      ? `lvl ${renown.level}`
+                      : null;
+
+            const questsProgressLabel = quests ? `${quests.done}/${quests.total}` : "0/0";
+
+            const streakLabel = activity ? `🔥 ${activity.current_streak_days}j` : "🔥 0j";
+
+            const activity30Label = activity
+                ? `🗓️ ${activity.active_days_last_30}j actifs`
+                : "🗓️ 0j";
+
+            const aiUsageLabel = aiGen ? `🤖 ${aiGen.total} gen` : "🤖 0 gen";
+
+            const unreadToastsLabel =
+                toasts?.unread_count && toasts.unread_count > 0
+                    ? `🔔 ${toasts.unread_count}`
+                    : null;
+
+            return {
+                renownLabel,
+                questsProgressLabel,
+                streakLabel,
+                activity30Label,
+                aiUsageLabel,
+                unreadToastsLabel,
+            } satisfies PlayerStatsHighlights;
         },
 
         /* =========================================================================
@@ -1908,6 +2088,7 @@ export const useGameStore = create<GameStore>((set, get) => {
                 }
 
                 void get().getCurrentPlayer();
+                void get().getCurrentPlayerStats({ silent: true, maxAgeMs: 30_000 });
                 void get().getRenownLevels();
                 void get().getBadges();
             } catch (e) {
@@ -3745,6 +3926,48 @@ export const useGameStore = create<GameStore>((set, get) => {
 
             toast.success("Photo supprimée", undefined);
             return true;
+        },
+
+        uploadPlayerPhoto: async (input) => {
+            const toast = useToastStore.getState();
+
+            if (!(input?.file instanceof File)) {
+                toast.error("Photo", "Fichier manquant.");
+                return null;
+            }
+
+            const form = new FormData();
+            form.set("file", input.file);
+
+            if (input.kind) form.set("kind", input.kind);
+            if (input.caption != null) form.set("caption", String(input.caption));
+            if (input.alt_text != null) form.set("alt_text", String(input.alt_text));
+            if (input.set_active != null) form.set("set_active", String(!!input.set_active));
+
+            try {
+                const res = await apiPostForm<{
+                    ok: boolean;
+                    photo: PlayerPhotoRow;
+                }>("/api/player/photos", form);
+
+                if (!res.ok) {
+                    toast.error("Upload", res.error ?? "Upload impossible");
+                    return null;
+                }
+
+                const photo = (res.data as any)?.photo ?? null;
+                if (!photo?.id) return null;
+
+                toast.success(
+                    "Photo ajoutée",
+                    photo.kind === "avatar_generated" ? "🧙 Avatar" : "📸 Portrait"
+                );
+
+                return photo as PlayerPhotoRow;
+            } catch (e) {
+                toast.error("Upload", "Erreur réseau");
+                return null;
+            }
         },
 
         /* =========================================================================

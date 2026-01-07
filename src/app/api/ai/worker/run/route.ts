@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { openai } from "@/lib/openai";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { qstashPublishJSON } from "@/lib/qstash/publish";
 import { generateBriefingForAdventureId } from "@/lib/briefing/generateBriefing";
@@ -8,6 +9,7 @@ import { generateQuestEncouragement } from "@/lib/prompts/generateQuestEncourage
 import { generateQuestPhotoMessage } from "@/lib/prompts/generateQuestPhotoMessage";
 import { generateJournalChapterStory } from "@/lib/prompts/generateJournalChapterStory";
 import { generateQuestCongrat } from "@/lib/prompts/generateQuestCongrat";
+import { generatePlayerAvatar } from "@/lib/prompts/generatePlayerAvatar";
 
 // ✅ System logs + request context
 import { Log } from "@/lib/systemLog/Log";
@@ -691,6 +693,331 @@ async function executeJob(job: AiJobRow) {
                 title: (result as any)?.story_json?.title ?? null,
                 story_md: (result as any)?.story_md ?? null,
                 story_json: (result as any)?.story_json ?? null,
+            };
+        }
+
+        case "player_avatar": {
+            const userId = (job.payload as any)?.user_id ?? job.user_id ?? null;
+
+            const photoIdsRaw =
+                (job.payload as any)?.photo_ids ??
+                (job.payload as any)?.photos?.map((p: any) => p?.photo_id) ??
+                null;
+
+            const options = (job.payload as any)?.options ?? null;
+
+            if (!userId) {
+                Log.warning("ai_worker.execute.player_avatar.missing_user_id", {
+                    status_code: 400,
+                    metadata: { job_id: job.id, has_payload: !!job.payload },
+                });
+                throw new Error("Missing payload.user_id");
+            }
+
+            const photoIds: string[] = Array.isArray(photoIdsRaw)
+                ? photoIdsRaw.filter((x: any) => typeof x === "string" && x.trim().length > 0)
+                : [];
+
+            if (photoIds.length === 0) {
+                Log.warning("ai_worker.execute.player_avatar.missing_photo_ids", {
+                    status_code: 400,
+                    metadata: { job_id: job.id, user_id: userId },
+                });
+                throw new Error("Missing payload.photo_ids (or payload.photos[].photo_id)");
+            }
+
+            patchRequestContext({
+                user_id: userId,
+                photo_ids_count: photoIds.length,
+            } as any);
+
+            const g0 = Date.now();
+
+            /* ---------------------------------------------------------------------
+     1) Load source photos (and produce signed URLs)
+        - If you already pass signed URLs in payload, you can skip this part.
+    --------------------------------------------------------------------- */
+
+            const payloadSignedUrls = (job.payload as any)?.photo_signed_urls;
+            let signedUrls: string[] = Array.isArray(payloadSignedUrls)
+                ? payloadSignedUrls.filter((x: any) => typeof x === "string" && x.length > 0)
+                : [];
+
+            if (signedUrls.length === 0) {
+                // ✅ Fetch photo rows (adjust table/fields)
+                const { data: photos, error: photosErr } = await supabase
+                    .from("player_photos")
+                    .select("id, storage_path")
+                    .in("id", photoIds)
+                    .eq("user_id", userId);
+
+                if (photosErr) {
+                    Log.error("ai_worker.execute.player_avatar.photos_fetch_failed", photosErr, {
+                        status_code: 500,
+                        metadata: { job_id: job.id, user_id: userId },
+                    });
+                    throw new Error(photosErr.message);
+                }
+
+                if (!photos?.length) {
+                    Log.warning("ai_worker.execute.player_avatar.photos_not_found", {
+                        status_code: 404,
+                        metadata: { job_id: job.id, user_id: userId, photo_ids: photoIds },
+                    });
+                    throw new Error("Source photos not found");
+                }
+
+                // ✅ Create signed URLs
+                // TODO: adapte le bucket (ex: "player-photos") + ton helper si tu en as un
+                const signed: string[] = [];
+                for (const p of photos) {
+                    const path = (p as any)?.storage_path;
+                    if (!path) continue;
+
+                    const { data: signedData, error: signedErr } = await supabase.storage
+                        .from("player-photos")
+                        .createSignedUrl(path, 60 * 10); // 10 minutes
+
+                    if (signedErr) {
+                        Log.error("ai_worker.execute.player_avatar.sign_url_failed", signedErr, {
+                            status_code: 500,
+                            metadata: { job_id: job.id, user_id: userId, photo_id: p.id },
+                        });
+                        throw new Error(signedErr.message);
+                    }
+
+                    if (signedData?.signedUrl) signed.push(signedData.signedUrl);
+                }
+
+                signedUrls = signed;
+            }
+
+            if (signedUrls.length === 0) {
+                Log.warning("ai_worker.execute.player_avatar.no_signed_urls", {
+                    status_code: 400,
+                    metadata: { job_id: job.id, user_id: userId, photo_ids: photoIds },
+                });
+                throw new Error("Unable to build signed URLs for source photos");
+            }
+
+            /* ---------------------------------------------------------------------
+     2) Build prompt (system + user + schema) via generatePlayerAvatar.ts
+    --------------------------------------------------------------------- */
+
+            const promptPack = generatePlayerAvatar({
+                user_id: userId,
+                photos: photoIds.map((id) => ({ photo_id: id })),
+                options: options ?? {
+                    format: "square",
+                    vibe: "knight",
+                    background: "studio",
+                    accessory: "none",
+                    faithfulness: "balanced",
+                },
+            });
+
+            /* ---------------------------------------------------------------------
+     3) Ask model to produce strict JSON (prompt_image, negative_prompt, etc.)
+        - Ici, j'utilise "responses" + json_schema (structure output).
+        - Adapte le client OpenAI et le modèle texte selon ton infra.
+    --------------------------------------------------------------------- */
+
+            const t1 = Date.now();
+
+            const body: any = {
+                model: "gpt-4.1-mini",
+                input: [
+                    { role: "system", content: promptPack.systemText },
+                    {
+                        role: "user",
+                        content:
+                            promptPack.userText +
+                            "\n\nContext JSON:\n" +
+                            JSON.stringify(promptPack.context, null, 2),
+                    },
+                ],
+                response_format: {
+                    type: "json_schema",
+                    json_schema: promptPack.schema,
+                },
+            };
+
+            const structured = await openai.responses.create(body);
+
+            // Selon SDK, récupère le JSON différemment.
+            // Ici on tente plusieurs formes sans casser.
+            const jsonOut =
+                (structured as any)?.output_parsed ??
+                (structured as any)?.output?.[0]?.content?.[0]?.parsed ??
+                (structured as any)?.output?.[0]?.content?.[0]?.text ??
+                null;
+
+            if (!jsonOut) {
+                Log.warning("ai_worker.execute.player_avatar.no_structured_output", {
+                    status_code: 500,
+                    metadata: { job_id: job.id, user_id: userId },
+                });
+                throw new Error("No structured output from model");
+            }
+
+            const prompt_image = (jsonOut as any)?.prompt_image ?? null;
+            const negative_prompt = (jsonOut as any)?.negative_prompt ?? null;
+            const suggested_size =
+                (jsonOut as any)?.suggested_size ?? promptPack.context?.output?.suggested_size;
+            const alt_text = (jsonOut as any)?.alt_text ?? null;
+
+            if (!prompt_image || !negative_prompt || !suggested_size) {
+                Log.warning("ai_worker.execute.player_avatar.invalid_structured_output", {
+                    status_code: 500,
+                    metadata: {
+                        job_id: job.id,
+                        user_id: userId,
+                        has_prompt_image: !!prompt_image,
+                        has_negative_prompt: !!negative_prompt,
+                        has_suggested_size: !!suggested_size,
+                    },
+                });
+                throw new Error("Structured output missing required fields");
+            }
+
+            /* ---------------------------------------------------------------------
+     4) Generate image using photos as references (fantasy epic)
+        - IMPORTANT: selon la méthode exacte que tu choisis:
+          - soit "images.edit" avec plusieurs images + prompt
+          - soit "images.generate" avec "reference_images"
+        - Je te mets un bloc générique + TODO à ajuster.
+    --------------------------------------------------------------------- */
+
+            const t2 = Date.now();
+
+            // Download the signed URLs into memory as buffers (node fetch)
+            const refImages: Array<{ name: string; mime: string; data: Buffer }> = [];
+            for (let i = 0; i < signedUrls.length; i++) {
+                const url = signedUrls[i];
+                const r = await fetch(url);
+                if (!r.ok) {
+                    Log.warning("ai_worker.execute.player_avatar.ref_fetch_failed", {
+                        status_code: 502,
+                        metadata: { job_id: job.id, user_id: userId, index: i },
+                    });
+                    throw new Error(`Failed to fetch reference image ${i}`);
+                }
+                const mime = r.headers.get("content-type") || "image/jpeg";
+                const ab = await r.arrayBuffer();
+                refImages.push({
+                    name: `ref_${i}.jpg`,
+                    mime,
+                    data: Buffer.from(ab),
+                });
+            }
+
+            // TODO: adapte selon ton SDK OpenAI images:
+            // - Certaines versions acceptent "image" en array + prompt.
+            // - D'autres acceptent "input_image" etc.
+            const imgRes = await openai.images.edit({
+                model: "gpt-image-1",
+                prompt: `${prompt_image}\n\nÉvite absolument:\n${negative_prompt}`,
+                size: suggested_size, // "1024x1024" ou "1024x1536"
+                image: refImages.map((im) => ({
+                    name: im.name,
+                    type: im.mime,
+                    data: im.data,
+                })),
+            } as any);
+
+            const b64 =
+                (imgRes as any)?.data?.[0]?.b64_json ?? (imgRes as any)?.data?.[0]?.b64 ?? null;
+
+            if (!b64) {
+                Log.warning("ai_worker.execute.player_avatar.no_image_output", {
+                    status_code: 500,
+                    metadata: { job_id: job.id, user_id: userId },
+                });
+                throw new Error("No image generated");
+            }
+
+            const imageBuffer = Buffer.from(b64, "base64");
+
+            /* ---------------------------------------------------------------------
+     5) Upload to storage + persist DB
+    --------------------------------------------------------------------- */
+
+            const avatarId = crypto.randomUUID();
+            const ext = suggested_size === "1024x1536" ? "png" : "png";
+            const storagePath = `${userId}/${avatarId}.${ext}`;
+
+            // TODO: bucket name
+            const { error: upErr } = await supabase.storage
+                .from("player-avatars")
+                .upload(storagePath, imageBuffer, {
+                    contentType: "image/png",
+                    upsert: true,
+                });
+
+            if (upErr) {
+                Log.error("ai_worker.execute.player_avatar.upload_failed", upErr, {
+                    status_code: 500,
+                    metadata: { job_id: job.id, user_id: userId, storage_path: storagePath },
+                });
+                throw new Error(upErr.message);
+            }
+
+            // TODO: table name/columns
+            const { data: inserted, error: insErr } = await supabase
+                .from("player_avatars")
+                .insert({
+                    id: avatarId,
+                    user_id: userId,
+                    storage_path: storagePath,
+                    alt_text: alt_text ?? null,
+                    options_json: options ?? null,
+                    source_photo_ids: photoIds,
+                    prompt_json: {
+                        prompt_image,
+                        negative_prompt,
+                        suggested_size,
+                        style_tags: (jsonOut as any)?.style_tags ?? null,
+                    },
+                })
+                .select("id, user_id, storage_path, created_at")
+                .single();
+
+            if (insErr) {
+                Log.error("ai_worker.execute.player_avatar.db_insert_failed", insErr, {
+                    status_code: 500,
+                    metadata: { job_id: job.id, user_id: userId, storage_path: storagePath },
+                });
+                throw new Error(insErr.message);
+            }
+
+            /* ---------------------------------------------------------------------
+     6) Logs success
+    --------------------------------------------------------------------- */
+
+            Log.success("ai_worker.execute.player_avatar.generated", {
+                status_code: 200,
+                metadata: {
+                    ms_total: msSince(g0),
+                    ms_prompt: msSince(t1),
+                    ms_image: msSince(t2),
+                    job_id: job.id,
+                    user_id: userId,
+                    avatar_id: inserted?.id,
+                    size: suggested_size,
+                    refs: signedUrls.length,
+                },
+            });
+
+            return {
+                user_id: userId,
+                avatar_id: inserted?.id ?? avatarId,
+                storage_path: inserted?.storage_path ?? storagePath,
+                size: suggested_size,
+                alt_text: alt_text ?? null,
+                prompt: {
+                    prompt_image,
+                    negative_prompt,
+                },
             };
         }
 

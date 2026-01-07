@@ -124,6 +124,8 @@ export default function AdventurePage() {
 
     const renownOpen = isModalOpen("renownGain");
 
+    // console.log("adventure", adventure);
+
     /* ------------------------------------------------------------------------
     Local UI state (keep minimal)
     ------------------------------------------------------------------------ */
@@ -305,7 +307,11 @@ export default function AdventurePage() {
         const remaining = chapterItems.filter((cq) => cq.status !== "done");
         setCarryOver(remaining);
 
-        setNextTitle(chapter?.title ? `${chapter.title} (suite)` : "Nouveau chapitre");
+        setNextTitle(
+            adventure?.chapters_count
+                ? `Chapitre ${adventure?.chapters_count + 1}`
+                : "Nouveau chapitre"
+        );
         setNextPace((chapter?.pace ?? "standard") as any);
         setNextAiContext("");
 

@@ -22,6 +22,8 @@ export type Adventure = {
     type_code?: string | null;
     type_title?: string | null;
     context_text?: string | null;
+    chapters_count?: number | null;
+    chapters?: string[];
 };
 
 /** 🧬 Type d’aventure (catalogue) */
@@ -520,4 +522,126 @@ export type CurrentPlayer = {
         title: string;
         is_active: boolean;
     } | null;
+};
+
+export type MeStatsResponse = {
+    session: {
+        id: string;
+        created_at: string | null;
+    };
+
+    progression: {
+        renown: {
+            value: number;
+            level: number;
+            tier: number | null;
+            tier_title: string | null;
+            full_title: string | null;
+            is_milestone: boolean;
+            updated_at: string | null;
+        };
+
+        chapters: {
+            total: number;
+            by_status: Record<string, number>;
+            recent: Array<{
+                id: string;
+                title: string | null;
+                status: string | null;
+                created_at: string | null;
+                chapter_code: string | null;
+                adventure_id: string | null;
+            }>;
+        };
+
+        quests: {
+            total: number;
+            done: number;
+            todo: number;
+            by_status: Record<string, number>;
+            difficulty_avg: number | null;
+            rooms_touched_count: number;
+        };
+    };
+
+    activity: {
+        last_entry_at: string | null;
+        current_streak_days: number;
+        best_streak_days: number;
+        active_days_last_30: number;
+        activity_last_30: Array<{ date: string; count: number }>;
+    };
+
+    ai: {
+        generations_last_30: {
+            total: number;
+            success: number;
+            error: number;
+            avg_duration_ms: number | null;
+            types_top: Array<{ type: string; count: number }>;
+        };
+        jobs_last_30: {
+            total: number;
+            by_status: Record<string, number>;
+            types_top: Array<{ job_type: string; count: number }>;
+        };
+    };
+
+    achievements: {
+        total: number;
+        recent: Array<{
+            id: string;
+            unlocked_at: string | null;
+            scope_key: string | null;
+            code: string | null;
+            name: string | null;
+            icon: string | null;
+            scope: string | null;
+            is_repeatable: boolean;
+        }>;
+    };
+
+    badges: {
+        total: number;
+        recent: Array<{
+            id: string;
+            unlocked_at: string | null;
+            code: string | null;
+            title: string | null;
+            emoji: string | null;
+        }>;
+    };
+
+    toasts: {
+        unread_count: number;
+        unread_recent: Array<{
+            id: string;
+            kind: string | null;
+            title: string | null;
+            created_at: string | null;
+        }>;
+    };
+
+    photos: {
+        total: number;
+        cover_total: number;
+        last_30: number;
+        by_category: Record<string, number>;
+    };
+
+    meta: {
+        generated_at: string;
+        windows: {
+            last_30_from: string;
+        };
+    };
+};
+
+export type PlayerStatsHighlights = {
+    renownLabel: string | null;
+    questsProgressLabel: string; // "12/30"
+    streakLabel: string; // "🔥 5j"
+    activity30Label: string; // "🗓️ 14j actifs"
+    aiUsageLabel: string; // "🤖 22 gen"
+    unreadToastsLabel: string | null; // "🔔 3"
 };

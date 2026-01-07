@@ -21,6 +21,34 @@ function one<T>(rel: T | T[] | null | undefined): T | null {
     return Array.isArray(rel) ? (rel[0] ?? null) : rel;
 }
 
+type ChapterAgg = {
+    chapters_count: number;
+    chapters: string[];
+};
+
+function enrichWithChapters(adventures: any[], chaptersRows: any[]) {
+    const map = new Map<string, ChapterAgg>();
+
+    for (const c of chaptersRows) {
+        if (!map.has(c.adventure_id)) {
+            map.set(c.adventure_id, { chapters_count: 0, chapters: [] });
+        }
+
+        const agg = map.get(c.adventure_id)!;
+        agg.chapters_count += 1;
+        agg.chapters.push(c.id);
+    }
+
+    return adventures.map((adv) => {
+        const agg = map.get(adv.id) ?? { chapters_count: 0, chapters: [] };
+        return {
+            ...adv,
+            chapters_count: agg.chapters_count,
+            chapters: agg.chapters,
+        };
+    });
+}
+
 const selectWithType = `
     id,
     title,
@@ -48,6 +76,15 @@ function mapAdventure(row: any) {
         type_code: type?.code ?? null,
         type_title: type?.title ?? null,
     };
+}
+async function attachChaptersToOneAdventure(supabase: any, adventure: any) {
+    const { data: chapters } = await supabase
+        .from("chapters")
+        .select("id, adventure_id")
+        .eq("adventure_id", adventure.id);
+
+    const enriched = enrichWithChapters([adventure], chapters ?? []);
+    return enriched[0];
 }
 
 export async function GET(req: Request) {
@@ -78,7 +115,11 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: "Adventure not found" }, { status: 404 });
         }
 
-        return NextResponse.json({ adventure: mapAdventure(data) });
+        const adventure = mapAdventure(data);
+        const enriched = await attachChaptersToOneAdventure(supabase, adventure);
+        return NextResponse.json({ adventure: enriched });
+
+        // return NextResponse.json({ adventure: mapAdventure(data) });
     }
 
     /* ------------------------------------------------------------
@@ -100,7 +141,11 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: "Adventure not found" }, { status: 404 });
         }
 
-        return NextResponse.json({ adventure: mapAdventure(data) });
+        const adventure = mapAdventure(data);
+        const enriched = await attachChaptersToOneAdventure(supabase, adventure);
+        return NextResponse.json({ adventure: enriched });
+
+        // return NextResponse.json({ adventure: mapAdventure(data) });
     }
 
     /* ------------------------------------------------------------
@@ -124,7 +169,11 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: "No current adventure found" }, { status: 404 });
         }
 
-        return NextResponse.json({ adventure: mapAdventure(data) });
+        const adventure = mapAdventure(data);
+        const enriched = await attachChaptersToOneAdventure(supabase, adventure);
+        return NextResponse.json({ adventure: enriched });
+
+        // return NextResponse.json({ adventure: mapAdventure(data) });
     }
 
     /* ------------------------------------------------------------
@@ -140,8 +189,19 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    const adventures = (data ?? []).map(mapAdventure);
+
+    const adventureIds = adventures.map((a) => a.id);
+
+    const { data: chapters } = await supabase
+        .from("chapters")
+        .select("id, adventure_id")
+        .in("adventure_id", adventureIds);
+
+    const enriched = enrichWithChapters(adventures, chapters ?? []);
+
     return NextResponse.json({
-        adventures: (data ?? []).map(mapAdventure),
+        adventures: enriched,
         session,
     });
 }

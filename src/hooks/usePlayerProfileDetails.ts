@@ -98,6 +98,14 @@ const detailKeys: Array<keyof PatchMePayload> = [
     "extra",
 ];
 
+const contextKeys: Array<keyof PatchMePayload> = [
+    "context_self",
+    "context_family",
+    "context_home",
+    "context_routine",
+    "context_challenges",
+];
+
 type UsePlayerProfileDetailsState = {
     details: PlayerProfileDetailsRow | null;
     loading: boolean;
@@ -161,8 +169,8 @@ export function usePlayerProfileDetails(opts?: { auto?: boolean }) {
         const payload: Record<string, any> = {};
 
         /* ------------------------------------------------------------
-         user_profiles
-        ------------------------------------------------------------ */
+     user_profiles
+    ------------------------------------------------------------ */
         if ("first_name" in patch) payload.first_name = patch.first_name ?? null;
         if ("last_name" in patch) payload.last_name = patch.last_name ?? null;
         if ("avatar_url" in patch) payload.avatar_url = patch.avatar_url ?? null;
@@ -170,16 +178,35 @@ export function usePlayerProfileDetails(opts?: { auto?: boolean }) {
         if ("onboarding_done" in patch) payload.onboarding_done = !!patch.onboarding_done;
 
         /* ------------------------------------------------------------
-         player_profiles
-        ------------------------------------------------------------ */
+     player_profiles
+    ------------------------------------------------------------ */
         if ("display_name" in patch) payload.display_name = patch.display_name ?? null;
 
         /* ------------------------------------------------------------
-         player_profile_details (flat)
-        ------------------------------------------------------------ */
+     player_profile_details (flat)
+    ------------------------------------------------------------ */
         for (const k of detailKeys) {
             if (k in patch) {
-                (payload as any)[k] = (patch as any)[k];
+                (payload as any)[k] = (patch as any)[k] ?? null;
+            }
+        }
+
+        /* ------------------------------------------------------------
+     user_contexts ✅ NEW (flat)
+    ------------------------------------------------------------ */
+        for (const k of contextKeys) {
+            if (k in patch) {
+                const v = (patch as any)[k];
+
+                // même logique que ta route /api/user-context :
+                // - null => null
+                // - string => trim, vide => null
+                if (v === null) {
+                    (payload as any)[k] = null;
+                } else if (typeof v === "string") {
+                    const trimmed = v.trim();
+                    (payload as any)[k] = trimmed.length ? trimmed : null;
+                }
             }
         }
 
@@ -203,8 +230,8 @@ export function usePlayerProfileDetails(opts?: { auto?: boolean }) {
             }
 
             /* ------------------------------------------------------------
-             Sync local state
-            ------------------------------------------------------------ */
+         Sync local state (details)
+        ------------------------------------------------------------ */
             const nextDetails = (res.data as any)?.details ?? null;
 
             if (nextDetails) {

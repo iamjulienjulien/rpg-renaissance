@@ -44,6 +44,31 @@ export type AiJobPending = {
     error?: string | null;
 };
 
+export type GeneratePlayerAvatarArgs = {
+    user_id: string;
+    photo_ids: string[]; // player_photos ids (portrait_source)
+    options?: {
+        format?: "square" | "portrait";
+        vibe?: "knight" | "sage" | "rogue" | "ranger" | "monk" | "alchemist" | "bard" | "nomad";
+        background?: "studio" | "tavern" | "forest" | "library" | "temple" | "cosmic";
+        accessory?: "none" | "cloak" | "crown" | "amulet" | "helmet" | "glasses";
+        faithfulness?: "strict" | "balanced" | "creative";
+    };
+};
+
+export type GeneratePlayerAvatarResult = {
+    jobId: string;
+    status: "queued";
+};
+
+export type PlayerAvatarJobResult = {
+    user_id: string;
+    avatar_id: string;
+    storage_path: string;
+    size?: string | null;
+    alt_text?: string | null;
+};
+
 type AiStore = {
     /* ---------------------------------------------------------------------
      State
@@ -92,6 +117,15 @@ type AiStore = {
     generateJournalChapterStory: (
         args: GenerateJournalChapterStoryArgs
     ) => Promise<GenerateResult | null>;
+
+    playerAvatarLoading: boolean;
+    playerAvatarGenerating: boolean;
+
+    generatePlayerAvatar: (
+        args: GeneratePlayerAvatarArgs
+    ) => Promise<GeneratePlayerAvatarResult | null>;
+
+    checkPlayerAvatarJobs: () => void;
 };
 
 /* ============================================================================
@@ -114,6 +148,7 @@ export const useAiStore = create<AiStore>((set, get) => ({
         get().checkQuestEncouragementJobs();
         get().checkQuestCongratJobs();
         get().checkQuestPhotoMessageJobs();
+        get().checkPlayerAvatarJobs();
     },
 
     /* ------------------------------------------------------------
@@ -185,6 +220,7 @@ export const useAiStore = create<AiStore>((set, get) => ({
         get().checkQuestEncouragementJobs();
         get().checkQuestCongratJobs();
         get().checkQuestPhotoMessageJobs();
+        get().checkPlayerAvatarJobs();
     },
 
     /* ------------------------------------------------------------
@@ -464,6 +500,68 @@ export const useAiStore = create<AiStore>((set, get) => ({
                 journalChapterStoryLoading: false,
                 journalChapterStoryGenerating: false,
             });
+        }
+    },
+
+    checkPlayerAvatarJobs() {
+        const jobs = get().aiJobsPending.filter((j) => j.jobType === "player_avatar");
+
+        if (!jobs.length) {
+            set({ playerAvatarGenerating: false });
+            return;
+        }
+
+        const hasRunning = jobs.some((j) => j.status === "queued" || j.status === "running");
+        set({ playerAvatarGenerating: hasRunning });
+    },
+
+    playerAvatarLoading: false,
+    playerAvatarGenerating: false,
+
+    async generatePlayerAvatar({ user_id, photo_ids, options }) {
+        const uid = (user_id ?? "").trim();
+        const ids = Array.isArray(photo_ids)
+            ? photo_ids.filter((x) => typeof x === "string" && x.trim().length > 0)
+            : [];
+
+        if (!uid || ids.length === 0) {
+            console.warn("[aiStore] Missing user_id or photo_ids");
+            return null;
+        }
+
+        set({ playerAvatarLoading: true, playerAvatarGenerating: true });
+
+        try {
+            const res = await fetch("/api/ai/avatar", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    user_id: uid,
+                    photo_ids: ids,
+                    options: options ?? null,
+                }),
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => null);
+                console.error("[aiStore] /api/ai/avatar failed", err);
+                return null;
+            }
+
+            const data = (await res.json()) as GeneratePlayerAvatarResult;
+
+            get().pushPendingJob({
+                jobId: data.jobId,
+                jobType: "player_avatar",
+                status: "queued",
+            });
+
+            return data;
+        } catch (err) {
+            console.error("[aiStore] generatePlayerAvatar error", err);
+            return null;
+        } finally {
+            set({ playerAvatarLoading: false });
         }
     },
 }));
