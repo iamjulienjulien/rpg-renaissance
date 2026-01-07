@@ -409,6 +409,7 @@ export default function QuestClient() {
 
             if (cq) {
                 setChapterQuest(cq);
+                setWaitForCongrat(true);
                 // router.push("/adventure");
             }
         } finally {

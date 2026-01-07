@@ -251,15 +251,44 @@ export async function generateJournalChapterStory(args: {
                     text: {
                         format: {
                             type: "json_schema",
-                            name: "chapter_story_v3",
+                            name: "chapter_story_v4",
                             schema: {
                                 type: "object",
                                 additionalProperties: false,
                                 properties: {
                                     title: { type: "string" },
                                     summary: { type: "string" },
-                                    scenes: { type: "array" },
-                                    trophies: { type: "array", minItems: 2, maxItems: 6 },
+
+                                    scenes: {
+                                        type: "array",
+                                        minItems: 1,
+                                        items: {
+                                            type: "object",
+                                            additionalProperties: false,
+                                            properties: {
+                                                quest_title: { type: "string" },
+                                                room_code: { type: ["string", "null"] },
+                                                scene: { type: "string" },
+                                            },
+                                            required: ["quest_title", "scene"],
+                                        },
+                                    },
+
+                                    trophies: {
+                                        type: "array",
+                                        minItems: 2,
+                                        maxItems: 6,
+                                        items: {
+                                            type: "object",
+                                            additionalProperties: false,
+                                            properties: {
+                                                title: { type: "string" },
+                                                description: { type: "string" },
+                                            },
+                                            required: ["title", "description"],
+                                        },
+                                    },
+
                                     mj_verdict: { type: "string" },
                                 },
                                 required: ["title", "summary", "scenes", "trophies", "mj_verdict"],
