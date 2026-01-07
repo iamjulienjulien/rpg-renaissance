@@ -270,7 +270,7 @@ export async function generateJournalChapterStory(args: {
                                                 room_code: { type: ["string", "null"] },
                                                 scene: { type: "string" },
                                             },
-                                            required: ["quest_title", "scene"],
+                                            required: ["quest_title", "room_code", "scene"], // ✅ doit inclure toutes les props
                                         },
                                     },
 
