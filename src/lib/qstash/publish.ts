@@ -1,5 +1,6 @@
 // src/lib/qstash/publish.ts
 import { Log } from "@/lib/systemLog/Log";
+import crypto from "crypto";
 
 /* ============================================================================
 🧰 HELPERS
@@ -27,6 +28,62 @@ function jsonByteLength(x: any) {
     } catch {
         return null;
     }
+}
+
+function sha256Base64Url(input: string) {
+    // base64url = safe header value
+    return crypto
+        .createHash("sha256")
+        .update(input)
+        .digest("base64")
+        .replaceAll("+", "-")
+        .replaceAll("/", "_")
+        .replaceAll("=", "");
+}
+
+function normalizeDeduplicationId(raw?: string) {
+    const original = typeof raw === "string" ? raw.trim() : "";
+    if (!original) return null;
+
+    // QStash refuse explicitement ':'.
+    // On garde un charset "safe header" et stable pour la dédup.
+    let cleaned = original
+        .replaceAll(":", "-")
+        .replaceAll(" ", "_")
+        .replaceAll("\t", "_")
+        .replaceAll("\n", "_")
+        .replaceAll("\r", "_");
+
+    // Autoriser seulement un set conservateur:
+    // alphanum + - _ . / @ (tu peux enlever @ si tu veux ultra strict)
+    cleaned = cleaned.replaceAll(/[^a-zA-Z0-9\-_.\/@]/g, "-");
+
+    // Collapse: éviter des '-----'
+    cleaned = cleaned.replaceAll(/-+/g, "-").replaceAll(/_+/g, "_");
+
+    // Pas de début/fin crados
+    cleaned = cleaned.replaceAll(/^[-_.\/@]+/, "").replaceAll(/[-_.\/@]+$/, "");
+
+    // Limite raisonnable (header). Si tu veux: 128 ou 200.
+    const MAX = 128;
+    if (cleaned.length > MAX) {
+        // On garde un prefix lisible + hash pour unicité
+        const prefix = cleaned.slice(0, 40);
+        const h = sha256Base64Url(original).slice(0, 22);
+        cleaned = `${prefix}-${h}`.slice(0, MAX);
+    }
+
+    // Si après nettoyage c'est vide, fallback hash
+    if (!cleaned) {
+        return `dedup-${sha256Base64Url(original).slice(0, 32)}`;
+    }
+
+    // Double sécurité: plus aucun ':'.
+    if (cleaned.includes(":")) {
+        cleaned = cleaned.replaceAll(":", "-");
+    }
+
+    return cleaned;
 }
 
 /* ============================================================================
@@ -61,16 +118,18 @@ export async function qstashPublishJSON(input: {
         throw new Error(`Invalid destination url (missing scheme): "${dest}"`);
     }
 
-    // ✅ DO NOT encodeURIComponent(dest)
+    // ✅ DO NOT encodeURIComponent(dest) (tu as l'air de vouloir garder ce comportement)
     const publishUrl = `https://qstash.upstash.io/v2/publish/${dest}`;
 
     const payloadBytes = jsonByteLength(input.body);
+
+    const dedupId = normalizeDeduplicationId(input.deduplicationId);
 
     Log.debug("qstash.publish_json.start", {
         metadata: {
             url: safeUrl(input.url),
             publish_url: "https://qstash.upstash.io/v2/publish/<encoded>",
-            deduplication_id: input.deduplicationId ?? null,
+            deduplication_id: dedupId ?? null,
             payload_bytes: payloadBytes,
         },
     });
@@ -84,9 +143,7 @@ export async function qstashPublishJSON(input: {
             headers: {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
-                ...(input.deduplicationId
-                    ? { "Upstash-Deduplication-Id": input.deduplicationId }
-                    : {}),
+                ...(dedupId ? { "Upstash-Deduplication-Id": dedupId } : {}),
             },
             body: JSON.stringify(input.body),
         });
@@ -94,7 +151,6 @@ export async function qstashPublishJSON(input: {
         const ms = msSince(startedAt);
 
         if (!res.ok) {
-            // essaye de récupérer le body d’erreur (utile: “invalid token”, “rate limit”, etc.)
             resText = await res.text().catch(() => "");
 
             const err = new Error(`QStash publish failed (${res.status}): ${resText}`);
@@ -104,7 +160,7 @@ export async function qstashPublishJSON(input: {
                 metadata: {
                     ms,
                     url: safeUrl(input.url),
-                    deduplication_id: input.deduplicationId ?? null,
+                    deduplication_id: dedupId ?? null,
                     qstash_status: res.status,
                     qstash_status_text: res.statusText,
                     response_text: resText?.slice(0, 2_000) ?? null,
@@ -115,7 +171,6 @@ export async function qstashPublishJSON(input: {
             throw err;
         }
 
-        // res ok: parse JSON best-effort
         const out = await res.json().catch(() => ({}));
 
         Log.success("qstash.publish_json.ok", {
@@ -123,7 +178,7 @@ export async function qstashPublishJSON(input: {
             metadata: {
                 ms,
                 url: safeUrl(input.url),
-                deduplication_id: input.deduplicationId ?? null,
+                deduplication_id: dedupId ?? null,
                 qstash_status: res.status,
             },
         });
@@ -134,13 +189,12 @@ export async function qstashPublishJSON(input: {
     } catch (e: any) {
         const ms = msSince(startedAt);
 
-        // si c’est une erreur réseau (fetch throw), on log ici
         Log.error("qstash.publish_json.fatal", e, {
             status_code: 500,
             metadata: {
                 ms,
                 url: safeUrl(input.url),
-                deduplication_id: input.deduplicationId ?? null,
+                deduplication_id: dedupId ?? null,
                 payload_bytes: payloadBytes,
             },
         });
