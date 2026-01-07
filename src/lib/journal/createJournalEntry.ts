@@ -1,6 +1,6 @@
 // src/lib/journal/createJournalEntry.ts
 
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 // ✅ system logs
 import { Log } from "@/lib/systemLog/Log";
@@ -125,7 +125,7 @@ export async function createJournalEntry(input: CreateJournalEntryInput) {
         meta: input.meta ?? null,
     };
 
-    const supabase = await supabaseServer();
+    const supabase = await supabaseAdmin();
 
     const d0 = Date.now();
     const { data, error } = await supabase

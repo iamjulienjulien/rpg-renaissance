@@ -336,7 +336,7 @@ export default function QuestClient() {
     useEffect(() => {
         console.log("questEncouragementGenerating change", questEncouragementGenerating);
         if (waitForEncouragement && !questEncouragementGenerating) {
-            console.log("reloadMission");
+            console.log("reloadQuestMessages");
             void refreshQuestMessages(currentQuestThreadId ?? "");
             setWaitForEncouragement(false);
         }
@@ -347,7 +347,7 @@ export default function QuestClient() {
     useEffect(() => {
         console.log("questCongratGenerating change", questCongratGenerating);
         if (waitForCongrat && !questCongratGenerating) {
-            console.log("reloadMission");
+            console.log("reloadQuestMessages");
             void refreshQuestMessages(currentQuestThreadId ?? "");
             setWaitForCongrat(false);
         }

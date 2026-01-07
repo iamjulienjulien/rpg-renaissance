@@ -276,6 +276,7 @@ function questLine(quest?: QuestLite | null) {
 /** 🧾 Helper: toast + journal pour un événement de quête */
 function logQuestEvent(input: {
     tone: "success" | "error" | "info" | "warning";
+    sendToast?: boolean;
     toastTitle: string;
     toastMessage?: string;
     journalKind: any;
@@ -286,11 +287,13 @@ function logQuestEvent(input: {
     const toast = useToastStore.getState();
     const journal = useJournalStore.getState();
 
-    toast.push({
-        tone: input.tone,
-        title: input.toastTitle,
-        message: input.toastMessage,
-    });
+    if (input.sendToast === undefined || input.sendToast === true) {
+        toast.push({
+            tone: input.tone,
+            title: input.toastTitle,
+            message: input.toastMessage,
+        });
+    }
 
     void journal.create({
         kind: input.journalKind,
@@ -2463,6 +2466,7 @@ export const useGameStore = create<GameStore>((set, get) => {
 
                 logQuestEvent({
                     tone: "success",
+                    sendToast: false,
                     toastTitle: "Quête terminée",
                     toastMessage: line ? `✅ ${line}` : undefined,
                     journalKind: "quest_done",
