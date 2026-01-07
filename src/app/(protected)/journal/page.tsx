@@ -571,8 +571,8 @@ function RenownView() {
     const isMilestone = !!level?.is_milestone;
 
     const displayName =
-        (currentPlayer?.player_profile?.display_name ?? "").trim() ||
-        (currentPlayer?.profile?.first_name ?? "").trim() ||
+        (currentPlayer?.display_name ?? "").trim() ||
+        (currentPlayer?.first_name ?? "").trim() ||
         "Aventurier";
 
     const badges = Array.isArray(currentPlayer?.badges) ? currentPlayer!.badges : [];
