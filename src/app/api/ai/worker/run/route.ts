@@ -825,7 +825,7 @@ async function executeJob(job: AiJobRow) {
             const t1 = Date.now();
 
             const body: any = {
-                model: "gpt-4.1-mini",
+                model: "gpt-4o-mini", // important, voir note plus bas
                 input: [
                     { role: "system", content: promptPack.systemText },
                     {
@@ -836,20 +836,19 @@ async function executeJob(job: AiJobRow) {
                             JSON.stringify(promptPack.context, null, 2),
                     },
                 ],
-                response_format: {
-                    type: "json_schema",
-                    json_schema: promptPack.schema,
+                text: {
+                    format: {
+                        type: "json_schema",
+                        strict: true,
+                        schema: promptPack.schema,
+                    },
                 },
             };
 
             const structured = await openai.responses.create(body);
-
-            // Selon SDK, récupère le JSON différemment.
-            // Ici on tente plusieurs formes sans casser.
             const jsonOut =
                 (structured as any)?.output_parsed ??
                 (structured as any)?.output?.[0]?.content?.[0]?.parsed ??
-                (structured as any)?.output?.[0]?.content?.[0]?.text ??
                 null;
 
             if (!jsonOut) {

@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
                 }
 
                 const user_id = safeTrim(body?.user_id);
-                const photos = Array.isArray(body?.photos) ? body.photos : [];
+                const photos = Array.isArray(body?.photo_ids) ? body.photo_ids : [];
 
                 if (!user_id || photos.length === 0) {
                     Log.warning("ai.avatar.missing_params", {
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
                     payload: {
                         user_id,
                         photos: photos.map((p: any) => ({
-                            photo_id: safeTrim(p?.photo_id),
+                            photo_id: safeTrim(p),
                         })),
 
                         options: {
