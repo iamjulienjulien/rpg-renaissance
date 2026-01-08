@@ -839,6 +839,7 @@ async function executeJob(job: AiJobRow) {
                 text: {
                     format: {
                         type: "json_schema",
+                        name: "player_avatar_prompt",
                         strict: true,
                         schema: promptPack.schema,
                     },
