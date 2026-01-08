@@ -321,9 +321,10 @@ export async function generatePlayerAvatar(
 
                 try {
                     const { data: profile, error: profileErr } = await supabase
-                        .from("user_profiles")
-                        .select("id, session_id")
-                        .eq("id", user_id)
+                        .from("game_sessions")
+                        .select("id, user_id")
+                        .eq("user_id", user_id)
+                        .eq("is_active", "TRUE")
                         .maybeSingle();
 
                     if (profileErr) {
@@ -332,7 +333,7 @@ export async function generatePlayerAvatar(
                             metadata: { ms: msSince(sess0), error: profileErr.message },
                         });
                     } else {
-                        session_id = (profile as any)?.session_id ?? null;
+                        session_id = (profile as any)?.id ?? null;
                     }
                 } catch {}
 
