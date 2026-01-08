@@ -824,8 +824,10 @@ async function executeJob(job: AiJobRow) {
 
             const t1 = Date.now();
 
+            const schemaPack = promptPack.schema; // ton objet { name, strict, schema }
+
             const body: any = {
-                model: "gpt-4o-mini", // important, voir note plus bas
+                model: "gpt-4o-mini",
                 input: [
                     { role: "system", content: promptPack.systemText },
                     {
@@ -839,18 +841,19 @@ async function executeJob(job: AiJobRow) {
                 text: {
                     format: {
                         type: "json_schema",
-                        name: "player_avatar_prompt",
-                        strict: true,
-                        schema: promptPack.schema,
+                        name: schemaPack.name ?? "player_avatar_prompt",
+                        strict: schemaPack.strict ?? true,
+                        schema: schemaPack.schema, // ✅ IMPORTANT: le JSON Schema pur (type: "object")
                     },
                 },
             };
 
             const structured = await openai.responses.create(body);
-            const jsonOut =
-                (structured as any)?.output_parsed ??
-                (structured as any)?.output?.[0]?.content?.[0]?.parsed ??
-                null;
+
+            const raw = (structured as any).output_text;
+            if (!raw) throw new Error("No output_text from model");
+
+            const jsonOut = JSON.parse(raw);
 
             if (!jsonOut) {
                 Log.warning("ai_worker.execute.player_avatar.no_structured_output", {
