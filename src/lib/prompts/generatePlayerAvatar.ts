@@ -241,6 +241,48 @@ async function safeJsonParse(text: string) {
     }
 }
 
+// helper local dans le fichier
+async function fetchArrayBufferWithTimeout(url: string, timeoutMs = 20_000) {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+        const r = await fetch(url, { signal: controller.signal, cache: "no-store" });
+
+        const contentType = r.headers.get("content-type") || null;
+        const contentLength = r.headers.get("content-length");
+        const length = contentLength ? Number(contentLength) : null;
+
+        Log.debug("player_avatar.refs.fetch.response", {
+            metadata: {
+                ok: r.ok,
+                status: r.status,
+                content_type: contentType,
+                content_length: length,
+            },
+        });
+
+        if (!r.ok) {
+            throw new Error(`fetch failed: ${r.status}`);
+        }
+
+        // Optionnel: limite taille (ex: 12 MB)
+        if (length && length > 12 * 1024 * 1024) {
+            throw new Error(`image too large: ${length} bytes`);
+        }
+
+        const ab = await r.arrayBuffer();
+
+        Log.debug("player_avatar.refs.fetch.body_ok", {
+            metadata: { bytes: ab.byteLength },
+        });
+
+        return { ab, contentType };
+    } finally {
+        clearTimeout(t);
+    }
+}
+
 /* ============================================================================
 MAIN
 ============================================================================ */
@@ -602,25 +644,27 @@ export async function generatePlayerAvatar(
 
                 for (let i = 0; i < signedUrls.length; i++) {
                     const url = signedUrls[i];
-                    const r = await fetch(url);
 
-                    Log.debug("jj.debug3", {
-                        metadata: {
-                            message: "ok",
-                            r: r,
-                        },
+                    Log.debug("player_avatar.refs.fetch.start", {
+                        metadata: { index: i },
                     });
 
-                    if (!r.ok) {
-                        Log.warning("player_avatar.refs.fetch_failed", {
+                    let ab: ArrayBuffer;
+                    let contentType: string | null;
+
+                    try {
+                        const out = await fetchArrayBufferWithTimeout(url, 25_000);
+                        ab = out.ab;
+                        contentType = out.contentType;
+                    } catch (e: any) {
+                        Log.error("player_avatar.refs.fetch.error", e, {
                             status_code: 502,
-                            metadata: { index: i, status: r.status },
+                            metadata: { index: i, message: e?.message ?? null },
                         });
-                        throw new Error(`Failed to fetch reference image ${i}`);
+                        throw e;
                     }
 
-                    const mime = r.headers.get("content-type") || "image/jpeg";
-                    const ab = await r.arrayBuffer();
+                    const mime = contentType || "image/jpeg";
 
                     refImages.push({
                         name: `ref_${i}.jpg`,
