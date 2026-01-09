@@ -1,6 +1,7 @@
 // src/lib/prompts/generatePlayerAvatar.ts
 import crypto from "crypto";
 import { openai } from "@/lib/openai";
+import { toFile } from "openai/uploads";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { createAiGenerationLog } from "@/lib/logs/createAiGenerationLog";
 import { createJournalEntry } from "@/lib/journal/createJournalEntry";
@@ -692,15 +693,17 @@ export async function generatePlayerAvatar(
 
                 let imgRes: any = null;
                 try {
+                    const imageFiles = await Promise.all(
+                        refImages.map((im) =>
+                            toFile(im.data, im.name, { type: im.mime || "image/jpeg" })
+                        )
+                    );
+
                     imgRes = await openai.images.edit({
                         model: "gpt-image-1",
                         prompt: `${prompt_image}\n\nÉvite absolument:\n${negative_prompt}`,
                         size: suggested_size,
-                        image: refImages.map((im) => ({
-                            name: im.name,
-                            type: im.mime,
-                            data: im.data,
-                        })),
+                        image: imageFiles, // ✅ tableau de File
                     } as any);
                 } catch (err: any) {
                     Log.error("player_avatar.openai.image.error", err, {
