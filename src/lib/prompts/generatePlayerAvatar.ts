@@ -874,7 +874,7 @@ export async function generatePlayerAvatar(
                     const { error: profErr } = await supabase
                         .from("user_profiles")
                         .update({ avatar_url })
-                        .eq("id", user_id);
+                        .eq("user_id", user_id);
 
                     if (profErr) {
                         Log.warning("player_avatar.user_profiles.update_failed", {
