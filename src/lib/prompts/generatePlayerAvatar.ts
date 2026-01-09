@@ -9,10 +9,21 @@ import { createJournalEntry } from "@/lib/journal/createJournalEntry";
 import { Log } from "@/lib/systemLog/Log";
 import { withRequestContext, patchRequestContext } from "@/lib/systemLog/requestContext";
 
+// ✅ single source of truth (options + prompt fragments + schema + size)
+import {
+    normalizeAvatarOptions,
+    suggestedSize as suggestedSizeFromHelpers,
+    playerAvatarOutputSchemaPack,
+    getAvatarPromptFragments,
+    type PlayerAvatarOptions as NormalizedPlayerAvatarOptions,
+} from "@/lib/avatar/avatarOptionsHelpers";
+
 /* ============================================================================
 TYPES
 ============================================================================ */
 
+// NOTE: keep local public types for other imports, but they now mirror the helpers.
+// You can delete these local union types later if nothing external imports them.
 export type PlayerAvatarFormat = "square" | "portrait";
 export type PlayerAvatarVibe = "knight" | "ranger" | "mage" | "dark";
 export type PlayerAvatarBackground = "studio" | "forest" | "castle" | "battlefield";
@@ -59,7 +70,7 @@ export type GeneratePlayerAvatarOutput = {
 };
 
 /* ============================================================================
-HELPERS
+HELPERS (local only)
 ============================================================================ */
 
 function safeTrim(x: unknown): string {
@@ -72,166 +83,6 @@ function safeBool(x: unknown): boolean {
 
 function msSince(t0: number) {
     return Math.max(0, Date.now() - t0);
-}
-
-function clampNotes(notes: string | null | undefined, maxLen = 400): string | null {
-    const t = safeTrim(notes);
-    if (!t) return null;
-    return t.length > maxLen ? t.slice(0, maxLen) : t;
-}
-
-function suggestedSize(format: PlayerAvatarFormat) {
-    return format === "portrait" ? "1024x1536" : "1024x1024";
-}
-
-function styleDirectives(options: PlayerAvatarOptions) {
-    if (options.faithfulness === "faithful") {
-        return [
-            "Respecte fidèlement les traits du visage observés sur les photos.",
-            "Évite les changements radicaux (âge, morphologie, couleur des yeux/cheveux) sauf si demandé.",
-            "Rendu fantasy, mais identité clairement reconnaissable.",
-        ];
-    }
-
-    if (options.faithfulness === "stylized") {
-        return [
-            "Conserve l'identité générale, mais autorise une stylisation marquée (illustration héroïque).",
-            "Traits légèrement amplifiés (caractère, aura, posture), sans dénaturer.",
-            "Priorise le rendu épique et la cohérence artistique.",
-        ];
-    }
-
-    return [
-        "Conserve une forte ressemblance, avec une stylisation légère.",
-        "Rendu épique, mais visage cohérent et reconnaissable.",
-        "Équilibre réalisme et illustration.",
-    ];
-}
-
-function vibeDirectives(vibe: PlayerAvatarVibe) {
-    if (vibe === "knight") {
-        return [
-            "Archétype: chevalier fantasy noble et solide.",
-            "Tenue: armure légère ou cuir renforcé, cape éventuelle.",
-            "Attitude: stoïque, protecteur, déterminé.",
-        ];
-    }
-
-    if (vibe === "ranger") {
-        return [
-            "Archétype: rôdeur, pisteur, aventurier des bois.",
-            "Tenue: cuir, tissus pratiques, cape/écharpe, détails utilitaires.",
-            "Attitude: alerte, agile, regard perçant.",
-        ];
-    }
-
-    if (vibe === "mage") {
-        return [
-            "Archétype: mage, érudit, mystique.",
-            "Tenue: robes fantasy, détails runiques subtils, talisman éventuel.",
-            "Attitude: calme, intense, aura mystérieuse.",
-        ];
-    }
-
-    return [
-        "Archétype: dark fantasy, anti-héros ou chevalier noir.",
-        "Tenue: cuir sombre/armure, textures usées, élégance menaçante.",
-        "Attitude: froide, résolue, dramatique.",
-    ];
-}
-
-function backgroundDirectives(bg: PlayerAvatarBackground) {
-    if (bg === "forest") return "Fond: forêt brumeuse, feuillage, atmosphère naturelle.";
-    if (bg === "castle") return "Fond: château, pierre, bannières, ambiance médiévale.";
-    if (bg === "battlefield") return "Fond: champ de bataille, fumée légère, dramatisme.";
-    return "Fond: studio fantasy neutre, lumière maîtrisée, focus sur le visage.";
-}
-
-function accessoryDirectives(a: PlayerAvatarAccessory) {
-    if (a === "hood") return "Accessoire: capuche (hood) élégante.";
-    if (a === "helm") return "Accessoire: casque (helm) partiel ou relevé, visage visible.";
-    if (a === "crown") return "Accessoire: couronne (crown) discrète, noble.";
-    if (a === "pauldron") return "Accessoire: épaulière (pauldron) détaillée.";
-    return "Accessoire: aucun (none).";
-}
-
-function outputSchemaPack() {
-    return {
-        name: "player_avatar_prompt_v1",
-        strict: true,
-        schema: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-                prompt_image: { type: "string", minLength: 50 },
-                negative_prompt: { type: "string", minLength: 10 },
-                suggested_size: { type: "string", enum: ["1024x1024", "1024x1536"] },
-                alt_text: { type: "string", minLength: 20 },
-                style_tags: {
-                    type: "array",
-                    items: { type: "string" },
-                    minItems: 3,
-                    maxItems: 12,
-                },
-            },
-            required: [
-                "prompt_image",
-                "negative_prompt",
-                "suggested_size",
-                "alt_text",
-                "style_tags",
-            ],
-        },
-    };
-}
-
-function buildPrompt(options: PlayerAvatarOptions) {
-    const schemaPack = outputSchemaPack();
-
-    const systemText = [
-        "Tu es un directeur artistique expert en illustration fantasy épique, spécialisé en portraits réalistes stylisés.",
-        "Objectif: produire un prompt image de très haute qualité pour générer un avatar de joueur à partir de photos de référence.",
-        "",
-        "Contraintes non négociables:",
-        "- Le visage doit rester cohérent et reconnaissable (selon le niveau de 'faithfulness').",
-        "- Pas de nudité, pas de sexualisation, pas de gore explicite, pas de symboles haineux.",
-        "- Ne pas inventer de texte lisible (bannières, logos). Si du texte apparaît, il doit être illisible.",
-        "- Évite les artefacts: yeux asymétriques, mains difformes, dents bizarres, bijoux fusionnés.",
-        "",
-        "Tu dois rendre un JSON strict conforme au schéma fourni, sans texte autour.",
-    ].join("\n");
-
-    const directives = [
-        ...styleDirectives(options),
-        ...vibeDirectives(options.vibe),
-        backgroundDirectives(options.background),
-        accessoryDirectives(options.accessory),
-    ];
-
-    const notesLine = options.notes ? `Notes utilisateur: ${options.notes}\n` : "";
-
-    const userText = [
-        "Construis un prompt image final (prompt_image) pour un avatar fantasy épique.",
-        "Tu dois inclure: cadrage, description du visage, tenue, ambiance, lumière, détails matériels, qualité.",
-        "Tu dois aussi produire: un negative_prompt, une taille suggérée, un alt_text, et des style_tags.",
-        "",
-        `Format: ${options.format}`,
-        `Vibe: ${options.vibe}`,
-        `Background: ${options.background}`,
-        `Accessoire: ${options.accessory}`,
-        `Fidélité: ${options.faithfulness}`,
-        `Lumière dramatique: ${options.dramatic_light ? "oui" : "non"}`,
-        `Cicatrices: ${options.battle_scars ? "oui" : "non"}`,
-        `Regard magique: ${options.glow_eyes ? "oui" : "non"}`,
-        notesLine,
-        "Directives artistiques:",
-        directives.map((x) => `- ${x}`).join("\n"),
-        "",
-        "Important: les photos de référence seront fournies à l'outil de génération par le système.",
-        "Ne décris pas des détails incertains (couleur exacte des yeux, cicatrices réelles) si elles ne sont pas demandées.",
-    ].join("\n");
-
-    return { systemText, userText, schemaPack };
 }
 
 async function safeJsonParse(text: string) {
@@ -285,6 +136,61 @@ async function fetchArrayBufferWithTimeout(url: string, timeoutMs = 20_000) {
 }
 
 /* ============================================================================
+PROMPT BUILDER (final assembly stays HERE)
+- helpers only provide normalized options + prompt fragments
+============================================================================ */
+
+function buildPrompt(options: NormalizedPlayerAvatarOptions) {
+    const schemaPack = playerAvatarOutputSchemaPack();
+
+    const systemText = [
+        "Tu es un directeur artistique expert en illustration fantasy épique, spécialisé en portraits réalistes stylisés.",
+        "Objectif: produire un prompt image de très haute qualité pour générer un avatar de joueur à partir de photos de référence.",
+        "",
+        "Contraintes non négociables:",
+        "- Le visage doit rester cohérent et reconnaissable (selon le niveau de 'faithfulness').",
+        "- Pas de nudité, pas de sexualisation, pas de gore explicite, pas de symboles haineux.",
+        "- Ne pas inventer de texte lisible (bannières, logos). Si du texte apparaît, il doit être illisible.",
+        "- Évite les artefacts: yeux asymétriques, mains difformes, dents bizarres, bijoux fusionnés.",
+        "",
+        "Tu dois rendre un JSON strict conforme au schéma fourni, sans texte autour.",
+    ].join("\n");
+
+    const fr = getAvatarPromptFragments(options);
+
+    // Nice bullets, split lines already normalized in fr.directives
+    const directivesBlock = ["Directives artistiques:", ...fr.directives.map((x) => `- ${x}`)].join(
+        "\n"
+    );
+
+    // Keep explicit status lines for debuggability (values from normalized options)
+    const userText = [
+        "Construis un prompt image final (prompt_image) pour un avatar fantasy épique.",
+        "Tu dois inclure: cadrage, description du visage, tenue, ambiance, lumière, détails matériels, qualité.",
+        "Tu dois aussi produire: un negative_prompt, une taille suggérée, un alt_text, et des style_tags.",
+        "",
+        `Format: ${options.format}`,
+        `Vibe: ${options.vibe}`,
+        `Background: ${options.background}`,
+        `Accessoire: ${options.accessory}`,
+        `Fidélité: ${options.faithfulness}`,
+        `Lumière dramatique: ${options.dramatic_light ? "oui" : "non"}`,
+        `Cicatrices: ${options.battle_scars ? "oui" : "non"}`,
+        `Regard magique: ${options.glow_eyes ? "oui" : "non"}`,
+        options.notes ? `Notes utilisateur: ${options.notes}` : "",
+        "",
+        directivesBlock,
+        "",
+        "Important: les photos de référence seront fournies à l'outil de génération par le système.",
+        "Ne décris pas des détails incertains (couleur exacte des yeux, cicatrices réelles) si elles ne sont pas demandées.",
+    ]
+        .filter((x) => typeof x === "string" && x.length > 0)
+        .join("\n");
+
+    return { systemText, userText, schemaPack };
+}
+
+/* ============================================================================
 MAIN
 ============================================================================ */
 
@@ -311,19 +217,11 @@ export async function generatePlayerAvatar(
                 ? args.photo_ids.map((x) => safeTrim(x)).filter((x) => x.length > 0)
                 : [];
 
-            const options: PlayerAvatarOptions = {
-                format: (args?.options?.format as any) ?? "square",
-                vibe: (args?.options?.vibe as any) ?? "knight",
-                background: (args?.options?.background as any) ?? "studio",
-                accessory: (args?.options?.accessory as any) ?? "none",
-                faithfulness: (args?.options?.faithfulness as any) ?? "balanced",
-                dramatic_light: safeBool(args?.options?.dramatic_light),
-                battle_scars: safeBool(args?.options?.battle_scars),
-                glow_eyes: safeBool(args?.options?.glow_eyes),
-                notes: clampNotes((args?.options as any)?.notes ?? null),
-            };
+            // ✅ normalize via shared helpers (single source of truth)
+            const options = normalizeAvatarOptions(args?.options ?? null);
 
-            const plannedSize = suggestedSize(options.format);
+            // Size is now driven by shared helper too
+            const plannedSize = suggestedSizeFromHelpers(options.format);
 
             try {
                 Log.info("player_avatar.start", {
@@ -357,8 +255,8 @@ export async function generatePlayerAvatar(
                 const supabase = await supabaseAdmin();
 
                 /* ------------------------------------------------------------
-             0) Charger session_id (best-effort) depuis user_profiles
-            ------------------------------------------------------------ */
+                 0) Charger session_id (best-effort) depuis user_profiles
+                ------------------------------------------------------------ */
                 const sess0 = Date.now();
                 let session_id: string | null = null;
 
@@ -387,8 +285,8 @@ export async function generatePlayerAvatar(
                 });
 
                 /* ------------------------------------------------------------
-             1) Load source photos
-            ------------------------------------------------------------ */
+                 1) Load source photos
+                ------------------------------------------------------------ */
                 const p0 = Date.now();
                 const { data: photos, error: photosErr } = await supabase
                     .from("player_photos")
@@ -433,8 +331,8 @@ export async function generatePlayerAvatar(
                 });
 
                 /* ------------------------------------------------------------
-             2) Signed URLs
-            ------------------------------------------------------------ */
+                 2) Signed URLs
+                ------------------------------------------------------------ */
                 const s0 = Date.now();
                 const signedUrls: string[] = [];
 
@@ -473,11 +371,12 @@ export async function generatePlayerAvatar(
                 });
 
                 /* ------------------------------------------------------------
-             3) OpenAI structured prompt builder
-            ------------------------------------------------------------ */
+                 3) OpenAI structured prompt builder
+                ------------------------------------------------------------ */
                 const o0 = Date.now();
                 const startedAt = new Date();
 
+                // ✅ use shared helpers-driven prompt build (fragments -> assembled here)
                 const { systemText, userText, schemaPack } = buildPrompt(options);
 
                 if (!schemaPack?.schema || schemaPack.schema.type !== "object") {
@@ -586,7 +485,8 @@ export async function generatePlayerAvatar(
 
                 const prompt_image = safeTrim(jsonOut?.prompt_image);
                 const negative_prompt = safeTrim(jsonOut?.negative_prompt);
-                const suggested_size = (safeTrim(jsonOut?.suggested_size) as any) || plannedSize;
+                const suggested_size =
+                    (safeTrim(jsonOut?.suggested_size) as any) || (plannedSize as any);
                 const alt_text = safeTrim(jsonOut?.alt_text);
                 const style_tags = Array.isArray(jsonOut?.style_tags)
                     ? jsonOut.style_tags
@@ -624,24 +524,11 @@ export async function generatePlayerAvatar(
                     },
                 });
 
-                Log.debug("jj.debug1", {
-                    metadata: {
-                        message: "ok",
-                    },
-                });
-
                 /* ------------------------------------------------------------
-             4) Download refs into buffers
-            ------------------------------------------------------------ */
+                 4) Download refs into buffers
+                ------------------------------------------------------------ */
                 const d0 = Date.now();
                 const refImages: Array<{ name: string; mime: string; data: Buffer }> = [];
-
-                Log.debug("jj.debug2", {
-                    metadata: {
-                        message: "ok",
-                        signedUrls,
-                    },
-                });
 
                 for (let i = 0; i < signedUrls.length; i++) {
                     const url = signedUrls[i];
@@ -674,21 +561,14 @@ export async function generatePlayerAvatar(
                     });
                 }
 
-                Log.debug("jj.debug4", {
-                    metadata: {
-                        message: "ok",
-                        signedUrls,
-                    },
-                });
-
                 Log.success("player_avatar.refs.loaded", {
                     status_code: 200,
                     metadata: { ms: msSince(d0), count: refImages.length },
                 });
 
                 /* ------------------------------------------------------------
-             5) Generate image (gpt-image-1)
-            ------------------------------------------------------------ */
+                 5) Generate image (gpt-image-1)
+                ------------------------------------------------------------ */
                 const i0 = Date.now();
 
                 let imgRes: any = null;
@@ -764,8 +644,8 @@ export async function generatePlayerAvatar(
                 });
 
                 /* ------------------------------------------------------------
-             6) Upload to storage (bucket player-photos)
-            ------------------------------------------------------------ */
+                 6) Upload to storage (bucket player-photos)
+                ------------------------------------------------------------ */
                 const up0 = Date.now();
                 const bucket = "player-photos";
 
@@ -794,8 +674,8 @@ export async function generatePlayerAvatar(
                 });
 
                 /* ------------------------------------------------------------
-             7) DB: deactivate previous + insert new avatar row
-            ------------------------------------------------------------ */
+                 7) DB: deactivate previous + insert new avatar row
+                ------------------------------------------------------------ */
                 const db0 = Date.now();
 
                 // deactivate previous active avatars (best effort)
@@ -860,8 +740,8 @@ export async function generatePlayerAvatar(
                 });
 
                 /* ------------------------------------------------------------
-             8) avatar_url + update user_profiles.avatar_url (best-effort)
-            ------------------------------------------------------------ */
+                 8) avatar_url + update user_profiles.avatar_url (best-effort)
+                ------------------------------------------------------------ */
                 let avatar_url: string | null = null;
 
                 try {
@@ -890,8 +770,8 @@ export async function generatePlayerAvatar(
                 }
 
                 /* ------------------------------------------------------------
-             9) AiGenerationLog + JournalEntry (best-effort)
-            ------------------------------------------------------------ */
+                 9) AiGenerationLog + JournalEntry (best-effort)
+                ------------------------------------------------------------ */
                 const finishedAt = new Date();
                 const totalMs = msSince(startedAtMs);
 

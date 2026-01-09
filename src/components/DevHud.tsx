@@ -5,7 +5,7 @@ import { useDevStore } from "@/stores/devStore";
 import { useToastStore } from "@/stores/toastStore";
 import { ActionButton } from "./RpgUi";
 import { useAiStore } from "@/stores/aiStore";
-import { UiCard, UiChip } from "./ui";
+import { UiActionButton, UiCard, UiChip } from "./ui";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -22,7 +22,7 @@ export default function DevHud(props: DevHudProps) {
     const logsVerbose = useDevStore((s) => s.logsVerbose);
     const apiLatencyMs = useDevStore((s) => s.apiLatencyMs);
 
-    const { replayLastDbToast } = useToastStore();
+    const { replayLastDbToast, push, toasts } = useToastStore();
 
     const { aiJobsPending } = useAiStore();
 
@@ -30,6 +30,8 @@ export default function DevHud(props: DevHudProps) {
     const [href, setHref] = useState<string>(() =>
         typeof window !== "undefined" ? window.location.href : ""
     );
+
+    console.log("toasts", toasts);
 
     const show = devEnabled && overlays;
 
@@ -162,11 +164,24 @@ export default function DevHud(props: DevHudProps) {
                 </UiCard>
                 <div className="mt-3 grid gap-2">
                     <div className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
-                        {/* <div className="text-xs text-white/60">Toggles</div> */}
-                        <div className="mt-1 flex flex-wrap gap-2">
-                            <ActionButton onClick={() => replayLastDbToast()}>
-                                🍞 Rejouer Toast
-                            </ActionButton>
+                        <div className="text-xs text-white/60">Toast</div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            <UiActionButton
+                                size="xs"
+                                onClick={() => {
+                                    push({
+                                        tone: "info",
+                                        title: "Test",
+                                        message: "Toast de démo",
+                                        durationMs: null,
+                                    });
+                                }}
+                            >
+                                ✚ Ajouter
+                            </UiActionButton>
+                            <UiActionButton size="xs" onClick={() => replayLastDbToast()}>
+                                🍞 Rejouer
+                            </UiActionButton>
 
                             {/* <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-white/70 ring-1 ring-white/10">
                                 {devEnabled ? "🧪 DEV ON" : "DEV OFF"}

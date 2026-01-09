@@ -515,6 +515,36 @@ export type CurrentPlayer = {
     }>;
 
     /* ------------------------------------------------------------------
+     * Photos (player_photos)
+     * ------------------------------------------------------------------ */
+    photos: Array<{
+        id: string;
+        kind: "portrait_source" | "avatar_generated" | string;
+
+        bucket: string | null;
+        storage_path: string | null;
+        mime_type: string | null;
+
+        width: number | null;
+        height: number | null;
+
+        // avatar-only
+        is_active: boolean;
+        avatar_style: string | null;
+        avatar_variant: string | null;
+        avatar_format: string | null;
+
+        // ai
+        ai_job_id: string | null;
+        ai_model: string | null;
+
+        // meta
+        alt_text: string | null;
+        caption: string | null;
+        created_at: string | null;
+    }>;
+
+    /* ------------------------------------------------------------------
      * Session
      * ------------------------------------------------------------------ */
     active_session: {
@@ -523,7 +553,6 @@ export type CurrentPlayer = {
         is_active: boolean;
     } | null;
 };
-
 export type MeStatsResponse = {
     session: {
         id: string;
@@ -644,4 +673,24 @@ export type PlayerStatsHighlights = {
     activity30Label: string; // "🗓️ 14j actifs"
     aiUsageLabel: string; // "🤖 22 gen"
     unreadToastsLabel: string | null; // "🔔 3"
+};
+
+export type PlayerAvatarFormat = "square" | "portrait";
+export type PlayerAvatarVibe = "knight" | "ranger" | "mage" | "dark";
+export type PlayerAvatarBackground = "studio" | "forest" | "castle" | "battlefield";
+export type PlayerAvatarAccessory = "none" | "hood" | "helm" | "crown" | "pauldron";
+export type PlayerAvatarFaithfulness = "faithful" | "balanced" | "stylized";
+
+export type PlayerAvatarOptions = {
+    format: PlayerAvatarFormat;
+    vibe: PlayerAvatarVibe;
+    background: PlayerAvatarBackground;
+    accessory: PlayerAvatarAccessory;
+    faithfulness: PlayerAvatarFaithfulness;
+
+    dramatic_light?: boolean;
+    battle_scars?: boolean;
+    glow_eyes?: boolean;
+
+    notes?: string | null;
 };

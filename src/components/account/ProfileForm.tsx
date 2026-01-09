@@ -9,6 +9,7 @@ import { usePlayerProfileDetails } from "@/hooks/usePlayerProfileDetails";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
+import UiImage from "../ui/UiImage";
 
 export function ProfileForm() {
     const {
@@ -101,20 +102,39 @@ export function ProfileForm() {
                                     ) : null} */}
 
                 <UiCard variant="classic">
-                    <div className="text-xs tracking-[0.18em] text-white/55 uppercase">Email</div>
-                    <div className="mt-2 text-sm font-semibold text-white/90">
-                        {user?.email ?? "—"}
-                    </div>
-                    <div className="mt-2">
-                        <UiActionButton
-                            size="xs"
-                            variant="solid"
-                            onClick={() => {
-                                openModal("playerAvatar");
-                            }}
-                        >
-                            🤳 Avatar
-                        </UiActionButton>
+                    <div className="flex">
+                        <div>
+                            {currentPlayer?.avatar_url && (
+                                <UiImage
+                                    src={currentPlayer?.avatar_url}
+                                    alt="Avatar"
+                                    layout="fixed"
+                                    width={85}
+                                    height={85}
+                                    // aspect="square"
+                                    useNextImage={false}
+                                />
+                            )}
+                        </div>
+                        <div className="ml-4">
+                            <div className="text-xs tracking-[0.18em] text-white/55 uppercase">
+                                Email
+                            </div>
+                            <div className="mt-2 text-sm font-semibold text-white/90">
+                                {user?.email ?? "—"}
+                            </div>
+                            <div className="mt-2">
+                                <UiActionButton
+                                    size="xs"
+                                    variant="solid"
+                                    onClick={() => {
+                                        openModal("playerAvatar");
+                                    }}
+                                >
+                                    🤳 Avatar
+                                </UiActionButton>
+                            </div>
+                        </div>
                     </div>
                 </UiCard>
 

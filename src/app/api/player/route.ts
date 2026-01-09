@@ -354,6 +354,85 @@ export async function GET(req: NextRequest) {
                     })) ?? [];
 
                 /* ------------------------------------------------------------------
+                 * photos (player_photos) + signed urls
+                 * ------------------------------------------------------------------ */
+                const qPhotos = Date.now();
+
+                const { data: photoRows, error: photosErr } = await supabase
+                    .from("player_photos")
+                    .select(
+                        "id, kind, bucket, storage_path, mime_type, width, height, is_active, avatar_style, avatar_variant, avatar_format, ai_job_id, ai_model, alt_text, caption, created_at"
+                    )
+                    .eq("user_id", user_id)
+                    .order("created_at", { ascending: false });
+
+                if (photosErr) {
+                    Log.error("player.GET.player_photos.error", photosErr, {
+                        status_code: 500,
+                        metadata: { ms: msSince(qPhotos) },
+                    });
+                    t.endError("GET /api/player.player_photos_failed", photosErr, {
+                        status_code: 500,
+                    });
+                    return jsonError("Failed to fetch player_photos", 500);
+                }
+
+                // Build signed urls (best effort)
+                const signedTtlSeconds = 60 * 10; // 10 min (ajuste si tu veux)
+                const photos =
+                    (photoRows ?? []).map((p: any) => ({
+                        id: p.id,
+                        kind: p.kind,
+
+                        bucket: p.bucket ?? null,
+                        storage_path: p.storage_path ?? null,
+                        mime_type: p.mime_type ?? null,
+
+                        width: p.width ?? null,
+                        height: p.height ?? null,
+
+                        url: null as string | null,
+
+                        is_active: !!p.is_active,
+                        avatar_style: p.avatar_style ?? null,
+                        avatar_variant: p.avatar_variant ?? null,
+                        avatar_format: p.avatar_format ?? null,
+
+                        ai_job_id: p.ai_job_id ?? null,
+                        ai_model: p.ai_model ?? null,
+
+                        alt_text: p.alt_text ?? null,
+                        caption: p.caption ?? null,
+                        created_at: p.created_at ?? null,
+                    })) ?? [];
+
+                for (const ph of photos) {
+                    const bucket = ph.bucket || "player-photos";
+                    const path = ph.storage_path;
+
+                    if (!path) continue;
+
+                    const { data: signed, error: signErr } = await supabase.storage
+                        .from(bucket)
+                        .createSignedUrl(path, signedTtlSeconds);
+
+                    if (signErr) {
+                        // best effort: on log, mais on ne casse pas la route
+                        Log.warning("player.GET.player_photos.sign_failed", {
+                            status_code: 200,
+                            metadata: { photo_id: ph.id, bucket, path, error: signErr.message },
+                        });
+                        continue;
+                    }
+
+                    ph.url = signed?.signedUrl ?? null;
+                }
+
+                Log.debug("player.GET.player_photos.ok", {
+                    metadata: { ms: msSince(qPhotos), count: photos.length },
+                });
+
+                /* ------------------------------------------------------------------
                  * SUCCESS
                  * ------------------------------------------------------------------ */
                 Log.success("player.GET.ok", {
@@ -388,6 +467,8 @@ export async function GET(req: NextRequest) {
                     contexts: ctxRow ?? null,
                     renown,
                     badges,
+
+                    photos,
 
                     active_session: activeSession ?? null,
                 });

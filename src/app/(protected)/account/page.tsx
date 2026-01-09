@@ -15,12 +15,31 @@ import { UiFormSelect, type UiFormSelectOption } from "@/components/ui/UiFormSel
 import { UserSessionsPanel } from "@/components/account/UserSessionsPanel";
 import { ProfileForm } from "@/components/account/ProfileForm";
 import PlayerAvatarModal from "@/components/modals/PlayerAvatarModal";
+import { useToastStore } from "@/stores/toastStore";
+import { useAiStore } from "@/stores/aiStore";
+import { PlayerPhotosPanel } from "@/components/account/PlayerPhotosPanel";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
 }
 
 export default function AccountPage() {
+    const [waitForPlayerAvatar, setWaitForPlayerAvatar] = useState<boolean>(false);
+
+    const { playerAvatarGenerating } = useAiStore();
+
+    const { getCurrentPlayer } = useGameStore();
+
+    const toast = useToastStore();
+
+    useEffect(() => {
+        if (waitForPlayerAvatar && !playerAvatarGenerating) {
+            toast.success("Avatar", "Génération terminée.", null);
+            getCurrentPlayer();
+            setWaitForPlayerAvatar(false);
+        }
+    }, [waitForPlayerAvatar, playerAvatarGenerating]);
+
     return (
         <RpgShell
             title="Atelier du Héros"
@@ -30,13 +49,14 @@ export default function AccountPage() {
                 <div className="flex-1 flex flex-col gap-6">
                     <ProfileForm />
                     <UserSessionsPanel />
+                    <PlayerPhotosPanel />
                 </div>
                 <div className="flex-1 flex flex-col gap-6">
                     <ProfileDetailsForm />
                     <UserContextForm hideActions footerActions />
                 </div>
             </div>
-            <PlayerAvatarModal />
+            <PlayerAvatarModal setWaitForPlayerAvatar={setWaitForPlayerAvatar} />
         </RpgShell>
     );
 }

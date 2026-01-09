@@ -3,6 +3,12 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { enqueueAiJobServer } from "@/lib/aiJobs/enqueueAiJob";
 
+// ✅ Single source of truth for options (JSON + helpers)
+import {
+    normalizeAvatarOptions,
+    type PlayerAvatarOptions,
+} from "@/lib/avatar/avatarOptionsHelpers";
+
 // Logs & request context
 import { Log } from "@/lib/systemLog/Log";
 import { withRequestContext, patchRequestContext } from "@/lib/systemLog/requestContext";
@@ -17,14 +23,6 @@ function jsonError(message: string, status = 400) {
 
 function safeTrim(x: unknown): string {
     return typeof x === "string" ? x.trim() : "";
-}
-
-function safeBool(x: unknown): boolean {
-    return x === true;
-}
-
-function isOneOf<T extends readonly string[]>(value: unknown, allowed: T): value is T[number] {
-    return typeof value === "string" && (allowed as readonly string[]).includes(value);
 }
 
 /* ============================================================================
@@ -60,14 +58,20 @@ export async function POST(req: NextRequest) {
                 }
 
                 const user_id = safeTrim(body?.user_id);
-                const photos = Array.isArray(body?.photo_ids) ? body.photo_ids : [];
+                const photosRaw = Array.isArray(body?.photo_ids) ? body.photo_ids : [];
 
-                if (!user_id || photos.length === 0) {
+                // sanitize photo_ids (trim + keep only non-empty strings)
+                const photo_ids = photosRaw
+                    .map((p: any) => safeTrim(p))
+                    .filter((p: string) => p.length > 0)
+                    .slice(0, 5);
+
+                if (!user_id || photo_ids.length === 0) {
                     Log.warning("ai.avatar.missing_params", {
                         status_code: 400,
                         metadata: {
                             user_id: !!user_id,
-                            photos_count: photos.length,
+                            photos_count: photo_ids.length,
                         },
                     });
                     t.endError("ai.avatar.bad_request", undefined, { status_code: 400 });
@@ -77,46 +81,9 @@ export async function POST(req: NextRequest) {
                 patchRequestContext({ user_id });
 
                 /* ------------------------------------------------------------
-                 2) Normalize options
+                 2) Normalize options (✅ via JSON helpers)
                 ------------------------------------------------------------ */
-                const opt = body?.options ?? {};
-
-                const format = isOneOf(opt.format, ["square", "portrait"] as const)
-                    ? opt.format
-                    : "square";
-
-                const vibe = isOneOf(opt.vibe, ["knight", "ranger", "mage", "dark"] as const)
-                    ? opt.vibe
-                    : "knight";
-
-                const background = isOneOf(opt.background, [
-                    "studio",
-                    "forest",
-                    "castle",
-                    "battlefield",
-                ] as const)
-                    ? opt.background
-                    : "studio";
-
-                const accessory = isOneOf(opt.accessory, [
-                    "none",
-                    "hood",
-                    "helm",
-                    "crown",
-                    "pauldron",
-                ] as const)
-                    ? opt.accessory
-                    : "none";
-
-                const faithfulness = isOneOf(opt.faithfulness, [
-                    "faithful",
-                    "balanced",
-                    "stylized",
-                ] as const)
-                    ? opt.faithfulness
-                    : "balanced";
-
-                const notes = safeTrim(opt?.notes) || null;
+                const normalized: PlayerAvatarOptions = normalizeAvatarOptions(body?.options ?? {});
 
                 /* ------------------------------------------------------------
                  3) Enqueue AI job (QStash)
@@ -126,23 +93,13 @@ export async function POST(req: NextRequest) {
                     job_type: "player_avatar",
                     payload: {
                         user_id,
-                        photos: photos.map((p: any) => ({
-                            photo_id: safeTrim(p),
-                        })),
+                        photos: photo_ids.map((photo_id: string) => ({ photo_id })),
 
-                        options: {
-                            format,
-                            vibe,
-                            background,
-                            accessory,
-                            faithfulness,
-
-                            dramatic_light: safeBool(opt?.dramatic_light),
-                            battle_scars: safeBool(opt?.battle_scars),
-                            glow_eyes: safeBool(opt?.glow_eyes),
-
-                            notes,
-                        },
+                        // IMPORTANT:
+                        // We send exactly what the rest of the pipeline expects.
+                        // normalized keys are: format, vibe, background, accessory, faithfulness,
+                        // + dramatic_light, battle_scars, glow_eyes, notes
+                        options: normalized,
                     },
                     priority: 40, // avatar = important mais pas critique gameplay
                     max_attempts: 2,
@@ -153,9 +110,9 @@ export async function POST(req: NextRequest) {
                     metadata: {
                         job_id: jobId,
                         user_id,
-                        photos: photos.length,
-                        vibe,
-                        format,
+                        photos: photo_ids.length,
+                        vibe: normalized.vibe,
+                        format: normalized.format,
                     },
                 });
 

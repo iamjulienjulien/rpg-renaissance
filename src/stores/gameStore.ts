@@ -639,6 +639,9 @@ type GameStore = {
         set_active?: boolean;
     }) => Promise<PlayerPhotoRow | null>;
 
+    // ✅ 1) Ajoute la signature dans le type GameStore (à côté de uploadPlayerPhoto)
+    deletePlayerPhoto: (photoId: string) => Promise<boolean>;
+
     /* --------------------------- 💬 QUEST THREADS --------------------------- */
 
     currentQuestThreadId: string | null;
@@ -3967,6 +3970,62 @@ export const useGameStore = create<GameStore>((set, get) => {
             } catch (e) {
                 toast.error("Upload", "Erreur réseau");
                 return null;
+            }
+        },
+
+        // ✅ 2) Ajoute l’implémentation dans le return du store (à côté de uploadPlayerPhoto)
+        deletePlayerPhoto: async (photoId: string) => {
+            const toast = useToastStore.getState();
+            const id = (photoId ?? "").trim();
+            if (!id) return false;
+
+            // optimiste: retirer du currentPlayer.photos si présent
+            const prevPhotos = (get().currentPlayer?.photos ?? []).slice();
+
+            set((s) => ({
+                currentPlayer: s.currentPlayer
+                    ? {
+                          ...s.currentPlayer,
+                          photos: (s.currentPlayer.photos ?? []).filter((p: any) => p?.id !== id),
+                      }
+                    : s.currentPlayer,
+            }));
+
+            try {
+                const res = await apiDelete<{ ok: boolean }>(
+                    `/api/player/photos?id=${encodeURIComponent(id)}`
+                );
+
+                if (!res.ok) {
+                    // rollback
+                    set((s) => ({
+                        currentPlayer: s.currentPlayer
+                            ? { ...s.currentPlayer, photos: prevPhotos as any }
+                            : s.currentPlayer,
+                    }));
+
+                    toast.error("Suppression", res.error ?? "Impossible de supprimer la photo");
+                    return false;
+                }
+
+                toast.success("Photo supprimée", undefined);
+
+                // best-effort: resync player (utile si d’autres champs dépendent de la suppression)
+                void get()
+                    .getCurrentPlayer()
+                    .catch(() => null);
+
+                return true;
+            } catch (e) {
+                // rollback
+                set((s) => ({
+                    currentPlayer: s.currentPlayer
+                        ? { ...s.currentPlayer, photos: prevPhotos as any }
+                        : s.currentPlayer,
+                }));
+
+                toast.error("Suppression", "Erreur réseau");
+                return false;
             }
         },
 

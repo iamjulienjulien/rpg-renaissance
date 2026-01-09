@@ -21,7 +21,7 @@ export type ToastInput = {
     tone?: ToastTone;
     title: string;
     message?: string;
-    durationMs?: number;
+    durationMs?: number | null;
 };
 
 type DbToast = {
@@ -45,10 +45,10 @@ type ToastStore = {
     replayLastDbToast: () => Promise<boolean>;
 
     // ✅ sugar
-    success: (title: string, message?: string, durationMs?: number) => string;
-    error: (title: string, message?: string, durationMs?: number) => string;
-    info: (title: string, message?: string, durationMs?: number) => string;
-    warning: (title: string, message?: string, durationMs?: number) => string;
+    success: (title: string, message?: string, durationMs?: number | null) => string;
+    error: (title: string, message?: string, durationMs?: number | null) => string;
+    info: (title: string, message?: string, durationMs?: number | null) => string;
+    warning: (title: string, message?: string, durationMs?: number | null) => string;
 
     // ✅ db live engine
     startLive: () => void;
@@ -81,8 +81,8 @@ function uid() {
 function defaultDuration(tone: ToastTone) {
     // if (tone === "error") return 6000;
     // if (tone === "warning") return 4500;
-    // return 3200;
-    return null;
+    return 3200;
+    // return null;
 }
 
 function safeStr(x: unknown) {
@@ -170,7 +170,8 @@ export const useToastStore = create<ToastStore>()(
                               title: t.title,
                               message: t.message,
                               createdAt: Date.now(),
-                              durationMs: t.durationMs ?? defaultDuration(tone),
+                              durationMs:
+                                  t.durationMs !== undefined ? t.durationMs : defaultDuration(tone),
                               source: "local",
                           };
                       })();
@@ -258,7 +259,7 @@ export const useToastStore = create<ToastStore>()(
                     if (typeof ms !== "number" || ms <= 0) continue; // ✅ null => persistant
 
                     const handle = window.setTimeout(() => {
-                        // get().dismiss(t.id);
+                        get().dismiss(t.id);
                     }, ms);
 
                     nextTimers[t.id] = handle;
@@ -286,11 +287,11 @@ export const useToastStore = create<ToastStore>()(
             },
 
             _markDismissed: async (id) => {
-                // await fetch("/api/toasts/dismiss", {
-                //     method: "POST",
-                //     headers: { "Content-Type": "application/json" },
-                //     body: JSON.stringify({ id }),
-                // }).catch(() => null);
+                await fetch("/api/toasts/dismiss", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id }),
+                }).catch(() => null);
             },
 
             startLive: async () => {
@@ -361,8 +362,8 @@ export const useToastStore = create<ToastStore>()(
                             // ✅ debug-friendly: si la DB marque dismissed, on enlève local
                             if (row.status === "dismissed") {
                                 // évite d'appeler _markDismissed à nouveau (dismiss() le ferait)
-                                // set((s) => ({ toasts: s.toasts.filter((t) => t.id !== row.id) }));
-                                // return;
+                                set((s) => ({ toasts: s.toasts.filter((t) => t.id !== row.id) }));
+                                return;
                             }
 
                             // ✅ optionnel: si un toast repasse "unread", on le (ré)affiche
