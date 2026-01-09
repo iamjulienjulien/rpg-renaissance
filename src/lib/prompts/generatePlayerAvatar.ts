@@ -581,15 +581,35 @@ export async function generatePlayerAvatar(
                     },
                 });
 
+                Log.debug("jj.debug1", {
+                    metadata: {
+                        message: "ok",
+                    },
+                });
+
                 /* ------------------------------------------------------------
              4) Download refs into buffers
             ------------------------------------------------------------ */
                 const d0 = Date.now();
                 const refImages: Array<{ name: string; mime: string; data: Buffer }> = [];
 
+                Log.debug("jj.debug2", {
+                    metadata: {
+                        message: "ok",
+                        signedUrls,
+                    },
+                });
+
                 for (let i = 0; i < signedUrls.length; i++) {
                     const url = signedUrls[i];
                     const r = await fetch(url);
+
+                    Log.debug("jj.debug3", {
+                        metadata: {
+                            message: "ok",
+                            r: r,
+                        },
+                    });
 
                     if (!r.ok) {
                         Log.warning("player_avatar.refs.fetch_failed", {
@@ -608,6 +628,13 @@ export async function generatePlayerAvatar(
                         data: Buffer.from(ab),
                     });
                 }
+
+                Log.debug("jj.debug4", {
+                    metadata: {
+                        message: "ok",
+                        signedUrls,
+                    },
+                });
 
                 Log.success("player_avatar.refs.loaded", {
                     status_code: 200,
