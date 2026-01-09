@@ -78,6 +78,40 @@ export type AvatarPromptFragments = {
     directives: string[]; // split on \n, trimmed, non-empty
 };
 
+export type PlayerAvatarFormat = "square" | "portrait";
+export type PlayerAvatarVibe =
+    | "knight"
+    | "ranger"
+    | "mage"
+    | "dark"
+    | "alchemist"
+    | "bard"
+    | "paladin"
+    | "assassin"
+    | "druid";
+export type PlayerAvatarBackground =
+    | "studio"
+    | "forest"
+    | "castle"
+    | "battlefield"
+    | "mountain"
+    | "ruins"
+    | "cathedral"
+    | "arcane_library"
+    | "coast";
+export type PlayerAvatarAccessory =
+    | "none"
+    | "hood"
+    | "helm"
+    | "crown"
+    | "pauldron"
+    | "amulet"
+    | "scarf"
+    | "mask"
+    | "earring"
+    | "shoulder_cape";
+export type PlayerAvatarFaithfulness = "faithful" | "balanced" | "stylized";
+
 /* ============================================================================
 INTERNAL SAFE HELPERS
 ============================================================================ */

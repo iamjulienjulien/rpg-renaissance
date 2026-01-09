@@ -3,6 +3,14 @@
 Centralise les types métier réutilisables partout (API, stores, UI).
 ============================================================================ */
 
+import {
+    type PlayerAvatarFormat,
+    type PlayerAvatarVibe,
+    type PlayerAvatarBackground,
+    type PlayerAvatarAccessory,
+    type PlayerAvatarFaithfulness,
+} from "@/lib/avatar/avatarOptionsHelpers";
+
 export type ChapterPace = "calme" | "standard" | "intense";
 export type ChapterStatus = "draft" | "active" | "done";
 
@@ -674,12 +682,6 @@ export type PlayerStatsHighlights = {
     aiUsageLabel: string; // "🤖 22 gen"
     unreadToastsLabel: string | null; // "🔔 3"
 };
-
-export type PlayerAvatarFormat = "square" | "portrait";
-export type PlayerAvatarVibe = "knight" | "ranger" | "mage" | "dark";
-export type PlayerAvatarBackground = "studio" | "forest" | "castle" | "battlefield";
-export type PlayerAvatarAccessory = "none" | "hood" | "helm" | "crown" | "pauldron";
-export type PlayerAvatarFaithfulness = "faithful" | "balanced" | "stylized";
 
 export type PlayerAvatarOptions = {
     format: PlayerAvatarFormat;

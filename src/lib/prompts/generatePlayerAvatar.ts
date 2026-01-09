@@ -16,6 +16,11 @@ import {
     playerAvatarOutputSchemaPack,
     getAvatarPromptFragments,
     type PlayerAvatarOptions as NormalizedPlayerAvatarOptions,
+    type PlayerAvatarFormat,
+    type PlayerAvatarVibe,
+    type PlayerAvatarBackground,
+    type PlayerAvatarAccessory,
+    type PlayerAvatarFaithfulness,
 } from "@/lib/avatar/avatarOptionsHelpers";
 
 /* ============================================================================
@@ -24,11 +29,6 @@ TYPES
 
 // NOTE: keep local public types for other imports, but they now mirror the helpers.
 // You can delete these local union types later if nothing external imports them.
-export type PlayerAvatarFormat = "square" | "portrait";
-export type PlayerAvatarVibe = "knight" | "ranger" | "mage" | "dark";
-export type PlayerAvatarBackground = "studio" | "forest" | "castle" | "battlefield";
-export type PlayerAvatarAccessory = "none" | "hood" | "helm" | "crown" | "pauldron";
-export type PlayerAvatarFaithfulness = "faithful" | "balanced" | "stylized";
 
 export type PlayerAvatarOptions = {
     format: PlayerAvatarFormat;
