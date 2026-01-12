@@ -19,6 +19,7 @@ import { useToastStore } from "@/stores/toastStore";
 import { useAiStore } from "@/stores/aiStore";
 import { PlayerPhotosPanel } from "@/components/account/PlayerPhotosPanel";
 import PlayerAvatarChangeModal from "@/components/modals/PlayerAvatarChangeModal";
+import { AdventurePhotosPanel } from "@/components/account/AdventurePhotosPanel";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -51,6 +52,7 @@ export default function AccountPage() {
                     <ProfileForm />
                     <UserSessionsPanel />
                     <PlayerPhotosPanel />
+                    <AdventurePhotosPanel />
                 </div>
                 <div className="flex-1 flex flex-col gap-6">
                     <ProfileDetailsForm />

@@ -264,6 +264,30 @@ export async function GET(req: NextRequest) {
                 }
 
                 /* ------------------------------------------------------------------
+                 * sessions
+                 * ------------------------------------------------------------------ */
+                const qSessions = Date.now();
+                const { data: sessions, error: sErr2 } = await supabase
+                    .from("game_sessions")
+                    .select("id,title,is_active")
+                    .eq("user_id", user_id);
+
+                if (sErr2) {
+                    Log.error("player.GET.sessions.error", sErr2, {
+                        status_code: 500,
+                        metadata: { ms: msSince(qSessions) },
+                    });
+                    t.endError("GET /api/player.sessions_failed", sErr2, {
+                        status_code: 500,
+                    });
+                    return jsonError("Failed to fetch sessions", 500);
+                }
+
+                // if (activeSession?.id) {
+                //     patchRequestContext({ session_id: activeSession.id });
+                // }
+
+                /* ------------------------------------------------------------------
                  * renown
                  * ------------------------------------------------------------------ */
                 let renown: any = null;
@@ -441,6 +465,83 @@ export async function GET(req: NextRequest) {
                 });
 
                 /* ------------------------------------------------------------------
+                 * photos (adventure photos) from public.photos + signed urls
+                 * ------------------------------------------------------------------ */
+                const qAdventurePhotos = Date.now();
+
+                let adventure_photos: any[] = [];
+
+                if (activeSession?.id) {
+                    const limit = 200; // ajuste si besoin (ou passe en query param plus tard)
+
+                    const { data: advRows, error: advErr } = await supabase
+                        .from("photos")
+                        .select(
+                            "id,created_at,category,bucket,path,mime_type,size,width,height,caption,is_cover,sort,chapter_quest_id,adventure_quest_id,adventure_id,chapter_id,journal_entry_id,session_id,user_id,ai_description"
+                        )
+                        .eq("user_id", user_id)
+                        .eq("session_id", activeSession.id)
+                        .order("created_at", { ascending: false })
+                        .limit(limit);
+
+                    if (advErr) {
+                        Log.error("player.GET.photos.error", advErr, {
+                            status_code: 500,
+                            metadata: {
+                                ms: msSince(qAdventurePhotos),
+                                session_id: activeSession.id,
+                            },
+                        });
+                        t.endError("GET /api/player.photos_failed", advErr, {
+                            status_code: 500,
+                        });
+                        return jsonError("Failed to fetch photos", 500);
+                    }
+
+                    const signedTtlSeconds = 60 * 30; // 30 min (comme /api/photos)
+
+                    adventure_photos = await Promise.all(
+                        (advRows ?? []).map(async (p: any) => {
+                            const bucket = p.bucket || "photos";
+                            const path = p.path;
+
+                            if (!path) {
+                                return { ...p, signed_url: null };
+                            }
+
+                            const { data: signed, error: sErr } = await supabase.storage
+                                .from(bucket)
+                                .createSignedUrl(path, signedTtlSeconds);
+
+                            if (sErr) {
+                                Log.warning("player.GET.photos.sign_failed", {
+                                    status_code: 200,
+                                    metadata: {
+                                        photo_id: p?.id ?? null,
+                                        bucket,
+                                        path,
+                                        error: sErr.message,
+                                    },
+                                });
+                            }
+
+                            return {
+                                ...p,
+                                signed_url: sErr ? null : (signed?.signedUrl ?? null),
+                            };
+                        })
+                    );
+                }
+
+                Log.debug("player.GET.photos.ok", {
+                    metadata: {
+                        ms: msSince(qAdventurePhotos),
+                        count: adventure_photos.length,
+                        has_session: !!activeSession?.id,
+                    },
+                });
+
+                /* ------------------------------------------------------------------
                  * SUCCESS
                  * ------------------------------------------------------------------ */
                 Log.success("player.GET.ok", {
@@ -477,8 +578,10 @@ export async function GET(req: NextRequest) {
                     badges,
 
                     photos,
+                    adventure_photos,
 
                     active_session: activeSession ?? null,
+                    sessions,
                 });
             } catch (e) {
                 Log.error("player.GET.fatal", e, {

@@ -127,7 +127,7 @@ export default function RpgShell({
                             </Link>
 
                             <h1 className="mt-2 text-4xl font-semibold text-white/95 sm:text-5xl">
-                                <span className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent font-main-title text-gradient">
+                                <span className="bg-linear-to-b from-white to-white/70 bg-clip-text text-transparent font-main-title text-gradient">
                                     {title}
                                 </span>
                             </h1>
@@ -152,7 +152,7 @@ export default function RpgShell({
 
                     {/* Footer */}
                     <div className="mt-10 text-xs text-white/45">
-                        <div className="h-px w-full bg-gradient-to-r from-white/0 via-white/15 to-white/0" />
+                        <div className="h-px w-full bg-linear-to-r from-white/0 via-white/15 to-white/0" />
                         <div className="mt-3 flex items-center justify-between">
                             <span>© Renaissance</span>
                             <span className="hidden sm:inline">A game by @iamjulienjulien</span>

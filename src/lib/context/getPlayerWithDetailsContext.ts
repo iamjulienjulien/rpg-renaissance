@@ -22,6 +22,7 @@ export type PlayerDetailOption = {
     label: string;
     emoji: string | null;
     description: string | null;
+    context_fragment: string | null;
 };
 
 export type PlayerDetailsContext = {
@@ -127,6 +128,7 @@ type OptionRow = {
     label: string;
     emoji: string;
     description: string | null;
+    context_fragment: string | null;
 };
 
 function resolveOne(
@@ -135,13 +137,25 @@ function resolveOne(
     key: string | null
 ): PlayerDetailOption | null {
     if (!key) return null;
+
     const row = map[field]?.[key];
-    if (!row) return { key, label: key, emoji: null, description: null }; // fallback “safe”
+
+    if (!row) {
+        return {
+            key,
+            label: key,
+            emoji: null,
+            description: null,
+            context_fragment: null,
+        };
+    }
+
     return {
         key: row.value_key,
         label: row.label,
         emoji: row.emoji ?? null,
         description: row.description ?? null,
+        context_fragment: row.context_fragment ?? null,
     };
 }
 
@@ -156,35 +170,75 @@ function resolveMany(
         .filter((x): x is PlayerDetailOption => !!x);
 }
 
+function pickFragment(opt?: PlayerDetailOption | null, fallback?: string | null) {
+    return opt?.context_fragment?.trim()
+        ? opt.context_fragment.trim()
+        : fallback?.trim()
+          ? fallback.trim()
+          : null;
+}
+
+function pickManyFragments(opts?: PlayerDetailOption[] | null, fallback?: string[]) {
+    const frags =
+        (opts ?? [])
+            .map((o) => o.context_fragment?.trim())
+            .filter((x): x is string => !!x && !!x.trim()) ?? [];
+
+    if (frags.length) return frags;
+
+    // fallback "keys" si pas de fragments en base
+    const fb = (fallback ?? []).filter(Boolean);
+    return fb.length ? fb : null;
+}
+
 function makeFragments(details: PlayerDetailsContext): PlayerDetailsContext["fragments"] {
-    // Fragments courts, factuels, facilement composables
+    const r = details.resolved;
+
     const partsHeadline: string[] = [];
-    if (details.archetype) partsHeadline.push(`Archétype: ${details.archetype}`);
-    if (details.main_goal) partsHeadline.push(`Objectif: ${details.main_goal}`);
+    const archetypeFrag = pickFragment(r?.archetype ?? null, details.archetype);
+    const goal = details.main_goal?.trim() ? `Objectif: ${details.main_goal.trim()}` : null;
+
+    if (archetypeFrag) partsHeadline.push(archetypeFrag);
+    if (goal) partsHeadline.push(goal);
 
     const partsPlaystyle: string[] = [];
-    if (details.life_rhythm) partsPlaystyle.push(`Rythme: ${details.life_rhythm}`);
-    if (details.energy_peak) partsPlaystyle.push(`Pic d’énergie: ${details.energy_peak}`);
-    if (details.daily_time_budget) partsPlaystyle.push(`Temps/jour: ${details.daily_time_budget}`);
-    if (details.effort_style) partsPlaystyle.push(`Style d’effort: ${details.effort_style}`);
-    if (details.challenge_preference) partsPlaystyle.push(`Défi: ${details.challenge_preference}`);
+    const lr = pickFragment(r?.life_rhythm ?? null, details.life_rhythm);
+    const ep = pickFragment(r?.energy_peak ?? null, details.energy_peak);
+    const dt = pickFragment(r?.daily_time_budget ?? null, details.daily_time_budget);
+    const es = pickFragment(r?.effort_style ?? null, details.effort_style);
+    const cp = pickFragment(r?.challenge_preference ?? null, details.challenge_preference);
+
+    if (lr) partsPlaystyle.push(lr);
+    if (ep) partsPlaystyle.push(ep);
+    if (dt) partsPlaystyle.push(dt);
+    if (es) partsPlaystyle.push(es);
+    if (cp) partsPlaystyle.push(cp);
 
     const partsMotivators: string[] = [];
-    if (details.motivation_primary)
-        partsMotivators.push(`Motivation: ${details.motivation_primary}`);
-    if (details.values?.length) partsMotivators.push(`Valeurs: ${details.values.join(", ")}`);
-    if (details.wants?.length) partsMotivators.push(`Recherche: ${details.wants.join(", ")}`);
+    const mp = pickFragment(r?.motivation_primary ?? null, details.motivation_primary);
+    if (mp) partsMotivators.push(mp);
+
+    const valuesFrags = pickManyFragments(r?.values ?? null, details.values);
+    if (valuesFrags?.length) partsMotivators.push(`Valeurs: ${valuesFrags.join(" · ")}`);
+
+    const wantsFrags = pickManyFragments(r?.wants ?? null, details.wants);
+    if (wantsFrags?.length) partsMotivators.push(`Recherche: ${wantsFrags.join(" · ")}`);
 
     const partsBlockers: string[] = [];
-    if (details.failure_response) partsBlockers.push(`Échec: ${details.failure_response}`);
-    if (details.authority_relation) partsBlockers.push(`Cadre: ${details.authority_relation}`);
-    if (details.avoids?.length) partsBlockers.push(`Évite: ${details.avoids.join(", ")}`);
+    const fr = pickFragment(r?.failure_response ?? null, details.failure_response);
+    const ar = pickFragment(r?.authority_relation ?? null, details.authority_relation);
+    if (fr) partsBlockers.push(fr);
+    if (ar) partsBlockers.push(ar);
+
+    const avoidsFrags = pickManyFragments(r?.avoids ?? null, details.avoids);
+    if (avoidsFrags?.length) partsBlockers.push(`Évite: ${avoidsFrags.join(" · ")}`);
 
     const partsSymbolism: string[] = [];
-    if (details.symbolism_relation)
-        partsSymbolism.push(`Symbolique: ${details.symbolism_relation}`);
-    if (details.resonant_elements?.length)
-        partsSymbolism.push(`Résonances: ${details.resonant_elements.join(", ")}`);
+    const sr = pickFragment(r?.symbolism_relation ?? null, details.symbolism_relation);
+    if (sr) partsSymbolism.push(sr);
+
+    const reFrags = pickManyFragments(r?.resonant_elements ?? null, details.resonant_elements);
+    if (reFrags?.length) partsSymbolism.push(`Résonances: ${reFrags.join(" · ")}`);
 
     return {
         headline: partsHeadline.length ? partsHeadline.join(" • ") : null,
@@ -336,7 +390,7 @@ export async function getPlayerWithDetailsContext(
                 const q3 = Date.now();
                 const { data: opts, error: optsErr } = await supabase
                     .from("profile_option_refs")
-                    .select("field_key,value_key,label,emoji,description")
+                    .select("field_key,value_key,label,emoji,description,context_fragment")
                     .eq("is_active", true);
 
                 if (optsErr) {

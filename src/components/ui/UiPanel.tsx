@@ -108,7 +108,7 @@ export function UiPanel({
                         )}
 
                         {subtitle && (
-                            <div className="mt-2 rpg-text-sm text-[hsl(var(--muted))]">
+                            <div className="mt-1 text-sm text-[hsl(var(--muted))] opacity-70">
                                 {subtitle}
                             </div>
                         )}

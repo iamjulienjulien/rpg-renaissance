@@ -1,21 +1,17 @@
-// src/components/account/PlayerPhotosPanel.tsx
+// src/components/account/AdventurePhotosPanel.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import { UiPanel } from "../ui";
-import { UiActionButton } from "../ui";
+import React, { useEffect, useMemo } from "react";
+import { UiPanel, UiActionButton } from "../ui";
 import { useGameStore } from "@/stores/gameStore";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
 }
 
-export function PlayerPhotosPanel() {
+export function AdventurePhotosPanel() {
     const currentPlayer = useGameStore((s) => s.currentPlayer);
     const getCurrentPlayer = useGameStore((s) => s.getCurrentPlayer);
-    const deletePlayerPhoto = useGameStore((s) => (s as any).deletePlayerPhoto as any);
-
-    const [busyId, setBusyId] = useState<string | null>(null);
 
     useEffect(() => {
         // best-effort: si /account arrive avant le bootstrap complet
@@ -26,47 +22,28 @@ export function PlayerPhotosPanel() {
     }, []);
 
     const photos = useMemo(() => {
-        const list = (currentPlayer?.photos ?? []) as any[];
-        return list
-            .filter((p) => p?.kind === "portrait_source")
-            .sort((a, b) => String(b?.created_at ?? "").localeCompare(String(a?.created_at ?? "")));
-    }, [currentPlayer?.photos]);
-
-    const onDelete = async (photoId: string) => {
-        if (!deletePlayerPhoto) return;
-        const id = (photoId ?? "").trim();
-        if (!id) return;
-
-        setBusyId(id);
-        try {
-            await deletePlayerPhoto(id);
-        } finally {
-            setBusyId(null);
-        }
-    };
+        const list = (currentPlayer?.adventure_photos ?? []) as any[];
+        return list.sort((a, b) =>
+            String(b?.created_at ?? "").localeCompare(String(a?.created_at ?? ""))
+        );
+    }, [currentPlayer?.adventure_photos]);
 
     return (
         <UiPanel
-            title="Portraits"
-            emoji="📸"
-            subtitle="Photos utilisées comme sources pour générer ton avatar."
+            title="Photos d’aventure"
+            emoji="🗺️"
+            subtitle="Souvenirs visuels de tes quêtes, chapitres et moments marquants."
         >
             <div className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
                 {photos.length === 0 ? (
                     <div className="text-sm text-white/60">
-                        Aucun portrait enregistré pour le moment.
+                        Aucune photo d’aventure enregistrée pour le moment.
                     </div>
                 ) : (
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         {photos.map((p) => {
                             const id = String(p?.id ?? "");
-                            const url =
-                                (p as any)?.signed_url ??
-                                (p as any)?.public_url ??
-                                (p as any)?.url ??
-                                null;
-
-                            const isBusy = busyId === id;
+                            const url = p?.signed_url ?? null;
 
                             return (
                                 <div
@@ -78,7 +55,7 @@ export function PlayerPhotosPanel() {
                                             // eslint-disable-next-line @next/next/no-img-element
                                             <img
                                                 src={url}
-                                                alt={p?.alt_text ?? "Portrait"}
+                                                alt={p?.caption ?? "Photo d’aventure"}
                                                 className="h-full w-full object-cover"
                                                 loading="lazy"
                                             />
@@ -91,7 +68,7 @@ export function PlayerPhotosPanel() {
 
                                     <div className="p-3 space-y-2">
                                         <div className="text-xs text-white/55 line-clamp-2">
-                                            {p?.caption ?? p?.alt_text ?? "Portrait source"}
+                                            {p?.caption ?? p?.ai_description ?? "Photo d’aventure"}
                                         </div>
 
                                         <div className="flex items-center justify-between gap-2">
@@ -101,22 +78,13 @@ export function PlayerPhotosPanel() {
                                                     : ""}
                                             </div>
 
-                                            <UiActionButton
-                                                variant="danger"
-                                                onClick={() => void onDelete(id)}
-                                                disabled={!id || isBusy}
-                                                size="xs"
-                                            >
-                                                {isBusy ? "⏳" : "🗑️"}
-                                            </UiActionButton>
+                                            {p?.is_cover ? (
+                                                <div className="text-[11px] text-amber-300/80">
+                                                    ⭐ Couverture
+                                                </div>
+                                            ) : null}
                                         </div>
                                     </div>
-
-                                    {isBusy ? (
-                                        <div className="absolute inset-0 bg-black/35 backdrop-blur-[1px] flex items-center justify-center text-sm text-white/80">
-                                            Suppression…
-                                        </div>
-                                    ) : null}
                                 </div>
                             );
                         })}
@@ -124,8 +92,8 @@ export function PlayerPhotosPanel() {
                 )}
 
                 <div className="mt-3 text-xs text-white/45">
-                    Astuce: garde 1 à 3 portraits nets (visage bien visible), ça améliore les
-                    générations.
+                    Ces photos documentent ton aventure et servent de mémoire visuelle (journal,
+                    récap, souvenirs).
                 </div>
             </div>
         </UiPanel>

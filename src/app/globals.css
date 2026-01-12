@@ -343,3 +343,12 @@ body {
         0 0 12px hsl(var(--accent) / 0.35),
         0 0 28px hsl(var(--accent) / 0.15);
 }
+
+@keyframes toast_fill_linear {
+    from {
+        transform: scaleX(0);
+    }
+    to {
+        transform: scaleX(1);
+    }
+}

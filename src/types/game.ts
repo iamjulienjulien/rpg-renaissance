@@ -553,6 +553,42 @@ export type CurrentPlayer = {
     }>;
 
     /* ------------------------------------------------------------------
+     * Photos d'aventure (photos)
+     * ------------------------------------------------------------------ */
+    adventure_photos: Array<{
+        id: string;
+        created_at: string;
+
+        category: "initial" | "final" | "other" | string;
+
+        bucket: string; // normalement "photos"
+        path: string;
+        mime_type: string | null;
+        size: number | null;
+        width: number | null;
+        height: number | null;
+
+        caption: string | null;
+        ai_description: string | null;
+
+        is_cover: boolean;
+        sort: number;
+
+        // liens
+        signed_url: string | null;
+
+        // relations
+        session_id: string;
+        user_id: string;
+
+        adventure_id: string | null;
+        chapter_id: string | null;
+        chapter_quest_id: string | null;
+        adventure_quest_id: string | null;
+        journal_entry_id: string | null;
+    }>;
+
+    /* ------------------------------------------------------------------
      * Session
      * ------------------------------------------------------------------ */
     active_session: {

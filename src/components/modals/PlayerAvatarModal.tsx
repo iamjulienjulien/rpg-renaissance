@@ -466,7 +466,7 @@ export default function PlayerAvatarModal(props: Props) {
                                                 )}
                                                 title="Sélectionner / désélectionner"
                                             >
-                                                <div className="h-[140px] w-full">
+                                                <div className="h-35 w-full">
                                                     {imgUrl ? (
                                                         // eslint-disable-next-line @next/next/no-img-element
                                                         <img
@@ -576,7 +576,7 @@ export default function PlayerAvatarModal(props: Props) {
                                             <img
                                                 src={p.url}
                                                 alt={`Portrait upload ${idx + 1}`}
-                                                className="h-[140px] w-full object-cover"
+                                                className="h-35 w-full object-cover"
                                             />
                                             <button
                                                 type="button"
@@ -749,7 +749,7 @@ export default function PlayerAvatarModal(props: Props) {
                         }
                         disabled={isHardBusy}
                         className={cn(
-                            "mt-2 min-h-[88px] w-full resize-none rounded-2xl bg-black/30 px-4 py-3 text-sm text-white/90",
+                            "mt-2 min-h-22 w-full resize-none rounded-2xl bg-black/30 px-4 py-3 text-sm text-white/90",
                             "ring-1 ring-white/10 outline-none placeholder:text-white/40",
                             "focus:ring-2 focus:ring-white/25",
                             isHardBusy && "opacity-60"

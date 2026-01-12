@@ -1,9 +1,10 @@
 // src/components/toasts/Toasts.tsx
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { useToastStore } from "@/stores/toastStore";
+import { useToastStore, type ToastTone, type Toast } from "@/stores/toastStore";
+import { UiActionButton } from "../ui";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -171,12 +172,13 @@ LOCAL TOAST COMPONENTS
 
 type ToastItem = {
     id: string;
-    tone: string;
+    tone: ToastTone;
     title: string;
     message?: string;
+    durationMs?: number;
 };
 
-function BadgeToast(props: { toast: ToastItem; payload: any; onDismiss: () => void }) {
+function BadgeToast(props: { toast: Toast; payload: any; onDismiss: () => void }) {
     const { toast, payload, onDismiss } = props;
 
     console.log("tt", toast, payload);
@@ -221,7 +223,7 @@ function BadgeToast(props: { toast: ToastItem; payload: any; onDismiss: () => vo
     );
 }
 
-function AchievementToast(props: { toast: ToastItem; payload: any; onDismiss: () => void }) {
+function AchievementToast(props: { toast: Toast; payload: any; onDismiss: () => void }) {
     const { toast, payload, onDismiss } = props;
 
     return (
@@ -266,16 +268,45 @@ function AchievementToast(props: { toast: ToastItem; payload: any; onDismiss: ()
     );
 }
 
-function StandardToast(props: { toast: ToastItem; text: string; onDismiss: () => void }) {
+function toneProgress(tone: ToastTone) {
+    switch (tone) {
+        case "success":
+            return "bg-emerald-400/80";
+        case "warning":
+            return "bg-amber-400/80";
+        case "error":
+            return "bg-rose-400/80";
+        case "info":
+        default:
+            return "bg-neutral-400/80";
+    }
+}
+
+function StandardToast(props: { toast: Toast; text: string; onDismiss: () => void }) {
     const { toast, text, onDismiss } = props;
+
+    const duration = toast.durationMs ?? null;
+
+    // déclenche l'animation après le mount (sinon transition ne part pas)
+    const [started, setStarted] = React.useState(false);
+
+    React.useEffect(() => {
+        if (duration == null) return;
+
+        setStarted(false);
+        const raf = requestAnimationFrame(() => setStarted(true));
+
+        return () => cancelAnimationFrame(raf);
+    }, [duration, toast.id]); // toast.id si tu en as un (recommandé)
 
     return (
         <div
             className={cn(
-                "relative overflow-hidden rounded-3xl bg-black/70 p-4 ring-1 backdrop-blur-xl",
+                "relative overflow-hidden rounded-3xl bg-black/70 p-4 pb-5 ring-1 backdrop-blur-xl",
                 toneRing(toast.tone)
             )}
         >
+            {/* glow */}
             <div
                 className={cn(
                     "pointer-events-none absolute inset-0 opacity-80",
@@ -283,6 +314,7 @@ function StandardToast(props: { toast: ToastItem; text: string; onDismiss: () =>
                 )}
             />
 
+            {/* contenu */}
             <div className="relative flex items-start justify-between gap-3">
                 <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -297,13 +329,27 @@ function StandardToast(props: { toast: ToastItem; text: string; onDismiss: () =>
                     {text ? <div className="mt-2 rpg-text-sm text-white/70">{text}</div> : null}
                 </div>
 
-                <button
-                    onClick={onDismiss}
-                    className="rounded-2xl bg-white/5 px-3 py-2 text-xs text-white/70 ring-1 ring-white/10 transition hover:bg-white/10"
-                >
+                <UiActionButton variant="ghost" size="xs" onClick={onDismiss}>
                     ✖
-                </button>
+                </UiActionButton>
             </div>
+
+            {/* barre de progression */}
+            {duration != null ? (
+                <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-1 overflow-hidden">
+                    <div
+                        className={cn(
+                            "h-full origin-left",
+                            "motion-safe:transition-transform motion-safe:ease-linear",
+                            toneProgress(toast.tone)
+                        )}
+                        style={{
+                            transform: started ? "scaleX(1)" : "scaleX(0)",
+                            transitionDuration: `${duration}ms`,
+                        }}
+                    />
+                </div>
+            ) : null}
         </div>
     );
 }
@@ -321,7 +367,7 @@ export default function Toasts() {
     if (toasts.length === 0) return null;
 
     return (
-        <div className="fixed right-4 bottom-4 z-[60] flex w-[min(420px,calc(100vw-32px))] flex-col gap-2">
+        <div className="fixed right-4 bottom-4 z-60 flex w-[min(420px,calc(100vw-32px))] flex-col gap-2">
             {toasts.map((t) => {
                 const { text, payload } = splitMessageAndPayload(t.message);
                 const isAchievement = !!payload?.achievement;

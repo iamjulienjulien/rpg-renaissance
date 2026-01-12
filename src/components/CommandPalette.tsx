@@ -48,7 +48,7 @@ export default function CommandPalette() {
                         { label: "🧙 Personnages", href: "/characters" },
                         { label: "📖 Journal", href: "/journal" },
                         { label: "🎒 Inventaire", href: "/inventory" },
-                        { label: "👤 Compte", href: "/accounts" },
+                        { label: "👤 Compte", href: "/account" },
                         { label: "⚙️ Réglages", href: "/settings" },
                     ].map((it) => (
                         <button

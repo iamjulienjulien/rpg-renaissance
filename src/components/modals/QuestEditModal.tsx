@@ -303,7 +303,7 @@ export default function QuestEditModal(props: Props) {
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         placeholder="Description (optionnel)"
-                        className="min-h-[120px] w-full rounded-2xl bg-black/30 px-4 py-3 text-sm text-white/90 ring-1 ring-white/10 outline-none placeholder:text-white/40 focus:ring-2 focus:ring-white/25"
+                        className="min-h-30 w-full rounded-2xl bg-black/30 px-4 py-3 text-sm text-white/90 ring-1 ring-white/10 outline-none placeholder:text-white/40 focus:ring-2 focus:ring-white/25"
                     />
 
                     {/* Estimate */}

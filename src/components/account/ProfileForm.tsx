@@ -10,19 +10,9 @@ import { usePlayerStore } from "@/stores/playerStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
 import UiImage from "../ui/UiImage";
+import { useToastStore } from "@/stores/toastStore";
 
 export function ProfileForm() {
-    const {
-        user,
-        profile,
-        session,
-        loading,
-        saving,
-        error,
-        bootstrap: charsBootstrap,
-        updateDisplayName,
-    } = usePlayerStore();
-
     const { signOut } = useAuthStore();
 
     const { bootstrap, currentPlayer } = useGameStore();
@@ -31,32 +21,19 @@ export function ProfileForm() {
 
     const { openModal } = useUiStore();
 
-    const {
-        list: genderOptions,
-        loading: optLoading,
-        format: formatOptions,
-    } = useProfileOptions({ field: "gender" });
+    const { list: genderOptions, format: formatOptions } = useProfileOptions({ field: "gender" });
 
-    // const charsBootstrap = useGameStore((s) => s.bootstrap);
-    const characters = useGameStore((s) => s.characters);
-    const selectedId = useGameStore((s) => s.selectedId);
-    const activateCharacter = useGameStore((s) => s.activateCharacter);
-    const charSaving = useGameStore((s) => s.saving);
-    const charError = useGameStore((s) => s.error);
+    const { push } = useToastStore();
 
-    const [nameDraft, setNameDraft] = useState("");
-
-    const [savedData, setSavedData] = useState<PatchMePayload>({});
+    // const [savedData, setSavedData] = useState<PatchMePayload>({});
     const [draftData, setDraftData] = useState<PatchMePayload>({});
 
     useEffect(() => {
         void bootstrap();
-        void charsBootstrap();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
-        console.info("currentPlayer", currentPlayer);
+        // console.info("currentPlayer", currentPlayer);
         let originalData = {};
         if (currentPlayer) {
             if (currentPlayer.first_name) {
@@ -76,7 +53,7 @@ export function ProfileForm() {
             }
         }
         setDraftData(originalData);
-        setSavedData(originalData);
+        // setSavedData(originalData);
     }, [currentPlayer]);
 
     const [genderOptionsFormatted, setGenderOptionsFormatted] = useState<UiFormSelectOption[]>([]);
@@ -90,6 +67,12 @@ export function ProfileForm() {
     function onUpdateProfile() {
         console.info("onUpdateProfile", draftData);
         update({ ...draftData });
+        push({
+            tone: "success",
+            title: "Sauvegardé",
+            message: "Profil enregistré",
+            durationMs: 5000,
+        });
     }
 
     return (
@@ -123,7 +106,7 @@ export function ProfileForm() {
                                     Email
                                 </div>
                                 <div className="mt-2 text-sm font-semibold text-white/90">
-                                    {user?.email ?? "—"}
+                                    {currentPlayer?.email ?? "—"}
                                 </div>
                                 <div className="mt-2">
                                     <UiActionButton
@@ -224,10 +207,18 @@ export function ProfileForm() {
                 {/* </UiCard> */}
 
                 <div className="flex justify-between mt-6">
-                    <UiActionButton variant="soft" disabled={saving} onClick={() => void signOut()}>
+                    <UiActionButton
+                        variant="soft"
+                        disabled={updateLoading}
+                        onClick={() => void signOut()}
+                    >
                         🚪 Se déconnecter
                     </UiActionButton>
-                    <UiActionButton variant="solid" disabled={saving} onClick={onUpdateProfile}>
+                    <UiActionButton
+                        variant="solid"
+                        disabled={updateLoading}
+                        onClick={onUpdateProfile}
+                    >
                         {updateLoading ? "⏳" : "💾 Sauver"}
                     </UiActionButton>
                 </div>

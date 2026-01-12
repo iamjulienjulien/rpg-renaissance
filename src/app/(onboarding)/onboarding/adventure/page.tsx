@@ -129,7 +129,7 @@ export default function OnboardingAdventurePage() {
                     <div
                         className={cn(
                             "absolute inset-0",
-                            "bg-gradient-to-r",
+                            "bg-linear-to-r",
                             "from-black via-black/85 to-transparent"
                         )}
                     />
@@ -194,7 +194,7 @@ export default function OnboardingAdventurePage() {
                                         "group relative overflow-hidden rounded-3xl text-left ring-1 transition",
                                         // "bg-black/25 hover:bg-black/35",
                                         active
-                                            ? "bg-amber-900/30 hover:bg-amber-900/40 ring-amber-400/30 ring-amber-400/40"
+                                            ? "bg-amber-900/30 hover:bg-amber-900/40 ring-amber-400/30"
                                             : "bg-black/25 hover:bg-black/35 ring-white/10 hover:ring-white/15",
                                         disabled
                                             ? "opacity-60 cursor-not-allowed"
@@ -216,7 +216,7 @@ export default function OnboardingAdventurePage() {
                                         />
 
                                         {/* Soft vignette for readability */}
-                                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+                                        <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/85 via-black/30 to-transparent" />
 
                                         {/* Top badges */}
                                         {/* <div className="absolute left-3 top-3 flex items-center gap-2">
@@ -259,7 +259,7 @@ export default function OnboardingAdventurePage() {
 
                                     {/* Pitch */}
                                     <div className="p-3">
-                                        <div className="rounded-2xl bg-black/45 p-3 ring-1 ring-white/10 min-h-[96px] flex flex-col">
+                                        <div className="rounded-2xl bg-black/45 p-3 ring-1 ring-white/10 min-h-24 flex flex-col">
                                             <div className="text-xs tracking-[0.18em] text-white/45">
                                                 PROMESSE
                                             </div>

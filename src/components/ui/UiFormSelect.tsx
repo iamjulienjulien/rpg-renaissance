@@ -571,7 +571,7 @@ export function UiFormSelect({
                         {s.emoji ? (
                             <span className="text-[1em] leading-none">{s.emoji}</span>
                         ) : null}
-                        <span className="max-w-[140px] truncate">{s.label}</span>
+                        <span className="max-w-35 truncate">{s.label}</span>
                     </span>
                 ))}
                 {rest ? <span className="text-xs text-white/55">+{rest}</span> : null}
@@ -593,7 +593,7 @@ export function UiFormSelect({
                   <div
                       ref={menuRef}
                       className={cn(
-                          "fixed z-[250] overflow-hidden rounded-2xl ring-1",
+                          "fixed z-250 overflow-hidden rounded-2xl ring-1",
                           "bg-black/80 ring-white/10 backdrop-blur-xl shadow-xl",
                           menuWidthClassName
                       )}
@@ -635,7 +635,7 @@ export function UiFormSelect({
                                   role="listbox"
                                   aria-multiselectable={!!multiple}
                                   className={cn(
-                                      "max-h-[280px] overflow-auto",
+                                      "max-h-70 overflow-auto",
                                       "scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent"
                                   )}
                               >

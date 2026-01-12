@@ -95,20 +95,34 @@ export function UiModal(props: UiModalProps) {
     const closeModal = useUiStore((s) => s.closeModal);
     const anyModalOpen = useUiStore((s) => s.anyModalOpen);
 
+    const { modalStack } = useUiStore();
+
     const panelClass = useMemo(() => themePanelClass(theme), [theme]);
 
-    // ✅ Lock scroll du body tant qu'au moins une modal est ouverte (pile)
     useEffect(() => {
-        if (!anyModalOpen()) return;
-
         const body = document.body;
+
+        console.log("anyOpenModal", anyModalOpen());
+
+        // aucun modal ouvert → on restaure le body
+        if (!anyModalOpen()) {
+            body.style.overflow = "";
+            body.style.paddingRight = "";
+            return;
+        }
+
+        // au moins une modal ouverte → on lock
         const prevOverflow = body.style.overflow;
         const prevPaddingRight = body.style.paddingRight;
 
         const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-        body.style.overflow = "hidden";
-        if (scrollbarWidth > 0) body.style.paddingRight = `${scrollbarWidth}px`;
 
+        body.style.overflow = "hidden";
+        if (scrollbarWidth > 0) {
+            body.style.paddingRight = `${scrollbarWidth}px`;
+        }
+
+        // cleanup si le composant démonte pendant qu'une modal est ouverte
         return () => {
             body.style.overflow = prevOverflow;
             body.style.paddingRight = prevPaddingRight;
@@ -127,6 +141,10 @@ export function UiModal(props: UiModalProps) {
         return () => window.removeEventListener("keydown", onKeyDown);
     }, [isOpen, closeOnEscape, closeModal, id]);
 
+    useEffect(() => {
+        console.log("modalStack", modalStack);
+    }, [modalStack]);
+
     const onBackdrop = () => {
         if (!closeOnBackdrop) return;
         closeModal(id);
@@ -138,14 +156,14 @@ export function UiModal(props: UiModalProps) {
                 <ViewportPortal>
                     {/* Overlay scrollable */}
                     <UiMotionDiv
-                        className="fixed inset-0 z-[200] bg-black/55 backdrop-blur-[3px] overflow-y-auto"
+                        className="fixed inset-0 z-200 bg-black/55 backdrop-blur-[3px] overflow-y-auto"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onMouseDown={onBackdrop}
                     >
                         {/* Wrapper centré + safe viewport height */}
-                        <div className="min-h-[100svh] w-full p-4 grid place-items-center">
+                        <div className="min-h-svh w-full p-4 grid place-items-center">
                             {/* Panel */}
                             <UiMotionDiv
                                 className={cn(

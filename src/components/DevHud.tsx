@@ -173,10 +173,10 @@ export default function DevHud(props: DevHudProps) {
                                 size="xs"
                                 onClick={() => {
                                     push({
-                                        tone: "info",
+                                        tone: "error",
                                         title: "Test",
-                                        message: "Toast de démo",
-                                        durationMs: null,
+                                        message: "Toasts de démo",
+                                        durationMs: 5000,
                                     });
                                 }}
                             >

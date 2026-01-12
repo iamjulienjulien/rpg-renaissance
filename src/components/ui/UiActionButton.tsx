@@ -110,7 +110,7 @@ export function UIActionButton(props: UIActionButtonProps) {
                     className={cn(
                         "inline-flex w-full items-center gap-2",
                         size === "xs"
-                            ? "rounded-[12px]"
+                            ? "rounded-xl"
                             : size === "xl"
                               ? "rounded-[26px]"
                               : "rounded-[20px]",
@@ -142,7 +142,7 @@ export function UIActionButton(props: UIActionButtonProps) {
                     props.className,
                     fullWidth && "w-full",
                     "p-[1.5px]",
-                    "bg-gradient-to-br from-cyan-400 via-fuchsia-500 to-emerald-400",
+                    "bg-linear-to-br from-cyan-400 via-fuchsia-500 to-emerald-400",
                     "transition hover:brightness-110",
                     active && "brightness-110",
                     size === "xs"
@@ -157,7 +157,7 @@ export function UIActionButton(props: UIActionButtonProps) {
                     className={cn(
                         "inline-flex w-full items-center gap-2",
                         size === "xs"
-                            ? "rounded-[12px]"
+                            ? "rounded-xl"
                             : size === "xl"
                               ? "rounded-[26px]"
                               : "rounded-[20px]",
