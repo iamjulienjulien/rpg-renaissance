@@ -158,7 +158,7 @@ export default function OnboardingQuestsPage() {
                     <div
                         className={cn(
                             "absolute inset-0",
-                            "bg-gradient-to-r",
+                            "bg-linear-to-r",
                             "from-black via-black/85 to-transparent"
                         )}
                     />

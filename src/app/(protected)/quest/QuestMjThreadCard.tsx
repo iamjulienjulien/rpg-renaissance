@@ -50,7 +50,7 @@ function GradientFrame({ children, className }: { children: React.ReactNode; cla
         <div
             className={cn(
                 "rounded-[22px] p-[1.5px]",
-                "bg-gradient-to-br",
+                "bg-linear-to-br",
                 "from-cyan-400 via-fuchsia-500 to-emerald-400",
                 className
             )}
@@ -99,6 +99,9 @@ function Bubble({ msg }: { msg: QuestMessage }) {
         if (label === "encouragement") {
             return "Encouragement";
         }
+        if (label === "congrat") {
+            return "Félicitation";
+        }
         return "";
     }
 
@@ -108,6 +111,9 @@ function Bubble({ msg }: { msg: QuestMessage }) {
         }
         if (label === "encouragement") {
             return "💪";
+        }
+        if (label === "congrat") {
+            return "🎖️";
         }
         return "";
     }
@@ -294,7 +300,7 @@ export default function QuestMjThreadCard({ chapterQuestId }: Props) {
             <div className="mt-3 grid gap-2">
                 {messagesLoading && (
                     <div className="mb-2 text-xs italic text-center">
-                        <span className="bg-gradient-to-r from-cyan-300 via-violet-400 to-emerald-300 bg-clip-text text-transparent">
+                        <span className="bg-linear-to-r from-cyan-300 via-violet-400 to-emerald-300 bg-clip-text text-transparent">
                             Le Maître du Jeu rassemble ses pensées… 💬
                         </span>
                     </div>
