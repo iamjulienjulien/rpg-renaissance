@@ -563,7 +563,7 @@ export async function generateQuestPhotoMessage(args: {
                     try {
                         await createJournalEntry({
                             session_id,
-                            kind: "note",
+                            kind: "quest_photo_message",
                             title: "⚠️ Photo (erreur IA)",
                             content:
                                 `Échec génération message photo.\n` +
@@ -678,7 +678,7 @@ export async function generateQuestPhotoMessage(args: {
                 try {
                     await createJournalEntry({
                         session_id,
-                        kind: "note",
+                        kind: "quest_photo_message",
                         title: `📸 ${safeTrim(photoMessageJson.title) || "Preuve reçue"}`,
                         content:
                             `${safeTrim(photoMessageJson.description)}\n\n` +

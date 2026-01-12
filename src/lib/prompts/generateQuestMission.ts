@@ -330,11 +330,11 @@ export async function generateQuestMission(args: {
                         try {
                             await createJournalEntry({
                                 session_id,
-                                kind: "note",
+                                kind: "quest_mission",
                                 title: "🧠 Mission (cache)",
                                 content: `Mission récupérée depuis le cache pour la quête.`,
                                 chapter_id: chapter_id ?? null,
-                                quest_id: chapter_quest_id,
+                                // quest_id: chapter_quest_id,
                                 adventure_id: adventure_id ?? null,
                                 adventure_quest_id: adventure_quest_id ?? null,
                             } as any);
@@ -529,14 +529,14 @@ export async function generateQuestMission(args: {
                     try {
                         await createJournalEntry({
                             session_id,
-                            kind: "note",
+                            kind: "quest_mission",
                             title: "🧠 Mission (erreur IA)",
                             content:
                                 `Échec génération mission.\n` +
                                 `Quête: ${safeTrim(questCtx?.quest_title) || "—"}\n` +
                                 `Erreur: ${err?.message ? String(err.message) : "Unknown error"}`,
                             chapter_id: chapter_id ?? null,
-                            quest_id: chapter_quest_id,
+                            // quest_id: chapter_quest_id,
                             adventure_id: adventure_id ?? null,
                             adventure_quest_id: adventure_quest_id ?? null,
                         } as any);
@@ -681,7 +681,7 @@ export async function generateQuestMission(args: {
                 try {
                     await createJournalEntry({
                         session_id,
-                        kind: "note",
+                        kind: "quest_mission",
                         title: "🧠 Mission générée",
                         content:
                             `Le MJ a forgé un ordre de mission.\n` +
@@ -689,7 +689,7 @@ export async function generateQuestMission(args: {
                             `Modèle: ${model}\n` +
                             `Étapes: ${Array.isArray(missionJson?.steps) ? missionJson.steps.length : "—"}`,
                         chapter_id: chapter_id ?? null,
-                        quest_id: chapter_quest_id,
+                        // quest_id: chapter_quest_id,
                         adventure_id: adventure_id ?? null,
                         adventure_quest_id: adventure_quest_id ?? null,
                     } as any);

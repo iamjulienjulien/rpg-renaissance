@@ -472,7 +472,7 @@ export async function generateQuestEncouragement(args: {
                     try {
                         await createJournalEntry({
                             session_id,
-                            kind: "note",
+                            kind: "quest_encouragement",
                             title: "⚠️ Encouragement (erreur IA)",
                             content:
                                 `Échec génération encouragement.\n` +
@@ -575,7 +575,7 @@ export async function generateQuestEncouragement(args: {
                 try {
                     await createJournalEntry({
                         session_id,
-                        kind: "note",
+                        kind: "quest_encouragement",
                         title: `💪 ${safeTrim(encouragementJson.title) || "Courage"}`,
                         content: safeTrim(encouragementJson.message) || "—",
                         chapter_id: chapter_id ?? null,

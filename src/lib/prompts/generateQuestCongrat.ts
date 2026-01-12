@@ -366,7 +366,7 @@ export async function generateQuestCongrat(args: {
 
             await createJournalEntry({
                 session_id,
-                kind: "note",
+                kind: "quest_congrat",
                 title: `🏆 ${safeTrim(congratJson.title)}`,
                 content: safeTrim(congratJson.message),
                 chapter_id,

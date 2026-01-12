@@ -19,14 +19,22 @@ export function journalKindLabel(
     meta?: Record<string, any> | null
 ): { emoji: string; label: string } {
     if (kind === "quest_photo_added") {
-        const c = meta?.photo_category as PhotoCategory | undefined;
-        if (c === "initial" || c === "final" || c === "other") {
-            return { emoji: photoCatEmoji(c), label: photoCatLabel(c) };
-        }
-        return { emoji: "✨", label: "Éclat capturé" };
+        // const c = meta?.photo_category as PhotoCategory | undefined;
+        // if (c === "initial" || c === "final" || c === "other") {
+        //     return { emoji: photoCatEmoji(c), label: photoCatLabel(c) };
+        // }
+        return { emoji: "📸", label: "Photo ajoutée" };
     }
 
     switch (kind) {
+        case "quest_mission":
+            return { emoji: "💬", label: "Ordre de mission reçu" };
+        case "quest_congrat":
+            return { emoji: "💬", label: "Félicitation reçue" };
+        case "quest_encouragement":
+            return { emoji: "💬", label: "Encouragement demandé" };
+        case "quest_photo_message":
+            return { emoji: "💬", label: "Photo analysée" };
         case "quests_seeded":
             return { emoji: "🔨", label: "Quête forgée" };
         case "quest_started":

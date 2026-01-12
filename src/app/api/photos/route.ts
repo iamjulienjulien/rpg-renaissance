@@ -5,7 +5,6 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { getActiveSessionOrThrow } from "@/lib/sessions/getActiveSession";
 import { createJournalEntry } from "@/lib/journal/createJournalEntry";
 import { type PhotoCategory } from "@/types/game";
-import { generatePhotoQuestMessageForQuest } from "@/lib/questMessages/generatePhotoQuestMessage";
 import { enqueueAiJobServer } from "@/lib/aiJobs/enqueueAiJob";
 
 // ✅ System logs + request context

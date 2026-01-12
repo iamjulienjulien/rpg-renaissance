@@ -367,13 +367,15 @@ export default function QuestClient() {
     const questJournal = React.useMemo(() => {
         if (!quest?.id) return [];
 
-        console.log("quest", quest);
-        console.log("journalEntries", journalEntries);
-
-        return (journalEntries ?? [])
+        const journal = (journalEntries ?? [])
             .filter((e) => e.adventure_quest_id === quest.id)
             .slice()
-            .sort((a, b) => (a.created_at < b.created_at ? 1 : -1)); // newest first
+            .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+
+        // console.log("quest", quest);
+        console.log("journal", journal);
+
+        return journal;
     }, [journalEntries, quest?.id]);
 
     // ✅ wrappers: délègue au store, garde le state local à jour
@@ -1078,7 +1080,8 @@ export default function QuestClient() {
                                                 >
                                                     <div className="flex items-start justify-between gap-3">
                                                         <div className="truncate text-sm font-semibold text-white/90">
-                                                            {k.emoji} {k.label}
+                                                            <span className="mr-3">{k.emoji}</span>
+                                                            {k.label}
                                                         </div>
 
                                                         <div className="shrink-0 text-[11px] text-white/45">
@@ -1101,7 +1104,7 @@ export default function QuestClient() {
                       <UiAnimatePresence>
                           {encOpen ? (
                               <UiMotionDiv
-                                  className="fixed inset-0 z-[120] grid place-items-center bg-black/55 backdrop-blur-[3px] p-4"
+                                  className="fixed inset-0 z-120 grid place-items-center bg-black/55 backdrop-blur-[3px] p-4"
                                   initial={{ opacity: 0 }}
                                   animate={{ opacity: 1 }}
                                   exit={{ opacity: 0 }}

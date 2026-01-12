@@ -19,6 +19,10 @@ export type JournalKind =
     | "quest_done"
     | "quest_reopened"
     | "quest_photo_added"
+    | "quest_photo_message"
+    | "quest_congrat"
+    | "quest_encouragement"
+    | "quest_mission"
     | "note"
     | "system";
 
