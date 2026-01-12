@@ -223,7 +223,7 @@ export async function generateJournalChapterStory(args: {
                 );
 
                 const ctxPrompt = buildContextPrompt({
-                    player,
+                    playerWithDetails: player,
                     character,
                     chapter: chapterCtx,
                     adventure: adventureCtx,

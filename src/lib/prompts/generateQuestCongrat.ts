@@ -248,7 +248,7 @@ export async function generateQuestCongrat(args: {
              4) Prompt
             ------------------------------------------------------------ */
             const ctxPrompt = buildContextPrompt({
-                player: playerCtx,
+                playerWithDetails: playerCtx,
                 character: characterCtx,
                 quest: questCtx,
                 chapter: chapterCtx,

@@ -350,7 +350,7 @@ export async function generateQuestEncouragement(args: {
                  3) Construire prompt
                 ------------------------------------------------------------ */
                 const ctxPrompt = buildContextPrompt({
-                    player: playerCtx,
+                    playerWithDetails: playerCtx,
                     character: characterCtx,
                     quest: questCtx,
                     chapter: chapterCtx,

@@ -408,7 +408,7 @@ export async function generateQuestMission(args: {
                 });
 
                 const ctxPrompt = buildContextPrompt({
-                    player: playerCtx,
+                    playerWithDetails: playerCtx,
                     character: characterCtx,
                     quest: questCtx,
                     chapter: chapterCtx,
