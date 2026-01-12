@@ -27,6 +27,12 @@ export function ProfileDetailsForm() {
     const { list: authorityRelationOptions } = useProfileOptions({ field: "authority_relation" });
     const { list: symbolismRelationOptions } = useProfileOptions({ field: "symbolism_relation" });
 
+    const { list: wantsOptions } = useProfileOptions({ field: "wants" });
+    const { list: avoidsOptions } = useProfileOptions({ field: "avoids" });
+    const { list: valuesOptions } = useProfileOptions({ field: "values" });
+    const { list: archetypeOptions } = useProfileOptions({ field: "archetype" });
+    const { list: resonantElementsOptions } = useProfileOptions({ field: "resonant_elements" });
+
     const { format: formatOptions } = useProfileOptions();
     const { update, loading: updateLoading } = usePlayerProfileDetails();
     const { currentPlayer } = useGameStore();
@@ -57,6 +63,13 @@ export function ProfileDetailsForm() {
 
             if (d.symbolism_relation)
                 originalData = { ...originalData, symbolism_relation: d.symbolism_relation };
+
+            if (Array.isArray(d.wants)) originalData = { ...originalData, wants: d.wants };
+            if (Array.isArray(d.avoids)) originalData = { ...originalData, avoids: d.avoids };
+            if (Array.isArray(d.values)) originalData = { ...originalData, values: d.values };
+            if (d.archetype) originalData = { ...originalData, archetype: d.archetype };
+            if (Array.isArray(d.resonant_elements))
+                originalData = { ...originalData, resonant_elements: d.resonant_elements };
         }
 
         setDraftData(originalData);
@@ -92,6 +105,16 @@ export function ProfileDetailsForm() {
         UiFormSelectOption[]
     >([]);
     const [symbolismRelationOptionsFormatted, setSymbolismRelationOptionsFormatted] = useState<
+        UiFormSelectOption[]
+    >([]);
+
+    const [wantsOptionsFormatted, setWantsOptionsFormatted] = useState<UiFormSelectOption[]>([]);
+    const [avoidsOptionsFormatted, setAvoidsOptionsFormatted] = useState<UiFormSelectOption[]>([]);
+    const [valuesOptionsFormatted, setValuesOptionsFormatted] = useState<UiFormSelectOption[]>([]);
+    const [archetypeOptionsFormatted, setArchetypeOptionsFormatted] = useState<
+        UiFormSelectOption[]
+    >([]);
+    const [resonantElementsOptionsFormatted, setResonantElementsOptionsFormatted] = useState<
         UiFormSelectOption[]
     >([]);
 
@@ -135,10 +158,29 @@ export function ProfileDetailsForm() {
         [symbolismRelationOptions]
     );
 
+    useEffect(() => setWantsOptionsFormatted(formatOptions(wantsOptions)), [wantsOptions]);
+    useEffect(() => setAvoidsOptionsFormatted(formatOptions(avoidsOptions)), [avoidsOptions]);
+    useEffect(() => setValuesOptionsFormatted(formatOptions(valuesOptions)), [valuesOptions]);
+    useEffect(
+        () => setArchetypeOptionsFormatted(formatOptions(archetypeOptions)),
+        [archetypeOptions]
+    );
+    useEffect(
+        () => setResonantElementsOptionsFormatted(formatOptions(resonantElementsOptions)),
+        [resonantElementsOptions]
+    );
+
     function coerceSelectValue(v: any): string | null {
         if (v == null) return null;
         if (Array.isArray(v)) return v.length ? String(v[0] ?? "") || null : null;
         return String(v) || null;
+    }
+
+    function coerceSelectArray(v: any): string[] {
+        if (v == null) return [];
+        if (Array.isArray(v)) return v.map((x) => String(x)).filter(Boolean);
+        const s = String(v);
+        return s ? [s] : [];
     }
 
     function onUpdateProfile() {
@@ -151,18 +193,21 @@ export function ProfileDetailsForm() {
             emoji="📜"
             subtitle="Aide le Maître du Jeu à mieux te comprendre."
         >
-            <div className="space-y-6">
+            <div className="space-y-8">
                 {/* ============================================================
-                ⏳ RYTHME & ÉNERGIE
-                ============================================================ */}
+            🌍 CONTEXTE DE VIE ACTUEL
+            ============================================================ */}
                 <section className="space-y-4">
-                    <h3 className="text-sm font-semibold text-white/90">⏳ Rythme & énergie</h3>
+                    <h3 className="text-sm font-semibold text-white/90">
+                        🌍 Contexte de vie actuel
+                    </h3>
 
                     <div className="space-y-2">
                         <p className="text-xs text-white/55">
-                            Comment se déroule ta vie en ce moment ?
+                            Dans quel rythme de vie te trouves-tu en ce moment ?
                         </p>
                         <UiFormSelect
+                            searchable={false}
                             options={lifeRythmOptionsFormatted}
                             value={draftData.life_rhythm ?? ""}
                             onChange={(v) =>
@@ -173,12 +218,20 @@ export function ProfileDetailsForm() {
                             }
                         />
                     </div>
+                </section>
+
+                {/* ============================================================
+            ⚡ ÉNERGIE & RESSOURCES DISPONIBLES
+            ============================================================ */}
+                <section className="space-y-4">
+                    <h3 className="text-sm font-semibold text-white/90">⚡ Énergie & ressources</h3>
 
                     <div className="space-y-2">
                         <p className="text-xs text-white/55">
-                            À quel moment es-tu le plus disponible mentalement ?
+                            À quel moment es-tu généralement le plus lucide ou disponible ?
                         </p>
                         <UiFormSelect
+                            searchable={false}
                             options={energyPeakOptionsFormatted}
                             value={draftData.energy_peak ?? ""}
                             onChange={(v) =>
@@ -192,9 +245,10 @@ export function ProfileDetailsForm() {
 
                     <div className="space-y-2">
                         <p className="text-xs text-white/55">
-                            Quel temps réaliste peux-tu consacrer chaque jour ?
+                            Quel temps réaliste peux-tu consacrer chaque jour à avancer ?
                         </p>
                         <UiFormSelect
+                            searchable={false}
                             options={dailyTimeBudgetOptionsFormatted}
                             value={draftData.daily_time_budget ?? ""}
                             onChange={(v) =>
@@ -208,16 +262,19 @@ export function ProfileDetailsForm() {
                 </section>
 
                 {/* ============================================================
-                ⚔️ STYLE DE JEU
-                ============================================================ */}
+            🧭 MANIÈRE D’AGIR & DE PROGRESSER
+            ============================================================ */}
                 <section className="space-y-4">
-                    <h3 className="text-sm font-semibold text-white/90">⚔️ Style de progression</h3>
+                    <h3 className="text-sm font-semibold text-white/90">
+                        🧭 Manière d’agir & de progresser
+                    </h3>
 
                     <div className="space-y-2">
                         <p className="text-xs text-white/55">
-                            Comment avances-tu quand tu es engagé dans une quête ?
+                            Comment avances-tu quand tu t’engages vraiment dans quelque chose ?
                         </p>
                         <UiFormSelect
+                            searchable={false}
                             options={effortStyleOptionsFormatted}
                             value={draftData.effort_style ?? ""}
                             onChange={(v) =>
@@ -231,9 +288,10 @@ export function ProfileDetailsForm() {
 
                     <div className="space-y-2">
                         <p className="text-xs text-white/55">
-                            Préfères-tu la sécurité ou le défi ?
+                            Quel est ton rapport au risque et au défi ?
                         </p>
                         <UiFormSelect
+                            searchable={false}
                             options={challengePreferenceOptionsFormatted}
                             value={draftData.challenge_preference ?? ""}
                             onChange={(v) =>
@@ -244,12 +302,22 @@ export function ProfileDetailsForm() {
                             }
                         />
                     </div>
+                </section>
+
+                {/* ============================================================
+            🔥 MOTIVATIONS & VALEURS
+            ============================================================ */}
+                <section className="space-y-4">
+                    <h3 className="text-sm font-semibold text-white/90">
+                        🔥 Motivations & valeurs
+                    </h3>
 
                     <div className="space-y-2">
                         <p className="text-xs text-white/55">
-                            Qu’est-ce qui te motive le plus, au fond ?
+                            Ce qui te fait vraiment avancer, au fond
                         </p>
                         <UiFormSelect
+                            searchable={false}
                             options={motivationPrimaryOptionsFormatted}
                             value={draftData.motivation_primary ?? ""}
                             onChange={(v) =>
@@ -260,62 +328,119 @@ export function ProfileDetailsForm() {
                             }
                         />
                     </div>
-                </section>
-
-                {/* ============================================================
-                🔁 RAPPORT À L’ÉCHEC
-                ============================================================ */}
-                <section className="space-y-3">
-                    <h3 className="text-sm font-semibold text-white/90">
-                        🔁 Quand une quête échoue…
-                    </h3>
-                    <p className="text-xs text-white/55">
-                        Quelle est ta réaction la plus fréquente ?
-                    </p>
-                    <UiFormSelect
-                        options={failureResponseOptionsFormatted}
-                        value={draftData.failure_response ?? ""}
-                        onChange={(v) =>
-                            setDraftData((prev) => ({
-                                ...prev,
-                                failure_response: coerceSelectValue(v),
-                            }))
-                        }
-                    />
-                </section>
-
-                {/* ============================================================
-                🧱 CADRE & AUTORITÉ
-                ============================================================ */}
-                <section className="space-y-3">
-                    <h3 className="text-sm font-semibold text-white/90">🧱 Cadre & autorité</h3>
-                    <p className="text-xs text-white/55">
-                        Comment réagis-tu quand il y a des règles, un cadre, ou quelqu’un qui guide
-                        ?
-                    </p>
-                    <UiFormSelect
-                        options={authorityRelationOptionsFormatted}
-                        value={draftData.authority_relation ?? ""}
-                        onChange={(v) =>
-                            setDraftData((prev) => ({
-                                ...prev,
-                                authority_relation: coerceSelectValue(v),
-                            }))
-                        }
-                    />
-                </section>
-
-                {/* ============================================================
-                ✨ SYMBOLIQUE & NARRATIF
-                ============================================================ */}
-                <section className="space-y-4">
-                    <h3 className="text-sm font-semibold text-white/90">✨ Symbolique & récit</h3>
 
                     <div className="space-y-2">
                         <p className="text-xs text-white/55">
-                            Quelle place le récit, les symboles ou les rituels ont-ils pour toi ?
+                            Quelles valeurs sont particulièrement importantes pour toi (plusieurs
+                            réponses possibles)
                         </p>
                         <UiFormSelect
+                            searchable={false}
+                            options={valuesOptionsFormatted}
+                            value={draftData.values ?? []}
+                            multiple
+                            onChange={(v) =>
+                                setDraftData((prev) => ({
+                                    ...prev,
+                                    values: coerceSelectArray(v),
+                                }))
+                            }
+                        />
+                    </div>
+                </section>
+
+                {/* ============================================================
+            🧱 OBSTACLES, ÉCHECS & CADRE
+            ============================================================ */}
+                <section className="space-y-4">
+                    <h3 className="text-sm font-semibold text-white/90">
+                        🧱 Obstacles, échecs & cadre
+                    </h3>
+
+                    <div className="space-y-2">
+                        <p className="text-xs text-white/55">
+                            Quand une tentative échoue, quelle est ta réaction la plus fréquente ?
+                        </p>
+                        <UiFormSelect
+                            searchable={false}
+                            options={failureResponseOptionsFormatted}
+                            value={draftData.failure_response ?? ""}
+                            onChange={(v) =>
+                                setDraftData((prev) => ({
+                                    ...prev,
+                                    failure_response: coerceSelectValue(v),
+                                }))
+                            }
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <p className="text-xs text-white/55">
+                            Comment vis-tu la présence de règles, de cadres ou d’autorité ?
+                        </p>
+                        <UiFormSelect
+                            searchable={false}
+                            options={authorityRelationOptionsFormatted}
+                            value={draftData.authority_relation ?? ""}
+                            onChange={(v) =>
+                                setDraftData((prev) => ({
+                                    ...prev,
+                                    authority_relation: coerceSelectValue(v),
+                                }))
+                            }
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <p className="text-xs text-white/55">
+                            Ce que tu cherches à éviter en ce moment (plusieurs réponses possibles)
+                        </p>
+                        <UiFormSelect
+                            searchable={false}
+                            options={avoidsOptionsFormatted}
+                            value={draftData.avoids ?? []}
+                            multiple
+                            onChange={(v) =>
+                                setDraftData((prev) => ({
+                                    ...prev,
+                                    avoids: coerceSelectArray(v),
+                                }))
+                            }
+                        />
+                    </div>
+                </section>
+
+                {/* ============================================================
+            ✨ IDENTITÉ SYMBOLIQUE & RÉSONANCES
+            ============================================================ */}
+                <section className="space-y-4">
+                    <h3 className="text-sm font-semibold text-white/90">
+                        ✨ Identité symbolique & résonances
+                    </h3>
+
+                    <div className="space-y-2">
+                        <p className="text-xs text-white/55">
+                            Quel archétype te ressemble le plus aujourd’hui ?
+                        </p>
+                        <UiFormSelect
+                            searchable={false}
+                            options={archetypeOptionsFormatted}
+                            value={draftData.archetype ?? ""}
+                            onChange={(v) =>
+                                setDraftData((prev) => ({
+                                    ...prev,
+                                    archetype: coerceSelectValue(v),
+                                }))
+                            }
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <p className="text-xs text-white/55">
+                            Quelle place ont les symboles, récits ou rituels pour toi ?
+                        </p>
+                        <UiFormSelect
+                            searchable={false}
                             options={symbolismRelationOptionsFormatted}
                             value={draftData.symbolism_relation ?? ""}
                             onChange={(v) =>
@@ -326,11 +451,49 @@ export function ProfileDetailsForm() {
                             }
                         />
                     </div>
+
+                    <div className="space-y-2">
+                        <p className="text-xs text-white/55">
+                            Ce que tu recherches activement en ce moment (plusieurs réponses
+                            possibles)
+                        </p>
+                        <UiFormSelect
+                            searchable={false}
+                            options={wantsOptionsFormatted}
+                            value={draftData.wants ?? []}
+                            multiple
+                            onChange={(v) =>
+                                setDraftData((prev) => ({
+                                    ...prev,
+                                    wants: coerceSelectArray(v),
+                                }))
+                            }
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <p className="text-xs text-white/55">
+                            Éléments, thèmes ou ambiances qui te parlent profondément (plusieurs
+                            réponses possibles)
+                        </p>
+                        <UiFormSelect
+                            searchable={false}
+                            options={resonantElementsOptionsFormatted}
+                            value={draftData.resonant_elements ?? []}
+                            multiple
+                            onChange={(v) =>
+                                setDraftData((prev) => ({
+                                    ...prev,
+                                    resonant_elements: coerceSelectArray(v),
+                                }))
+                            }
+                        />
+                    </div>
                 </section>
 
                 {/* ============================================================
-                💾 ACTIONS
-                ============================================================ */}
+            💾 ACTIONS
+            ============================================================ */}
                 <div className="flex justify-end mt-6">
                     <UiActionButton variant="solid" onClick={onUpdateProfile}>
                         {updateLoading ? "⏳" : "💾 Sauver"}

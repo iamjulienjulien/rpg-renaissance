@@ -2,10 +2,11 @@
     "name": "renaissance",
     "version": "0.1.0",
     "private": true,
+    "type": "module",
     "scripts": {
-        "predev": "node scripts/setVersion.js",
+        "predev": "node scripts/setVersion.cjs",
         "dev": "next dev",
-        "prebuild": "node scripts/setVersion.js",
+        "prebuild": "node scripts/setVersion.cjs",
         "build": "next build",
         "start": "next start",
         "lint": "eslint",

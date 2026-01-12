@@ -6,7 +6,7 @@ import { createJournalEntry } from "@/lib/journal/createJournalEntry";
 
 // Context loaders
 import { getAdventureContext } from "@/lib/context/getAdventureContext";
-import { getPlayerContext } from "@/lib/context/getPlayerContext";
+// import { getPlayerContext } from "@/lib/context/getPlayerContext";
 import { getCharacterContext } from "@/lib/context/getCharacterContext";
 import { getChapterContext } from "@/lib/context/getChapterContext";
 import { getQuestContext } from "@/lib/context/getQuestContext";
@@ -15,6 +15,7 @@ import { buildContextPrompt } from "@/lib/context/buildContextPrompt";
 // ✅ Logs
 import { Log } from "@/lib/systemLog/Log";
 import { withRequestContext, patchRequestContext } from "@/lib/systemLog/requestContext";
+import { getPlayerWithDetailsContext } from "../context/getPlayerWithDetailsContext";
 
 /* ============================================================================
 🧠 TYPES
@@ -323,7 +324,7 @@ export async function generateQuestEncouragement(args: {
                 const c0 = Date.now();
                 const [playerCtx, characterCtx, questCtx, chapterCtx, adventureCtx] =
                     await Promise.all([
-                        getPlayerContext({ mode: "server", user_id }),
+                        getPlayerWithDetailsContext({ mode: "server", user_id }),
                         getCharacterContext({ mode: "server", user_id }),
                         getQuestContext({ mode: "server", chapter_quest_id }),
                         chapter_id

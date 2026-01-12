@@ -6,6 +6,7 @@ import { useToastStore } from "@/stores/toastStore";
 import { ActionButton } from "./RpgUi";
 import { useAiStore } from "@/stores/aiStore";
 import { UiActionButton, UiCard, UiChip } from "./ui";
+import { useUiStore } from "@/stores/uiStore";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -25,6 +26,8 @@ export default function DevHud(props: DevHudProps) {
     const { replayLastDbToast, push, toasts } = useToastStore();
 
     const { aiJobsPending } = useAiStore();
+
+    const { openModal } = useUiStore();
 
     // ✅ init safe (évite un setState immédiat “gratuit”)
     const [href, setHref] = useState<string>(() =>
@@ -131,7 +134,7 @@ export default function DevHud(props: DevHudProps) {
     if (!show) return null;
 
     return (
-        <div className="pointer-events-none fixed bottom-20 left-4 z-[9999] w-[360px] max-w-[calc(100vw-32px)]">
+        <div className="pointer-events-none fixed bottom-20 left-4 z-9999 w-90 max-w-[calc(100vw-32px)]">
             <div
                 className={cn(
                     "pointer-events-auto rounded-2xl bg-black/60 p-4 ring-1 ring-white/15 backdrop-blur",
@@ -203,6 +206,11 @@ export default function DevHud(props: DevHudProps) {
                             </pre>
                         </div>
                     ) : null}
+                </div>
+                <div className="mt-3">
+                    <UiActionButton size="xs" onClick={() => openModal("devData")}>
+                        🔎 Data
+                    </UiActionButton>
                 </div>
 
                 {/* <div className="mt-3 text-[11px] text-white/45">

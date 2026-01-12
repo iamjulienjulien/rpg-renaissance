@@ -1,5 +1,6 @@
-@import url("https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400..900&family=Cormorant+SC:wght@300;400;500;600;700&family=Fondamento:ital@0;1&family=Marcellus&family=Orbitron&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400..900&family=Cormorant+SC:wght@300;400;500;600;700&family=Fondamento:ital@0;1&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=Marcellus&family=Orbitron&display=swap");
 @import "tailwindcss";
+@config "../../tailwind.config.ts";
 
 :root {
     --background: #ffffff;

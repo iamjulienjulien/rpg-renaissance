@@ -1,7 +1,13 @@
 import type { Config } from "tailwindcss";
 
-const config: Config = {
-    content: ["./src/app/**/*.{js,ts,jsx,tsx,mdx}", "./src/components/**/*.{js,ts,jsx,tsx,mdx}"],
+export default {
+    content: [
+        "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+        "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+        "./src/**/*.{js,ts,jsx,tsx,mdx}", // ✅ (important, voir point 2)
+    ],
+
+    // safelist: ["font-uiserif"],
 
     theme: {
         extend: {
@@ -26,6 +32,10 @@ const config: Config = {
                 "rpg-relaxed": "var(--rpg-leading-relaxed)",
             },
 
+            fontFamily: {
+                uiserif: ["var(--font-fraunces)", "ui-serif", "serif"],
+            },
+
             /*
              |--------------------------------------------------------------------------
              | COULEURS / UI (préparation future)
@@ -39,6 +49,7 @@ const config: Config = {
                     border: "rgb(255 255 255 / 0.12)",
                     accent: "rgb(168 85 247 / 0.9)", // violet IA
                 },
+                proof: "#ff00ff",
             },
 
             /*
@@ -74,6 +85,4 @@ const config: Config = {
     },
 
     plugins: [],
-};
-
-export default config;
+} satisfies Config;

@@ -309,7 +309,7 @@ export default function UiFormSelectPanel() {
                 <div className="rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
                     <div className="text-xs tracking-[0.18em] text-white/55">PREVIEW</div>
 
-                    <div className="mt-3 max-w-[520px]">
+                    <div className="mt-3 max-w-130">
                         <UiFormSelect
                             label="Récompense"
                             placeholder={

@@ -19,6 +19,7 @@ import {
     type AvatarOptionsKey,
     type PlayerAvatarOptions,
 } from "@/lib/avatar/avatarOptionsHelpers";
+import { UiActionButton } from "../ui";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -352,17 +353,17 @@ export default function PlayerAvatarModal(props: Props) {
             closeOnEscape
             footer={
                 <div className="flex items-center justify-between gap-2">
-                    <ActionButton onClick={onClose} disabled={isHardBusy}>
+                    <UiActionButton variant="soft" onClick={onClose} disabled={isHardBusy}>
                         Annuler
-                    </ActionButton>
+                    </UiActionButton>
 
-                    <ActionButton
-                        variant="solid"
+                    <UiActionButton
+                        variant="magic"
                         disabled={!canSubmit}
                         onClick={() => void onSubmit()}
                     >
                         {isHardBusy ? <UiSpinner speed="slow" /> : "✨ Générer"}
-                    </ActionButton>
+                    </UiActionButton>
                 </div>
             }
         >

@@ -7,6 +7,7 @@ import { UiAnimatePresence, UiMotionDiv } from "@/components/motion/UiMotion";
 import { ActionButton } from "@/components/RpgUi";
 import { useUiStore, type UiModalId } from "@/stores/uiStore";
 import { useUiSettingsStore, type UiTheme } from "@/stores/uiSettingsStore";
+import { UiActionButton } from ".";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -20,7 +21,7 @@ type UiModalProps = {
     subtitle?: string;
     emoji?: string;
 
-    maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl";
+    maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "full";
     closeOnBackdrop?: boolean;
     closeOnEscape?: boolean;
 
@@ -37,6 +38,7 @@ function widthClass(maxWidth: UiModalProps["maxWidth"]) {
     if (maxWidth === "xl") return "max-w-xl";
     if (maxWidth === "2xl") return "max-w-2xl";
     if (maxWidth === "3xl") return "max-w-3xl";
+    if (maxWidth === "full") return "max-w-6xl";
     return "max-w-2xl";
 }
 
@@ -160,7 +162,7 @@ export function UiModal(props: UiModalProps) {
                             >
                                 {/* Header */}
                                 {(eyebrow || title || subtitle || headerRight) && (
-                                    <div className="p-5 pb-3">
+                                    <div className="p-5 pb-1">
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
                                                 {eyebrow ? (
@@ -170,14 +172,14 @@ export function UiModal(props: UiModalProps) {
                                                 ) : null}
 
                                                 {title ? (
-                                                    <div className="mt-2 text-lg text-white/90 font-semibold">
+                                                    <div className="mt-2 font-uiserif text-lg text-white/70 font-semibold">
                                                         {emoji ? `${emoji} ` : ""}
                                                         {title}
                                                     </div>
                                                 ) : null}
 
                                                 {subtitle ? (
-                                                    <div className="mt-1 text-sm text-white/60">
+                                                    <div className="mt-1 font-uiserif text-sm text-white/60">
                                                         {subtitle}
                                                     </div>
                                                 ) : null}
@@ -185,16 +187,19 @@ export function UiModal(props: UiModalProps) {
 
                                             <div className="flex items-center gap-2">
                                                 {headerRight}
-                                                <ActionButton onClick={() => closeModal(id)}>
+                                                <UiActionButton
+                                                    variant="ghost"
+                                                    onClick={() => closeModal(id)}
+                                                >
                                                     ✖
-                                                </ActionButton>
+                                                </UiActionButton>
                                             </div>
                                         </div>
                                     </div>
                                 )}
 
                                 {/* Body scrollable (le coeur du fix) */}
-                                <div className="px-5 pb-5 max-h-[calc(100svh-15rem)] overflow-y-auto">
+                                <div className="px-5 pb-5 pt-3 max-h-[calc(100svh-15rem)] overflow-y-auto">
                                     {children}
                                 </div>
 

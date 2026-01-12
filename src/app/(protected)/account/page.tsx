@@ -18,6 +18,7 @@ import PlayerAvatarModal from "@/components/modals/PlayerAvatarModal";
 import { useToastStore } from "@/stores/toastStore";
 import { useAiStore } from "@/stores/aiStore";
 import { PlayerPhotosPanel } from "@/components/account/PlayerPhotosPanel";
+import PlayerAvatarChangeModal from "@/components/modals/PlayerAvatarChangeModal";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -57,6 +58,11 @@ export default function AccountPage() {
                 </div>
             </div>
             <PlayerAvatarModal setWaitForPlayerAvatar={setWaitForPlayerAvatar} />
+            <PlayerAvatarChangeModal
+                onClosed={() => {
+                    getCurrentPlayer();
+                }}
+            />
         </RpgShell>
     );
 }

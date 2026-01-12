@@ -412,20 +412,28 @@ export async function GET(req: NextRequest) {
 
                     if (!path) continue;
 
-                    const { data: signed, error: signErr } = await supabase.storage
-                        .from(bucket)
-                        .createSignedUrl(path, signedTtlSeconds);
+                    // 🔐 Portrait source → signed URL
+                    if (ph.kind === "portrait_source") {
+                        const { data: signed, error: signErr } = await supabase.storage
+                            .from(bucket)
+                            .createSignedUrl(path, signedTtlSeconds);
 
-                    if (signErr) {
-                        // best effort: on log, mais on ne casse pas la route
-                        Log.warning("player.GET.player_photos.sign_failed", {
-                            status_code: 200,
-                            metadata: { photo_id: ph.id, bucket, path, error: signErr.message },
-                        });
-                        continue;
+                        if (signErr) {
+                            Log.warning("player.GET.player_photos.sign_failed", {
+                                status_code: 200,
+                                metadata: { photo_id: ph.id, bucket, path, error: signErr.message },
+                            });
+                            continue;
+                        }
+
+                        ph.url = signed?.signedUrl ?? null;
                     }
 
-                    ph.url = signed?.signedUrl ?? null;
+                    // 🌍 Avatar généré → public URL
+                    else if (ph.kind === "avatar_generated") {
+                        const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+                        ph.url = data?.publicUrl ?? null;
+                    }
                 }
 
                 Log.debug("player.GET.player_photos.ok", {

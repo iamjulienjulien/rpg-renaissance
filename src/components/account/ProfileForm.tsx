@@ -101,43 +101,45 @@ export function ProfileForm() {
                                         </div>
                                     ) : null} */}
 
-                <UiCard variant="classic">
-                    <div className="flex">
-                        <div>
-                            {currentPlayer?.avatar_url && (
-                                <UiImage
-                                    src={currentPlayer?.avatar_url}
-                                    alt="Avatar"
-                                    layout="fixed"
-                                    width={85}
-                                    height={85}
-                                    // aspect="square"
-                                    useNextImage={false}
-                                />
-                            )}
-                        </div>
-                        <div className="ml-4">
-                            <div className="text-xs tracking-[0.18em] text-white/55 uppercase">
-                                Email
-                            </div>
-                            <div className="mt-2 text-sm font-semibold text-white/90">
-                                {user?.email ?? "—"}
-                            </div>
-                            <div className="mt-2">
-                                <UiActionButton
-                                    size="xs"
-                                    variant="solid"
-                                    onClick={() => {
-                                        openModal("playerAvatar");
-                                    }}
-                                >
-                                    🤳 Avatar
-                                </UiActionButton>
-                            </div>
-                        </div>
+                <div className="flex ">
+                    <div className="mr-4">
+                        {currentPlayer?.avatar_url && (
+                            <UiImage
+                                src={currentPlayer?.avatar_url}
+                                alt="Avatar"
+                                layout="fixed"
+                                width={110}
+                                height={110}
+                                // aspect="square"
+                                useNextImage={false}
+                                onClick={() => openModal("playerAvatarChange")}
+                            />
+                        )}
                     </div>
-                </UiCard>
-
+                    <UiCard variant="classic" className="w-full">
+                        <div className="flex">
+                            <div className="">
+                                <div className="text-xs tracking-[0.18em] text-white/55 uppercase">
+                                    Email
+                                </div>
+                                <div className="mt-2 text-sm font-semibold text-white/90">
+                                    {user?.email ?? "—"}
+                                </div>
+                                <div className="mt-2">
+                                    <UiActionButton
+                                        size="xs"
+                                        variant="solid"
+                                        onClick={() => {
+                                            openModal("playerAvatar");
+                                        }}
+                                    >
+                                        🤳 Avatar
+                                    </UiActionButton>
+                                </div>
+                            </div>
+                        </div>
+                    </UiCard>
+                </div>
                 <div className="flex gap-4 mt-6">
                     {/* <UiCard variant="ghost"> */}
                     <UiFormText

@@ -2,6 +2,7 @@
 
 import type { AdventureContextResult } from "./getAdventureContext";
 import type { PlayerContextResult } from "./getPlayerContext";
+import type { PlayerWithDetailsContextResult } from "./getPlayerWithDetailsContext";
 import type { CharacterContextResult } from "./getCharacterContext";
 import type { ChapterContextResult } from "./getChapterContext";
 import type { QuestContextResult } from "./getQuestContext";
@@ -10,6 +11,7 @@ import type { ChapterDoneQuestsContextResult } from "./getChapterDoneQuestsConte
 export type BuildContextPromptArgs = {
     adventure?: AdventureContextResult;
     player?: PlayerContextResult;
+    playerWithDetails?: PlayerWithDetailsContextResult;
     character?: CharacterContextResult;
     chapter?: ChapterContextResult;
     quest?: QuestContextResult;
@@ -50,17 +52,21 @@ export function buildContextPrompt(args: BuildContextPromptArgs) {
     🧠 CONTEXTE DU JOUEUR (PRIORITÉ ABSOLUE)
     ========================================================================= */
 
-    const player = args.player ?? null;
+    const playerWithDetails = args.playerWithDetails ?? null;
+    const player = playerWithDetails ? null : (args.player ?? null);
 
-    if (player) {
+    if (playerWithDetails || player) {
         sections.push(
             ...blockHeader("🧠 CONTEXTE DU JOUEUR (à respecter en priorité)"),
-            "Voici les informations fournies par le joueur pour se décrire lui et son contexte.",
+            "Voici les informations fournies par le joueur pour se décrire et guider son expérience.",
             "Utilise-les pour adapter ton ton, tes exemples et tes propositions.",
-            "Ne récite jamais ces informations comme une fiche brute: intègre-les naturellement."
+            "N’en fais jamais une fiche brute: intègre-les naturellement dans la narration."
         );
 
-        const name = cleanLine(player.player_display_name ?? "");
+        const name = cleanLine(
+            playerWithDetails?.player_display_name ?? player?.player_display_name ?? ""
+        );
+
         if (name) {
             sections.push(
                 `🏷️ Nom du joueur: ${name} (à utiliser 0 à 2 fois maximum, seulement si pertinent)`
@@ -69,37 +75,98 @@ export function buildContextPrompt(args: BuildContextPromptArgs) {
             sections.push("🏷️ Nom du joueur: (non renseigné)");
         }
 
-        pushIf(
-            sections,
-            player.player_context_self,
-            `👤 Joueur: ${cleanLine(player.player_context_self as string)}`
-        );
-        pushIf(
-            sections,
-            player.player_context_family,
-            `👨‍👩‍👧 Famille: ${cleanLine(player.player_context_family as string)}`
-        );
-        pushIf(
-            sections,
-            player.player_context_home,
-            `🏠 Foyer: ${cleanLine(player.player_context_home as string)}`
-        );
-        pushIf(
-            sections,
-            player.player_context_routine,
-            `⏱️ Quotidien: ${cleanLine(player.player_context_routine as string)}`
-        );
-        pushIf(
-            sections,
-            player.player_context_challenges,
-            `⚠️ Défis actuels: ${cleanLine(player.player_context_challenges as string)}`
-        );
+        /* ------------------------------------------------------------
+        🧩 MODE ENRICHI (playerWithDetails)
+        ------------------------------------------------------------ */
+
+        if (playerWithDetails?.player_details) {
+            const d = playerWithDetails.player_details;
+            const f = d.fragments ?? {};
+
+            pushIf(sections, f.headline, `🎭 Profil: ${cleanLine(f.headline as string)}`);
+            pushIf(sections, f.playstyle, `⚔️ Style de jeu: ${cleanLine(f.playstyle as string)}`);
+            pushIf(
+                sections,
+                f.motivators,
+                `🔥 Leviers de motivation: ${cleanLine(f.motivators as string)}`
+            );
+            pushIf(
+                sections,
+                f.blockers,
+                `🧱 Points de friction: ${cleanLine(f.blockers as string)}`
+            );
+            pushIf(
+                sections,
+                f.symbolism,
+                `✨ Rapport au symbolique: ${cleanLine(f.symbolism as string)}`
+            );
+
+            // fallback context textuels si existants
+            pushIf(
+                sections,
+                playerWithDetails.player_context_self,
+                `👤 Joueur: ${cleanLine(playerWithDetails.player_context_self as string)}`
+            );
+            pushIf(
+                sections,
+                playerWithDetails.player_context_family,
+                `👨‍👩‍👧 Famille: ${cleanLine(playerWithDetails.player_context_family as string)}`
+            );
+            pushIf(
+                sections,
+                playerWithDetails.player_context_home,
+                `🏠 Foyer: ${cleanLine(playerWithDetails.player_context_home as string)}`
+            );
+            pushIf(
+                sections,
+                playerWithDetails.player_context_routine,
+                `⏱️ Quotidien: ${cleanLine(playerWithDetails.player_context_routine as string)}`
+            );
+            pushIf(
+                sections,
+                playerWithDetails.player_context_challenges,
+                `⚠️ Défis actuels: ${cleanLine(playerWithDetails.player_context_challenges as string)}`
+            );
+        }
+
+        /* ------------------------------------------------------------
+        🧩 MODE LEGACY (player)
+        ------------------------------------------------------------ */
+
+        if (player) {
+            pushIf(
+                sections,
+                player.player_context_self,
+                `👤 Joueur: ${cleanLine(player.player_context_self as string)}`
+            );
+            pushIf(
+                sections,
+                player.player_context_family,
+                `👨‍👩‍👧 Famille: ${cleanLine(player.player_context_family as string)}`
+            );
+            pushIf(
+                sections,
+                player.player_context_home,
+                `🏠 Foyer: ${cleanLine(player.player_context_home as string)}`
+            );
+            pushIf(
+                sections,
+                player.player_context_routine,
+                `⏱️ Quotidien: ${cleanLine(player.player_context_routine as string)}`
+            );
+            pushIf(
+                sections,
+                player.player_context_challenges,
+                `⚠️ Défis actuels: ${cleanLine(player.player_context_challenges as string)}`
+            );
+        }
 
         sections.push(
             "",
             "🎯 Règles:",
-            "• Si une information permet de rendre la réponse plus concrète ou utile, utilise-la.",
-            "• Sinon, ne brode pas et reste neutre."
+            "• Utilise ces informations uniquement si elles rendent la réponse plus juste ou plus utile.",
+            "• Ne surinterprète pas.",
+            "• Ne rappelle jamais explicitement ces données au joueur."
         );
     }
 
@@ -355,7 +422,7 @@ export function buildContextPrompt(args: BuildContextPromptArgs) {
 
     return {
         text: text.length ? text : null,
-        hasPlayer: !!player,
+        hasPlayer: !!(playerWithDetails || player),
         hasAdventure: !!adventure,
         hasCharacter: !!character,
         hasChapter: !!chapter,

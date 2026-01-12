@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { fraunces } from "@/lib/fonts";
+
 import ThemeHydrator from "@/components/ThemeHydrator";
 import AppHotkeys from "@/components/AppHotKeys";
 import CommandPalette from "@/components/CommandPalette";
@@ -12,8 +14,9 @@ import "./globals.css";
 import ToastEngine from "@/components/toasts/ToastEngine";
 import AiJobsEngine from "@/components/ai/AiJobsEngine";
 import ChapterQuestPalette from "@/components/quests/ChapterQuestPalette";
+import DevDataModal from "@/components/modals/DevDataModal";
 
-export const metadata = {
+export const metadata: Metadata = {
     title: "RPG Renaissance — Le jeu dont tu es le héros",
     description:
         "Chaque action compte. Chaque pièce est un champ de bataille. RPG Renaissance transforme ton quotidien en aventure et t’aide à avancer, une victoire après l’autre.",
@@ -26,7 +29,7 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
-        <html lang="fr">
+        <html lang="fr" className={fraunces.variable}>
             <body>
                 <ThemeHydrator />
                 <SettingsApplier />
@@ -38,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Toasts />
                 <DevHud />
                 <UiMotionConfig>{children}</UiMotionConfig>
+                <DevDataModal />
             </body>
         </html>
     );

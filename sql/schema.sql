@@ -1,6 +1,61 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+CREATE TABLE public.achievement_badges_catalog (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  code text NOT NULL UNIQUE CHECK (btrim(code) <> ''::text),
+  title text NOT NULL,
+  emoji text,
+  description text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT achievement_badges_catalog_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.achievement_catalog (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  code text NOT NULL UNIQUE,
+  name text NOT NULL,
+  description text NOT NULL,
+  icon text,
+  is_active boolean NOT NULL DEFAULT true,
+  scope text NOT NULL CHECK (scope = ANY (ARRAY['user'::text, 'session'::text, 'adventure'::text, 'chapter'::text, 'chapter_quest'::text])),
+  is_repeatable boolean NOT NULL DEFAULT false,
+  cooldown_hours integer,
+  trigger_event text,
+  conditions jsonb NOT NULL DEFAULT '{}'::jsonb,
+  rewards jsonb NOT NULL DEFAULT '[]'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT achievement_catalog_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.achievement_unlocks (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  achievement_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  session_id uuid,
+  adventure_id uuid,
+  chapter_id uuid,
+  chapter_quest_id uuid,
+  scope_key text NOT NULL,
+  unlocked_at timestamp with time zone NOT NULL DEFAULT now(),
+  reason jsonb,
+  reward_payload jsonb NOT NULL,
+  toast_status text NOT NULL DEFAULT 'pending'::text CHECK (toast_status = ANY (ARRAY['pending'::text, 'shown'::text, 'dismissed'::text])),
+  toast_shown_at timestamp with time zone,
+  toast_dismissed_at timestamp with time zone,
+  CONSTRAINT achievement_unlocks_pkey PRIMARY KEY (id),
+  CONSTRAINT achievement_unlocks_achievement_id_fkey FOREIGN KEY (achievement_id) REFERENCES public.achievement_catalog(id),
+  CONSTRAINT achievement_unlocks_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT achievement_unlocks_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.game_sessions(id),
+  CONSTRAINT achievement_unlocks_adventure_id_fkey FOREIGN KEY (adventure_id) REFERENCES public.adventures(id),
+  CONSTRAINT achievement_unlocks_chapter_id_fkey FOREIGN KEY (chapter_id) REFERENCES public.chapters(id),
+  CONSTRAINT achievement_unlocks_chapter_quest_id_fkey FOREIGN KEY (chapter_quest_id) REFERENCES public.chapter_quests(id)
+);
+CREATE TABLE public.admin_users (
+  user_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT admin_users_pkey PRIMARY KEY (user_id),
+  CONSTRAINT admin_users_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
 CREATE TABLE public.adventure_quests (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   adventure_id uuid NOT NULL,
@@ -11,6 +66,8 @@ CREATE TABLE public.adventure_quests (
   estimate_min integer,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   session_id uuid,
+  urgency text NOT NULL DEFAULT 'normal'::text CHECK (urgency = ANY (ARRAY['low'::text, 'normal'::text, 'high'::text])),
+  priority text NOT NULL DEFAULT 'secondary'::text CHECK (priority = ANY (ARRAY['secondary'::text, 'main'::text])),
   CONSTRAINT adventure_quests_pkey PRIMARY KEY (id),
   CONSTRAINT adventure_quests_adventure_id_fkey FOREIGN KEY (adventure_id) REFERENCES public.adventures(id),
   CONSTRAINT adventure_quests_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.game_sessions(id)
@@ -47,9 +104,75 @@ CREATE TABLE public.adventures (
   instance_code text CHECK (instance_code IS NULL OR btrim(instance_code) <> ''::text),
   session_id uuid NOT NULL,
   context_text text,
+  briefing_text jsonb,
+  welcome_text text,
   CONSTRAINT adventures_pkey PRIMARY KEY (id),
   CONSTRAINT adventures_type_id_fkey FOREIGN KEY (type_id) REFERENCES public.adventure_types(id),
   CONSTRAINT adventures_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.game_sessions(id)
+);
+CREATE TABLE public.ai_generations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  session_id uuid NOT NULL,
+  user_id uuid,
+  chapter_quest_id uuid,
+  chapter_id uuid,
+  adventure_id uuid,
+  generation_type text NOT NULL,
+  source text,
+  provider text NOT NULL DEFAULT 'openai'::text CHECK (provider = 'openai'::text),
+  model text NOT NULL,
+  status text NOT NULL DEFAULT 'success'::text CHECK (status = ANY (ARRAY['success'::text, 'error'::text, 'timeout'::text, 'cancelled'::text])),
+  error_message text,
+  error_code text,
+  started_at timestamp with time zone NOT NULL DEFAULT now(),
+  finished_at timestamp with time zone,
+  duration_ms integer,
+  request_json jsonb NOT NULL,
+  system_text text,
+  user_input_text text,
+  context_json jsonb,
+  response_json jsonb,
+  output_text text,
+  parsed_json jsonb,
+  parse_error text,
+  rendered_md text,
+  usage_json jsonb,
+  tags ARRAY,
+  metadata jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT ai_generations_pkey PRIMARY KEY (id),
+  CONSTRAINT ai_generations_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT ai_generations_chapter_quest_id_fkey FOREIGN KEY (chapter_quest_id) REFERENCES public.chapter_quests(id),
+  CONSTRAINT ai_generations_chapter_id_fkey FOREIGN KEY (chapter_id) REFERENCES public.chapters(id),
+  CONSTRAINT ai_generations_adventure_id_fkey FOREIGN KEY (adventure_id) REFERENCES public.adventures(id)
+);
+CREATE TABLE public.ai_jobs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  session_id uuid,
+  chapter_id uuid,
+  adventure_id uuid,
+  chapter_quest_id uuid,
+  job_type text NOT NULL,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  status text NOT NULL DEFAULT 'queued'::text CHECK (status = ANY (ARRAY['queued'::text, 'running'::text, 'done'::text, 'error'::text, 'cancelled'::text])),
+  priority integer NOT NULL DEFAULT 100,
+  attempts integer NOT NULL DEFAULT 0,
+  max_attempts integer NOT NULL DEFAULT 3,
+  locked_at timestamp with time zone,
+  locked_by text,
+  started_at timestamp with time zone,
+  finished_at timestamp with time zone,
+  result jsonb,
+  error_message text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT ai_jobs_pkey PRIMARY KEY (id),
+  CONSTRAINT ai_jobs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT ai_jobs_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.game_sessions(id),
+  CONSTRAINT ai_jobs_chapter_id_fkey FOREIGN KEY (chapter_id) REFERENCES public.chapters(id),
+  CONSTRAINT ai_jobs_adventure_id_fkey FOREIGN KEY (adventure_id) REFERENCES public.adventures(id),
+  CONSTRAINT ai_jobs_chapter_quest_id_fkey FOREIGN KEY (chapter_quest_id) REFERENCES public.chapter_quests(id)
 );
 CREATE TABLE public.chapter_quests (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -58,6 +181,7 @@ CREATE TABLE public.chapter_quests (
   status text NOT NULL DEFAULT 'todo'::text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   session_id uuid,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT chapter_quests_pkey PRIMARY KEY (id),
   CONSTRAINT chapter_quests_chapter_id_fkey FOREIGN KEY (chapter_id) REFERENCES public.chapters(id),
   CONSTRAINT chapter_quests_adventure_quest_id_fkey FOREIGN KEY (adventure_quest_id) REFERENCES public.adventure_quests(id),
@@ -117,6 +241,63 @@ CREATE TABLE public.game_sessions (
   CONSTRAINT game_sessions_pkey PRIMARY KEY (id),
   CONSTRAINT game_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+CREATE TABLE public.inventory_collections (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  code text CHECK (btrim(code) <> ''::text),
+  title text NOT NULL CHECK (btrim(title) <> ''::text),
+  description text,
+  schema_version text NOT NULL,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  kind text,
+  CONSTRAINT inventory_collections_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_collections_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT inventory_collections_schema_version_fkey FOREIGN KEY (schema_version) REFERENCES public.inventory_schema_versions(code)
+);
+CREATE TABLE public.inventory_item_photos (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  item_id uuid NOT NULL,
+  photo_id uuid NOT NULL,
+  kind text NOT NULL DEFAULT 'main'::text CHECK (kind = ANY (ARRAY['main'::text, 'detail'::text, 'other'::text])),
+  sort integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT inventory_item_photos_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_item_photos_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT inventory_item_photos_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.inventory_items(id),
+  CONSTRAINT inventory_item_photos_photo_id_fkey FOREIGN KEY (photo_id) REFERENCES public.photos(id)
+);
+CREATE TABLE public.inventory_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  collection_id uuid NOT NULL,
+  schema_version text NOT NULL,
+  title text NOT NULL CHECK (btrim(title) <> ''::text),
+  status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'archived'::text])),
+  ai_description text,
+  data jsonb NOT NULL DEFAULT '{}'::jsonb,
+  tags ARRAY,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT inventory_items_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_items_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT inventory_items_collection_id_fkey FOREIGN KEY (collection_id) REFERENCES public.inventory_collections(id),
+  CONSTRAINT inventory_items_schema_version_fkey FOREIGN KEY (schema_version) REFERENCES public.inventory_schema_versions(code)
+);
+CREATE TABLE public.inventory_schema_versions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  code text NOT NULL UNIQUE CHECK (btrim(code) <> ''::text),
+  version text NOT NULL CHECK (btrim(version) <> ''::text),
+  title text NOT NULL,
+  description text,
+  schema_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT inventory_schema_versions_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.journal_entries (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   kind text NOT NULL,
@@ -127,11 +308,106 @@ CREATE TABLE public.journal_entries (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   adventure_quest_id uuid,
   session_id uuid,
+  meta jsonb,
   CONSTRAINT journal_entries_pkey PRIMARY KEY (id),
   CONSTRAINT journal_entries_chapter_id_fkey FOREIGN KEY (chapter_id) REFERENCES public.chapters(id),
   CONSTRAINT journal_entries_quest_id_fkey FOREIGN KEY (quest_id) REFERENCES public.quests(id),
   CONSTRAINT journal_entries_adventure_quest_id_fkey FOREIGN KEY (adventure_quest_id) REFERENCES public.adventure_quests(id),
   CONSTRAINT journal_entries_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.game_sessions(id)
+);
+CREATE TABLE public.photos (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  session_id uuid NOT NULL,
+  adventure_id uuid,
+  chapter_id uuid,
+  adventure_quest_id uuid,
+  journal_entry_id uuid,
+  bucket text NOT NULL DEFAULT 'photos'::text CHECK (bucket = 'photos'::text),
+  path text NOT NULL CHECK (btrim(path) <> ''::text),
+  mime_type text,
+  size integer,
+  width integer,
+  height integer,
+  caption text,
+  is_cover boolean NOT NULL DEFAULT false,
+  sort integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  category text NOT NULL DEFAULT 'other'::text CHECK (category = ANY (ARRAY['initial'::text, 'final'::text, 'other'::text])),
+  chapter_quest_id uuid,
+  ai_description text,
+  CONSTRAINT photos_pkey PRIMARY KEY (id),
+  CONSTRAINT photos_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT photos_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.game_sessions(id),
+  CONSTRAINT photos_adventure_id_fkey FOREIGN KEY (adventure_id) REFERENCES public.adventures(id),
+  CONSTRAINT photos_chapter_id_fkey FOREIGN KEY (chapter_id) REFERENCES public.chapters(id),
+  CONSTRAINT photos_adventure_quest_id_fkey FOREIGN KEY (adventure_quest_id) REFERENCES public.adventure_quests(id),
+  CONSTRAINT photos_journal_entry_id_fkey FOREIGN KEY (journal_entry_id) REFERENCES public.journal_entries(id),
+  CONSTRAINT photos_chapter_quest_id_fkey FOREIGN KEY (chapter_quest_id) REFERENCES public.chapter_quests(id)
+);
+CREATE TABLE public.player_badges (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  badge_id uuid NOT NULL,
+  unlocked_at timestamp with time zone NOT NULL DEFAULT now(),
+  source text,
+  metadata jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT player_badges_pkey PRIMARY KEY (id),
+  CONSTRAINT player_badges_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT player_badges_badge_id_fkey FOREIGN KEY (badge_id) REFERENCES public.achievement_badges_catalog(id)
+);
+CREATE TABLE public.player_photos (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  kind text NOT NULL CHECK (kind = ANY (ARRAY['portrait_source'::text, 'avatar_generated'::text])),
+  bucket text NOT NULL DEFAULT 'player-photos'::text,
+  storage_path text NOT NULL CHECK (btrim(storage_path) <> ''::text),
+  mime_type text,
+  size integer,
+  width integer,
+  height integer,
+  is_active boolean NOT NULL DEFAULT false,
+  avatar_style text,
+  avatar_variant text,
+  avatar_format text,
+  ai_job_id uuid,
+  ai_model text,
+  prompt_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  options_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  source_photo_ids ARRAY NOT NULL DEFAULT '{}'::uuid[],
+  caption text,
+  alt_text text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT player_photos_pkey PRIMARY KEY (id),
+  CONSTRAINT player_photos_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.player_profile_details (
+  user_id uuid NOT NULL,
+  gender USER-DEFINED,
+  birth_date date,
+  locale text,
+  country_code text,
+  main_goal text,
+  wants ARRAY NOT NULL DEFAULT '{}'::text[],
+  avoids ARRAY NOT NULL DEFAULT '{}'::text[],
+  life_rhythm USER-DEFINED,
+  energy_peak USER-DEFINED,
+  daily_time_budget USER-DEFINED,
+  effort_style USER-DEFINED,
+  challenge_preference USER-DEFINED,
+  motivation_primary USER-DEFINED,
+  failure_response USER-DEFINED,
+  values ARRAY NOT NULL DEFAULT '{}'::text[],
+  authority_relation USER-DEFINED,
+  archetype text,
+  symbolism_relation USER-DEFINED,
+  resonant_elements ARRAY NOT NULL DEFAULT '{}'::text[],
+  extra jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT player_profile_details_pkey PRIMARY KEY (user_id),
+  CONSTRAINT player_profile_details_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.player_profiles (
   user_id uuid NOT NULL,
@@ -154,6 +430,60 @@ CREATE TABLE public.player_renown (
   CONSTRAINT player_renown_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT player_renown_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.game_sessions(id)
 );
+CREATE TABLE public.profile_option_refs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  field_key text NOT NULL,
+  value_key text NOT NULL,
+  label text NOT NULL CHECK (length(TRIM(BOTH FROM label)) > 0),
+  emoji text NOT NULL CHECK (length(TRIM(BOTH FROM emoji)) > 0),
+  description text,
+  sort_order integer NOT NULL DEFAULT 100,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT profile_option_refs_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.quest_chain_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  session_id uuid NOT NULL,
+  chain_id uuid NOT NULL,
+  adventure_quest_id uuid NOT NULL UNIQUE,
+  position integer NOT NULL CHECK ("position" >= 1),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT quest_chain_items_pkey PRIMARY KEY (id),
+  CONSTRAINT quest_chain_items_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.game_sessions(id),
+  CONSTRAINT quest_chain_items_chain_id_fkey FOREIGN KEY (chain_id) REFERENCES public.quest_chains(id),
+  CONSTRAINT quest_chain_items_adventure_quest_id_fkey FOREIGN KEY (adventure_quest_id) REFERENCES public.adventure_quests(id)
+);
+CREATE TABLE public.quest_chains (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  session_id uuid NOT NULL,
+  adventure_id uuid NOT NULL,
+  title text,
+  description text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT quest_chains_pkey PRIMARY KEY (id),
+  CONSTRAINT quest_chains_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.game_sessions(id),
+  CONSTRAINT quest_chains_adventure_id_fkey FOREIGN KEY (adventure_id) REFERENCES public.adventures(id)
+);
+CREATE TABLE public.quest_messages (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  thread_id uuid NOT NULL,
+  session_id uuid NOT NULL,
+  chapter_quest_id uuid NOT NULL,
+  role text NOT NULL CHECK (role = ANY (ARRAY['mj'::text, 'user'::text, 'system'::text])),
+  content text NOT NULL,
+  title text,
+  meta jsonb,
+  photo_id uuid,
+  kind text NOT NULL DEFAULT 'message'::text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT quest_messages_pkey PRIMARY KEY (id),
+  CONSTRAINT quest_messages_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.quest_threads(id),
+  CONSTRAINT quest_messages_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.game_sessions(id),
+  CONSTRAINT quest_messages_chapter_quest_id_fkey FOREIGN KEY (chapter_quest_id) REFERENCES public.chapter_quests(id),
+  CONSTRAINT quest_messages_photo_id_fkey FOREIGN KEY (photo_id) REFERENCES public.photos(id)
+);
 CREATE TABLE public.quest_mission_orders (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   chapter_quest_id uuid NOT NULL UNIQUE,
@@ -166,6 +496,16 @@ CREATE TABLE public.quest_mission_orders (
   CONSTRAINT quest_mission_orders_pkey PRIMARY KEY (id),
   CONSTRAINT quest_mission_orders_chapter_quest_id_fkey FOREIGN KEY (chapter_quest_id) REFERENCES public.chapter_quests(id),
   CONSTRAINT quest_mission_orders_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.game_sessions(id)
+);
+CREATE TABLE public.quest_threads (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  session_id uuid NOT NULL,
+  chapter_quest_id uuid NOT NULL UNIQUE,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT quest_threads_pkey PRIMARY KEY (id),
+  CONSTRAINT quest_threads_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.game_sessions(id),
+  CONSTRAINT quest_threads_chapter_quest_id_fkey FOREIGN KEY (chapter_quest_id) REFERENCES public.chapter_quests(id)
 );
 CREATE TABLE public.quests (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -180,6 +520,16 @@ CREATE TABLE public.quests (
   CONSTRAINT quests_pkey PRIMARY KEY (id),
   CONSTRAINT quests_chapter_id_fkey FOREIGN KEY (chapter_id) REFERENCES public.chapters(id)
 );
+CREATE TABLE public.renown_levels_catalog (
+  level integer NOT NULL CHECK (level >= 1 AND level <= 100),
+  tier integer NOT NULL CHECK (tier >= 1 AND tier <= 10),
+  tier_title text NOT NULL,
+  level_suffix text,
+  full_title text NOT NULL,
+  is_milestone boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT renown_levels_catalog_pkey PRIMARY KEY (level)
+);
 CREATE TABLE public.room_templates (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   code text NOT NULL UNIQUE,
@@ -187,4 +537,70 @@ CREATE TABLE public.room_templates (
   icon text,
   sort integer NOT NULL DEFAULT 100,
   CONSTRAINT room_templates_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.system_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  level text NOT NULL CHECK (level = ANY (ARRAY['debug'::text, 'info'::text, 'success'::text, 'warning'::text, 'error'::text])),
+  message text NOT NULL,
+  request_id uuid,
+  trace_id uuid,
+  route text,
+  method text,
+  status_code integer,
+  duration_ms integer,
+  session_id uuid,
+  user_id uuid,
+  chapter_id uuid,
+  adventure_id uuid,
+  chapter_quest_id uuid,
+  adventure_quest_id uuid,
+  source text,
+  file text,
+  line integer,
+  function_name text,
+  error_name text,
+  error_message text,
+  stack text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  CONSTRAINT system_logs_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.user_contexts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL UNIQUE,
+  context_self text,
+  context_family text,
+  context_home text,
+  context_routine text,
+  context_challenges text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT user_contexts_pkey PRIMARY KEY (id),
+  CONSTRAINT user_contexts_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.user_profiles (
+  user_id uuid NOT NULL,
+  first_name text,
+  last_name text,
+  avatar_url text,
+  locale text DEFAULT 'fr'::text,
+  onboarding_done boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT user_profiles_pkey PRIMARY KEY (user_id),
+  CONSTRAINT user_profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.user_toasts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  kind text NOT NULL CHECK (kind = ANY (ARRAY['achievement'::text, 'system'::text, 'info'::text, 'badge'::text])),
+  title text NOT NULL,
+  message text NOT NULL,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  status text NOT NULL DEFAULT 'unread'::text CHECK (status = ANY (ARRAY['unread'::text, 'read'::text, 'dismissed'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  read_at timestamp with time zone,
+  dismissed_at timestamp with time zone,
+  CONSTRAINT user_toasts_pkey PRIMARY KEY (id),
+  CONSTRAINT user_toasts_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );

@@ -4,7 +4,7 @@ import { createAiGenerationLog } from "@/lib/logs/createAiGenerationLog";
 import { createJournalEntry } from "@/lib/journal/createJournalEntry";
 
 // Context loaders
-import { getPlayerContext } from "@/lib/context/getPlayerContext";
+// import { getPlayerContext } from "@/lib/context/getPlayerContext";
 import { getCharacterContext } from "@/lib/context/getCharacterContext";
 import { getChapterContext } from "@/lib/context/getChapterContext";
 import { getAdventureContext } from "@/lib/context/getAdventureContext";
@@ -14,6 +14,7 @@ import { buildContextPrompt } from "@/lib/context/buildContextPrompt";
 // Logs
 import { Log } from "@/lib/systemLog/Log";
 import { withRequestContext, patchRequestContext } from "@/lib/systemLog/requestContext";
+import { getPlayerWithDetailsContext } from "../context/getPlayerWithDetailsContext";
 
 /* ============================================================================
 🧠 TYPES
@@ -211,7 +212,7 @@ export async function generateJournalChapterStory(args: {
                 ------------------------------------------------------------ */
                 const [player, character, chapterCtx, adventureCtx, doneQuests] = await Promise.all(
                     [
-                        getPlayerContext({ mode: "server", user_id }),
+                        getPlayerWithDetailsContext({ mode: "server", user_id }),
                         getCharacterContext({ mode: "server", user_id }),
                         getChapterContext({ mode: "server", chapter_id }),
                         adventure_id
