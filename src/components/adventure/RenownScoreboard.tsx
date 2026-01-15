@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useGameStore } from "@/stores/gameStore";
+import UiProgress from "../ui/UiProgress";
 
 export default function RenownScoreboard() {
     const renown = useGameStore((s) => s.renown);
@@ -26,14 +27,15 @@ export default function RenownScoreboard() {
 
             {renown ? (
                 <>
-                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/5 ring-1 ring-white/10">
+                    {/* <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/5 ring-1 ring-white/10">
                         <div
                             className="h-full rounded-full bg-white/25 transition-[width] duration-500"
                             style={{ width: `${pct}%` }}
                         />
-                    </div>
+                    </div> */}
+                    <UiProgress pct={pct} className="mt-3" />
 
-                    <div className="mt-1 flex items-center justify-between text-[11px] text-white/55">
+                    <div className="mt-4 flex items-center justify-between text-[11px] text-white/55">
                         <span>✨ {into}/100</span>
                         <span className="text-white/45">total {value}</span>
                     </div>

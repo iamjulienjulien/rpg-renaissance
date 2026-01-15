@@ -80,6 +80,150 @@ export type UiSpinnerProps = {
     className?: string;
 };
 
+export const UiSpinnerPropsTable = [
+    {
+        name: "variant",
+        type: '"hourglass" | "dots" | "ring" | "bars" | "spark" | "custom"',
+        description: "Style du spinner (emoji, dots, anneau, barres, spark ou rendu custom).",
+        default: '"hourglass"',
+        required: false,
+    },
+    {
+        name: "size",
+        type: '"xs" | "sm" | "md" | "lg" | "xl"',
+        description: "Taille globale du spinner (impacte dimensions/typo selon le variant).",
+        default: '"md"',
+        required: false,
+    },
+    {
+        name: "tone",
+        type: '"inherit" | "neutral" | "theme" | "white" | "slate" | "emerald" | "violet" | "amber" | "rose" | "sky" | "custom"',
+        description:
+            "Couleur du spinner (pour les spinners CSS). Utiliser custom + toneClassName pour une classe libre.",
+        default: '"neutral"',
+        required: false,
+    },
+    {
+        name: "toneClassName",
+        type: "string",
+        description: 'Classe(s) Tailwind appliquées si tone="custom" (ex: "text-red-400").',
+        default: "—",
+        required: false,
+    },
+    {
+        name: "speed",
+        type: '"slow" | "md" | "fast" | "custom"',
+        description: "Vitesse de l’animation. Utiliser custom + speedMs pour un contrôle fin.",
+        default: '"md"',
+        required: false,
+    },
+    {
+        name: "speedMs",
+        type: "number",
+        description: 'Durée en millisecondes si speed="custom" (clamp min ~220ms).',
+        default: "—",
+        required: false,
+    },
+    {
+        name: "emoji",
+        type: "string",
+        description: 'Emoji utilisé par le variant "hourglass".',
+        default: '"⏳"',
+        required: false,
+    },
+    {
+        name: "label",
+        type: "React.ReactNode",
+        description: "Label optionnel affiché à côté ou sous le spinner.",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "labelPosition",
+        type: '"right" | "left" | "bottom"',
+        description: "Position du label par rapport au spinner.",
+        default: '"right"',
+        required: false,
+    },
+    {
+        name: "overlay",
+        type: "boolean",
+        description: "Affiche le spinner en overlay plein écran (fixed inset-0).",
+        default: "false",
+        required: false,
+    },
+    {
+        name: "overlayBlur",
+        type: "boolean",
+        description: "Active un léger blur de l’arrière-plan quand overlay=true.",
+        default: "true",
+        required: false,
+    },
+    {
+        name: "overlayClassName",
+        type: "string",
+        description: "Classes supplémentaires pour le conteneur overlay (fond, z-index, etc.).",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "inline",
+        type: "boolean",
+        description: "Affichage inline-flex (true) ou flex (false).",
+        default: "true",
+        required: false,
+    },
+    {
+        name: "center",
+        type: "boolean",
+        description: "Centre le contenu dans son conteneur (w-full + justify/align center).",
+        default: "false",
+        required: false,
+    },
+    {
+        name: "gap",
+        type: '"xs" | "sm" | "md"',
+        description: "Espace entre le spinner et le label.",
+        default: '"sm"',
+        required: false,
+    },
+    {
+        name: "ariaLabel",
+        type: "string",
+        description: "Texte d’accessibilité (aria-label).",
+        default: '"Chargement…"',
+        required: false,
+    },
+    {
+        name: "role",
+        type: '"status" | "progressbar"',
+        description: "Rôle ARIA du composant (utile pour lecteurs d’écran).",
+        default: '"status"',
+        required: false,
+    },
+    {
+        name: "icon",
+        type: "React.ReactNode",
+        description: 'Icône utilisée pour variant="custom" (si children absent).',
+        default: "—",
+        required: false,
+    },
+    {
+        name: "children",
+        type: "React.ReactNode",
+        description: 'Contenu custom utilisé pour variant="custom" (prioritaire sur icon).',
+        default: "—",
+        required: false,
+    },
+    {
+        name: "className",
+        type: "string",
+        description: "Classes CSS supplémentaires appliquées au conteneur principal.",
+        default: "—",
+        required: false,
+    },
+];
+
 /* ============================================================================
 🎨 MAPS
 ============================================================================ */

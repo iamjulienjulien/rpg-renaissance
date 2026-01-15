@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import UIActionButton from "@/components/ui/UiActionButton";
-import UIActionButtonGroup, {
-    type UIActionButtonGroupButton,
-    type UIActionButtonGroupProps,
-} from "@/components/ui/UiActionButtonGroup";
-import { type UIActionButtonProps } from "@/components/ui/UiActionButton";
+import {
+    UiActionButton,
+    type UiActionButtonProps,
+    UiActionButtonGroup,
+    type UiActionButtonGroupButton,
+    type UiActionButtonGroupProps,
+} from "@/components/ui";
 import { type UiAction } from "@/components/RpgUi";
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -17,36 +18,37 @@ function cn(...classes: Array<string | false | null | undefined>) {
 🧠 TYPES
 ============================================================================ */
 
-export type UIToolbarItem =
+export type UiToolbarItem =
     | {
           type: "button";
           key?: string;
           label: React.ReactNode;
           onClick?: () => void;
           action?: UiAction;
-          variant?: UIActionButtonProps["variant"];
-          size?: UIActionButtonProps["size"];
+          variant?: UiActionButtonProps["variant"];
+          size?: UiActionButtonProps["size"];
           disabled?: boolean;
           active?: boolean;
           hint?: string;
           fullWidth?: boolean;
           className?: string;
+          text?: string;
       }
     | {
           type: "group";
           key?: string;
-          variant?: UIActionButtonGroupProps["variant"];
-          size?: UIActionButtonGroupProps["size"];
+          variant?: UiActionButtonGroupProps["variant"];
+          size?: UiActionButtonGroupProps["size"];
           fullWidth?: boolean;
-          buttons: UIActionButtonGroupButton[];
+          buttons: UiActionButtonGroupButton[];
           className?: string;
       }
     | {
           type: "dropdown";
           key?: string;
           label: React.ReactNode;
-          variant?: UIActionButtonProps["variant"];
-          size?: UIActionButtonProps["size"];
+          variant?: UiActionButtonProps["variant"];
+          size?: UiActionButtonProps["size"];
           fullWidth?: boolean;
           items: Array<{
               key?: string;
@@ -58,8 +60,8 @@ export type UIToolbarItem =
           }>;
       };
 
-export type UIToolbarProps = {
-    items: UIToolbarItem[];
+export type UiToolbarProps = {
+    items: UiToolbarItem[];
     className?: string;
     align?: "left" | "right" | "between";
 
@@ -67,16 +69,50 @@ export type UIToolbarProps = {
     fullWidth?: boolean;
 };
 
+export const UiToolbarPropsTable = [
+    {
+        name: "items",
+        type: "UiToolbarItem[]",
+        description:
+            "Liste des éléments affichés dans la toolbar. Chaque item peut être un bouton simple, un groupe de boutons ou un menu déroulant.",
+        default: "—",
+        required: true,
+    },
+    {
+        name: "align",
+        type: '"left" | "right" | "between"',
+        description:
+            "Définit l’alignement horizontal des éléments dans la toolbar (gauche, droite ou réparti).",
+        default: '"left"',
+        required: false,
+    },
+    {
+        name: "fullWidth",
+        type: "boolean",
+        description:
+            "Si true, la toolbar occupe toute la largeur disponible et les items peuvent s’étendre.",
+        default: "false",
+        required: false,
+    },
+    {
+        name: "className",
+        type: "string",
+        description: "Classes CSS supplémentaires appliquées au conteneur principal de la toolbar.",
+        default: "—",
+        required: false,
+    },
+];
+
 /* ============================================================================
 🧱 MAIN
 ============================================================================ */
 
-export default function UIToolbar({
+export default function UiToolbar({
     items,
     className,
     align = "left",
     fullWidth = false,
-}: UIToolbarProps) {
+}: UiToolbarProps) {
     const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
     return (
@@ -100,7 +136,7 @@ export default function UIToolbar({
                 if (item.type === "button") {
                     return (
                         <div key={key} className={cn(stretch && "flex-1")}>
-                            <UIActionButton
+                            <UiActionButton
                                 variant={item.variant}
                                 size={item.size}
                                 onClick={item.onClick}
@@ -110,9 +146,10 @@ export default function UIToolbar({
                                 hint={item.hint}
                                 fullWidth={stretch}
                                 className={item.className}
+                                // text={item.text ? item.text : ""}
                             >
                                 {item.label}
-                            </UIActionButton>
+                            </UiActionButton>
                         </div>
                     );
                 }
@@ -123,7 +160,7 @@ export default function UIToolbar({
                 if (item.type === "group") {
                     return (
                         <div key={key} className={cn(stretch && "flex-1")}>
-                            <UIActionButtonGroup
+                            <UiActionButtonGroup
                                 buttons={item.buttons}
                                 variant={item.variant}
                                 size={item.size}
@@ -142,7 +179,7 @@ export default function UIToolbar({
 
                     return (
                         <div key={key} className={cn("relative", stretch && "flex-1")}>
-                            <UIActionButton
+                            <UiActionButton
                                 variant={item.variant ?? "soft"}
                                 size={item.size}
                                 active={isOpen}
@@ -150,13 +187,13 @@ export default function UIToolbar({
                                 onClick={() => setOpenDropdown(isOpen ? null : key)}
                             >
                                 {item.label}
-                            </UIActionButton>
+                            </UiActionButton>
 
                             {isOpen && (
-                                <div className="absolute right-0 z-50 mt-2 min-w-[180px] rounded-2xl bg-[hsl(var(--panel-2)/0.95)] backdrop-blur ring-1 ring-[hsl(var(--ring))] shadow-lg">
+                                <div className="absolute right-0 z-50 mt-2 min-w-45 rounded-2xl bg-[hsl(var(--panel-2)/0.95)] backdrop-blur ring-1 ring-[hsl(var(--ring))] shadow-lg">
                                     <div className="flex flex-col p-1">
                                         {item.items.map((it, i) => (
-                                            <UIActionButton
+                                            <UiActionButton
                                                 key={it.key ?? i}
                                                 variant="ghost"
                                                 size="sm"
@@ -170,7 +207,7 @@ export default function UIToolbar({
                                                 className="justify-start"
                                             >
                                                 {it.label}
-                                            </UIActionButton>
+                                            </UiActionButton>
                                         ))}
                                     </div>
                                 </div>

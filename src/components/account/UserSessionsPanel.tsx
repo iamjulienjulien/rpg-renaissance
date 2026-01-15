@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { UiPanel } from "../ui";
+import { UiActionButton, UiChip, UiPanel } from "../ui";
 import { useGameStore } from "@/stores/gameStore";
+import { useSessionStore } from "@/stores/sessionStore";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -11,6 +12,8 @@ function cn(...classes: Array<string | false | null | undefined>) {
 export function UserSessionsPanel() {
     const currentPlayer = useGameStore((s) => s.currentPlayer);
     const getCurrentPlayer = useGameStore((s) => s.getCurrentPlayer);
+
+    const { setActive } = useSessionStore();
 
     const [loading, setLoading] = React.useState(false);
 
@@ -54,21 +57,30 @@ export function UserSessionsPanel() {
                                                 {s.title ?? "Partie sans titre"}
                                             </div>
 
-                                            <div className="mt-1 text-xs text-white/60">
+                                            {/* <div className="mt-1 text-xs text-white/60">
                                                 Active: {String(!!isActive)}
-                                            </div>
+                                            </div> */}
 
-                                            <div className="mt-1 text-[11px] text-white/45">
+                                            <UiChip tone="neutral">
                                                 id:{" "}
                                                 <span className="text-white/65">{s.id ?? ""}</span>
-                                            </div>
+                                            </UiChip>
                                         </div>
 
                                         {isActive ? (
-                                            <div className="shrink-0 text-xs rounded-full px-2 py-1 bg-emerald-400/10 text-emerald-200 ring-1 ring-emerald-400/20">
-                                                ✅ active
-                                            </div>
-                                        ) : null}
+                                            <UiChip tone="emerald" size="md">
+                                                ✅ Active
+                                            </UiChip>
+                                        ) : (
+                                            <UiActionButton
+                                                size="xs"
+                                                onClick={() => {
+                                                    setActive(s.id);
+                                                }}
+                                            >
+                                                🔄 Changer
+                                            </UiActionButton>
+                                        )}
                                     </div>
                                 </div>
                             );

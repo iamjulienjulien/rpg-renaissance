@@ -4,52 +4,142 @@
 import React, { useMemo, useState } from "react";
 import UiComponentPanelV2 from "../UiComponentPanelV2";
 import { UiChip } from "@/components/ui/UiChip";
-import UiActionButtonGroup from "@/components/ui/UiActionButtonGroup";
-import type { UIActionButtonGroupButton } from "@/components/ui/UiActionButtonGroup";
-
-import UIToolbar, { type UIToolbarItem } from "@/components/ui/UiToolbar";
-
-/* ============================================================================
-🧰 HELPERS
-============================================================================ */
+import UiToolbar, { UiToolbarPropsTable, type UiToolbarProps } from "@/components/ui/UiToolbar";
+import { type UiActionButtonGroupButton } from "@/components/ui";
+import type { UiToolbarItem } from "@/components/ui/UiToolbar";
 
 function escapeForAttr(x: string) {
     return x.replaceAll('"', '\\"');
 }
 
-type Align = "left" | "right" | "between";
-type Variant = "soft" | "solid" | "danger" | "ghost" | "master" | "magic";
-
 export default function UiToolbarPanelV2() {
-    const [align, setAlign] = useState<Align>("between");
-    const [variant, setVariant] = useState<Variant>("soft");
-    const [withGroup, setWithGroup] = useState(true);
-    const [withDropdown, setWithDropdown] = useState(true);
-    const [withSecondaryButton, setWithSecondaryButton] = useState(false);
+    const [align, setAlign] = useState<NonNullable<UiToolbarProps["align"]>>("left");
+    const [fullWidth, setFullWidth] = useState(false);
 
-    const [activeTab, setActiveTab] = useState<"journal" | "quests" | "photos">("quests");
-    const [counter, setCounter] = useState(0);
+    // Un petit état interne pour illustrer active/disabled
+    const [view, setView] = useState<"map" | "list" | "grid">("map");
+    const [filtersOn, setFiltersOn] = useState(false);
+    const [lock, setLock] = useState(false);
 
-    const headerBadges = (
-        <div className="flex items-center gap-2">
-            <UiChip tone="slate" size="xs">
-                align: {align}
-            </UiChip>
-            <UiChip tone="slate" size="xs">
-                variant: {variant}
-            </UiChip>
-            <UiChip tone="slate" size="xs">
-                tab: {activeTab}
-            </UiChip>
-        </div>
-    );
+    const importCode = `import { UiToolbar } from "@/components/ui";`;
 
-    /* ------------------------------------------------------------
-     Controls
-    ------------------------------------------------------------ */
+    const items = useMemo<UiToolbarItem[]>(() => {
+        const viewButtons: UiActionButtonGroupButton[] = [
+            { key: "map", children: "Map", active: view === "map", onClick: () => setView("map") },
+            {
+                key: "list",
+                children: "List",
+                active: view === "list",
+                onClick: () => setView("list"),
+            },
+            {
+                key: "grid",
+                children: "Grid",
+                active: view === "grid",
+                onClick: () => setView("grid"),
+            },
+        ];
 
-    const alignButtons = useMemo<UIActionButtonGroupButton[]>(() => {
-        const items: Align[] = ["left", "between", "right"];
+        return [
+            {
+                type: "button",
+                key: "new",
+                label: "✨ New",
+                variant: "magic",
+                size: "sm",
+                onClick: () => {},
+            },
+            {
+                type: "group",
+                key: "view",
+                variant: "soft",
+                size: "sm",
+                buttons: viewButtons,
+            },
+            {
+                type: "button",
+                key: "filters",
+                label: filtersOn ? "🧪 Filters" : "🧊 Filters",
+                variant: "soft",
+                size: "sm",
+                active: filtersOn,
+                onClick: () => setFiltersOn((v) => !v),
+                hint: "F",
+            },
+            {
+                type: "dropdown",
+                key: "more",
+                label: "⋯ More",
+                variant: "ghost",
+                size: "sm",
+                items: [
+                    {
+                        key: "pin",
+                        label: lock ? "🔒 Pin toolbar" : "🔓 Pin toolbar",
+                        onClick: () => setLock((v) => !v),
+                        hint: "P",
+                    },
+                    {
+                        key: "sep",
+                        label: "—",
+                        disabled: true,
+                    },
+                    {
+                        key: "danger",
+                        label: "🗑️ Reset",
+                        onClick: () => {
+                            setView("map");
+                            setFiltersOn(false);
+                            setLock(false);
+                        },
+                        hint: "R",
+                    },
+                ],
+            },
+        ];
+    }, [view, filtersOn, lock]);
+
+    const previewCode = useMemo(() => {
+        const lines: string[] = [];
+
+        lines.push("<UiToolbar");
+        if (align) lines.push(`    align="${align}"`);
+        if (fullWidth) lines.push("    fullWidth");
+        lines.push("    items={[");
+        lines.push(
+            '        { type: "button", label: "✨ New", variant: "magic", size: "sm", onClick: () => {} },'
+        );
+        lines.push("        {");
+        lines.push('            type: "group",');
+        lines.push('            variant: "soft",');
+        lines.push('            size: "sm",');
+        lines.push("            buttons: [");
+        lines.push('                { children: "Map", active: true, onClick: () => {} },');
+        lines.push('                { children: "List", onClick: () => {} },');
+        lines.push('                { children: "Grid", onClick: () => {} },');
+        lines.push("            ],");
+        lines.push("        },");
+        lines.push(
+            '        { type: "button", label: "🧊 Filters", hint: "F", onClick: () => {} },'
+        );
+        lines.push("        {");
+        lines.push('            type: "dropdown",');
+        lines.push('            label: "⋯ More",');
+        lines.push('            variant: "ghost",');
+        lines.push('            size: "sm",');
+        lines.push("            items: [");
+        lines.push('                { label: "🔓 Pin toolbar", hint: "P", onClick: () => {} },');
+        lines.push('                { label: "🗑️ Reset", hint: "R", onClick: () => {} },');
+        lines.push("            ],");
+        lines.push("        },");
+        lines.push("    ]}");
+        lines.push("/>");
+
+        return lines.join("\n").replaceAll("\t", "    ");
+    }, [align, fullWidth]);
+
+    const alignButtons = useMemo<UiActionButtonGroupButton[]>(() => {
+        const items: Array<NonNullable<UiToolbarProps["align"]>> = ["left", "between", "right"];
         return items.map((a) => ({
             key: a,
             children: a,
@@ -58,243 +148,138 @@ export default function UiToolbarPanelV2() {
         }));
     }, [align]);
 
-    const variantButtons = useMemo<UIActionButtonGroupButton[]>(() => {
-        const items: Variant[] = ["soft", "solid", "ghost", "master", "magic", "danger"];
-        return items.map((v) => ({
-            key: v,
-            children: v,
-            active: variant === v,
-            onClick: () => setVariant(v),
-        }));
-    }, [variant]);
-
-    const blocksButtons = useMemo<UIActionButtonGroupButton[]>(() => {
+    const flagsButtons = useMemo<UiActionButtonGroupButton[]>(() => {
         return [
             {
-                key: "group",
-                children: "group",
-                hint: withGroup ? "ON" : "OFF",
-                active: withGroup,
-                onClick: () => setWithGroup((v) => !v),
-            },
-            {
-                key: "dropdown",
-                children: "dropdown",
-                hint: withDropdown ? "ON" : "OFF",
-                active: withDropdown,
-                onClick: () => setWithDropdown((v) => !v),
-            },
-            {
-                key: "button2",
-                children: "2nd button",
-                hint: withSecondaryButton ? "ON" : "OFF",
-                active: withSecondaryButton,
-                onClick: () => setWithSecondaryButton((v) => !v),
+                key: "fullWidth",
+                children: "fullWidth",
+                // hint: fullWidth ? "ON" : "OFF",
+                active: fullWidth,
+                className: fullWidth ? "text-success" : "text-error",
+                onClick: () => setFullWidth((v) => !v),
             },
         ];
-    }, [withGroup, withDropdown, withSecondaryButton]);
-
-    /* ------------------------------------------------------------
-     Preview items (JSON)
-    ------------------------------------------------------------ */
-
-    const items = useMemo<UIToolbarItem[]>(() => {
-        const list: UIToolbarItem[] = [];
-
-        list.push({
-            type: "button",
-            key: "primary",
-            label: `⚡ Action (${counter})`,
-            variant,
-            hint: "RUN",
-            onClick: () => setCounter((c) => c + 1),
-        });
-
-        if (withSecondaryButton) {
-            list.push({
-                type: "button",
-                key: "secondary",
-                label: "🧪 Test",
-                variant: variant === "danger" ? "soft" : "ghost",
-                hint: "DEV",
-                onClick: () => setCounter((c) => Math.max(0, c - 1)),
-            });
-        }
-
-        if (withGroup) {
-            list.push({
-                type: "group",
-                key: "tabs",
-                variant: "soft",
-                size: "sm",
-                buttons: [
-                    {
-                        key: "journal",
-                        children: "📜 Journal",
-                        active: activeTab === "journal",
-                        onClick: () => setActiveTab("journal"),
-                    },
-                    {
-                        key: "quests",
-                        children: "🗺️ Quêtes",
-                        active: activeTab === "quests",
-                        onClick: () => setActiveTab("quests"),
-                    },
-                    {
-                        key: "photos",
-                        children: "📷 Photos",
-                        active: activeTab === "photos",
-                        onClick: () => setActiveTab("photos"),
-                    },
-                ],
-            });
-        }
-
-        if (withDropdown) {
-            list.push({
-                type: "dropdown",
-                key: "menu",
-                label: "⚙️ Menu",
-                variant: variant === "danger" ? "soft" : "soft",
-                items: [
-                    {
-                        key: "rename",
-                        label: "✏️ Renommer",
-                        hint: "R",
-                        onClick: () => console.log("rename"),
-                    },
-                    {
-                        key: "duplicate",
-                        label: "🧬 Dupliquer",
-                        hint: "D",
-                        onClick: () => console.log("duplicate"),
-                    },
-                    {
-                        key: "danger",
-                        label: "🗑️ Supprimer",
-                        hint: "!",
-                        onClick: () => console.log("delete"),
-                    },
-                ],
-            });
-        }
-
-        return list;
-    }, [activeTab, counter, variant, withDropdown, withGroup, withSecondaryButton]);
-
-    /* ------------------------------------------------------------
-     Code blocks
-    ------------------------------------------------------------ */
-
-    const importCode = `import UIToolbar from "@/components/ui/UIToolbar";`;
-
-    const previewCode = useMemo(() => {
-        const jsonLike = `const items = [
-    {
-        type: "button",
-        label: "⚡ Action",
-        variant: "${escapeForAttr(String(variant))}",
-        hint: "RUN",
-        onClick: () => {},
-    },
-    ${
-        withGroup
-            ? `{
-        type: "group",
-        variant: "soft",
-        size: "sm",
-        buttons: [
-            { children: "📜 Journal", active: true, onClick: () => {} },
-            { children: "🗺️ Quêtes", onClick: () => {} },
-            { children: "📷 Photos", onClick: () => {} },
-        ],
-    },`
-            : ""
-    }
-    ${
-        withDropdown
-            ? `{
-        type: "dropdown",
-        label: "⚙️ Menu",
-        items: [
-            { label: "✏️ Renommer", onClick: () => {} },
-            { label: "🧬 Dupliquer", onClick: () => {} },
-            { label: "🗑️ Supprimer", onClick: () => {} },
-        ],
-    },`
-            : ""
-    }
-] as const;`;
-
-        return `${jsonLike}
-
-<UIToolbar
-    align="${align}"
-    items={items as any}
-/>`;
-    }, [align, variant, withGroup, withDropdown]);
+    }, [fullWidth]);
 
     return (
         <UiComponentPanelV2
-            title="UIToolbar"
+            title="UiToolbar"
             emoji="🧰"
-            subtitle="Toolbar déclarative (JSON): boutons, groupes segmentés, dropdown menus. Parfaite pour déplacer les actions au-dessus des Panels/Cards."
-            headerBadges={headerBadges}
+            headerBadges={
+                <div className="flex items-center gap-2">
+                    <UiChip tone="slate" size="md">
+                        {align}
+                    </UiChip>
+                    {fullWidth ? (
+                        <UiChip tone="slate" size="md">
+                            fullWidth
+                        </UiChip>
+                    ) : null}
+                    {filtersOn ? (
+                        <UiChip tone="slate" size="md">
+                            filters
+                        </UiChip>
+                    ) : null}
+                    {lock ? (
+                        <UiChip tone="slate" size="md">
+                            pinned
+                        </UiChip>
+                    ) : null}
+                </div>
+            }
             controls={[
                 {
                     key: "align",
                     label: "ALIGN",
-                    hint: "Alignement horizontal de la toolbar.",
                     buttons: alignButtons,
                     groupVariant: "soft",
                     groupSize: "sm",
                 },
                 {
-                    key: "variant",
-                    label: "VARIANT",
-                    hint: "Variant du bouton principal (ex: soft/master/magic).",
-                    buttons: variantButtons,
-                    groupVariant: "soft",
-                    groupSize: "xs",
-                },
-                {
-                    key: "blocks",
-                    label: "BLOCKS",
-                    hint: "Activer/désactiver group, dropdown, 2nd button.",
-                    buttons: blocksButtons,
+                    key: "flags",
+                    label: "FLAGS",
+                    buttons: flagsButtons,
                     groupVariant: "soft",
                     groupSize: "sm",
                 },
             ]}
-            preview={<UIToolbar align={align} items={items} />}
+            preview={
+                <div className="space-y-3">
+                    <UiToolbar items={items} align={align} fullWidth={fullWidth} />
+                </div>
+            }
             examples={
                 <div className="grid gap-3 lg:grid-cols-2">
-                    <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
-                        <div className="text-xs tracking-[0.18em] text-white/55">QUEST PAGE</div>
-                        <div className="mt-3">
-                            <UIToolbar
-                                align="between"
+                    <div className="rounded-2xl bg-black/25 ring-1 ring-white/10 overflow-hidden">
+                        <div className="text-xs tracking-[0.18em] border-b border-white/10 text-white/55 p-3">
+                            LEFT (compact)
+                        </div>
+                        <div className="bg-black/40 p-4 rounded-b-2xl">
+                            <UiToolbar
+                                align="left"
                                 items={[
+                                    {
+                                        type: "button",
+                                        label: "✨ New",
+                                        variant: "magic",
+                                        size: "sm",
+                                        onClick: () => {},
+                                    },
                                     {
                                         type: "group",
                                         variant: "soft",
                                         size: "sm",
                                         buttons: [
-                                            {
-                                                children: "📜 Journal",
-                                                active: true,
-                                                onClick: () => {},
-                                            },
-                                            { children: "🗺️ Quêtes", onClick: () => {} },
+                                            { children: "A", active: true, onClick: () => {} },
+                                            { children: "B", onClick: () => {} },
+                                            { children: "C", onClick: () => {} },
                                         ],
                                     },
                                     {
                                         type: "dropdown",
-                                        label: "⚙️ Actions",
+                                        label: "⋯",
+                                        variant: "ghost",
+                                        size: "sm",
+                                        items: [{ label: "Option", onClick: () => {} }],
+                                    },
+                                ]}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="rounded-2xl bg-black/25 ring-1 ring-white/10 overflow-hidden">
+                        <div className="text-xs tracking-[0.18em] border-b border-white/10 text-white/55 p-3">
+                            BETWEEN (full width)
+                        </div>
+                        <div className="bg-black/40 p-4 rounded-b-2xl">
+                            <UiToolbar
+                                align="between"
+                                fullWidth
+                                items={[
+                                    {
+                                        type: "button",
+                                        label: "⬅︎ Back",
+                                        variant: "ghost",
+                                        size: "sm",
+                                        onClick: () => {},
+                                    },
+                                    {
+                                        type: "group",
+                                        variant: "soft",
+                                        size: "sm",
+                                        buttons: [
+                                            { children: "Map", active: true, onClick: () => {} },
+                                            { children: "List", onClick: () => {} },
+                                        ],
+                                    },
+                                    {
+                                        type: "dropdown",
+                                        label: "⚙️",
+                                        variant: "soft",
+                                        size: "sm",
                                         items: [
-                                            { label: "✨ Générer mission", onClick: () => {} },
-                                            { label: "📖 Sceller chapitre", onClick: () => {} },
-                                            { label: "🗑️ Supprimer", onClick: () => {} },
+                                            { label: "Profile", onClick: () => {} },
+                                            { label: "Logout", onClick: () => {} },
                                         ],
                                     },
                                 ]}
@@ -302,24 +287,72 @@ export default function UiToolbarPanelV2() {
                         </div>
                     </div>
 
-                    <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
-                        <div className="text-xs tracking-[0.18em] text-white/55">MINIMAL</div>
-                        <div className="mt-3">
-                            <UIToolbar
-                                align="left"
+                    <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 overflow-hidden">
+                        <div className="text-xs tracking-[0.18em] border-b border-white/10 text-white/55 p-3">
+                            RIGHT (actions)
+                        </div>
+                        <div className="bg-black/40 p-4 rounded-b-2xl">
+                            <UiToolbar
+                                align="right"
                                 items={[
                                     {
                                         type: "button",
-                                        label: "➕ Ajouter",
-                                        variant: "master",
-                                        hint: "A",
+                                        label: "👀 Preview",
+                                        variant: "ghost",
+                                        size: "sm",
                                         onClick: () => {},
                                     },
                                     {
                                         type: "button",
-                                        label: "🧼 Reset",
-                                        variant: "ghost",
+                                        label: "✅ Save",
+                                        variant: "solid",
+                                        size: "sm",
                                         onClick: () => {},
+                                    },
+                                    {
+                                        type: "button",
+                                        label: "🗑️ Delete",
+                                        variant: "danger",
+                                        size: "sm",
+                                        onClick: () => {},
+                                    },
+                                ]}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 overflow-hidden">
+                        <div className="text-xs tracking-[0.18em] border-b border-white/10 text-white/55 p-3">
+                            STRETCH PER ITEM
+                        </div>
+                        <div className="bg-black/40 p-4 rounded-b-2xl">
+                            <UiToolbar
+                                fullWidth
+                                align="left"
+                                items={[
+                                    {
+                                        type: "button",
+                                        label: "🔍 Search",
+                                        variant: "soft",
+                                        size: "sm",
+                                        fullWidth: true,
+                                        onClick: () => {},
+                                    },
+                                    {
+                                        type: "button",
+                                        label: "⚙️",
+                                        variant: "ghost",
+                                        size: "sm",
+                                        fullWidth: false,
+                                        onClick: () => {},
+                                    },
+                                    {
+                                        type: "dropdown",
+                                        label: "More",
+                                        variant: "soft",
+                                        size: "sm",
+                                        fullWidth: false,
+                                        items: [{ label: "Option", onClick: () => {} }],
                                     },
                                 ]}
                             />
@@ -328,38 +361,10 @@ export default function UiToolbarPanelV2() {
                 </div>
             }
             codeBlocks={[
-                {
-                    key: "import",
-                    title: "Import",
-                    language: "ts",
-                    code: importCode,
-                },
-                {
-                    key: "usage",
-                    title: "Usage (preview)",
-                    language: "tsx",
-                    code: previewCode,
-                    description: "Exemple déclaratif: items JSON (button/group/dropdown).",
-                },
+                { key: "import", title: "Import", language: "ts", code: importCode },
+                { key: "usage", title: "Usage", language: "tsx", code: previewCode },
             ]}
-            propsTable={[
-                {
-                    name: "items",
-                    type: "UIToolbarItem[]",
-                    description: "Contenu déclaratif de la toolbar (button | group | dropdown).",
-                },
-                {
-                    name: "align",
-                    type: `"left" | "right" | "between"`,
-                    description: "Alignement horizontal.",
-                    default: `"left"`,
-                },
-                {
-                    name: "className",
-                    type: "string",
-                    description: "Classes additionnelles sur le wrapper.",
-                },
-            ]}
+            propsTable={UiToolbarPropsTable as any}
         />
     );
 }

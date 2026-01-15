@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getActiveSessionOrThrow } from "@/lib/sessions/getActiveSession";
 import { evaluateAchievements } from "@/lib/achievements/evaluateAchievements";
+import { evaluateRenownLevel } from "@/lib/achievements/evaluateRenownLevel";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -194,9 +195,9 @@ export async function PATCH(req: NextRequest, context: Ctx) {
 
     // 🎉 ACHIEVEMENTS — quest completed
     if (status === "done") {
-        try {
-            const admin = supabaseAdmin();
+        const admin = supabaseAdmin();
 
+        try {
             await evaluateAchievements(admin, "quest_completed", {
                 user_id: userId,
                 session_id: session.id,
@@ -210,7 +211,16 @@ export async function PATCH(req: NextRequest, context: Ctx) {
             });
         } catch (e) {
             // ⚠️ IMPORTANT: on ne bloque JAMAIS la requête principale
-            console.error("evaluateAchievements failed", e);
+            console.error("evaluateRenownLevel failed", e);
+        }
+        try {
+            await evaluateRenownLevel(admin, {
+                user_id: userId,
+                request_id: req.headers.get("x-request-id") ?? null,
+            });
+        } catch (e) {
+            // ⚠️ IMPORTANT: on ne bloque JAMAIS la requête principale
+            console.error("evaluateRenownLevel failed", e);
         }
     }
 

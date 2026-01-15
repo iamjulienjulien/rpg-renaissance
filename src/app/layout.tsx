@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { fraunces } from "@/lib/fonts";
+import { fontsVariables, fraunces } from "@/lib/fonts";
 
 import ThemeHydrator from "@/components/ThemeHydrator";
 import AppHotkeys from "@/components/AppHotKeys";
@@ -15,6 +15,7 @@ import ToastEngine from "@/components/toasts/ToastEngine";
 import AiJobsEngine from "@/components/ai/AiJobsEngine";
 import ChapterQuestPalette from "@/components/quests/ChapterQuestPalette";
 import DevDataModal from "@/components/modals/DevDataModal";
+import QuestCreateModal from "@/components/modals/QuestCreateModal";
 
 export const metadata: Metadata = {
     title: "RPG Renaissance — Le jeu dont tu es le héros",
@@ -28,8 +29,9 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+    // console.log("f", fraunces);
     return (
-        <html lang="fr" className={fraunces.variable}>
+        <html lang="fr" className={fontsVariables.join(" ")}>
             <body>
                 <ThemeHydrator />
                 <SettingsApplier />
@@ -42,6 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <DevHud />
                 <UiMotionConfig>{children}</UiMotionConfig>
                 <DevDataModal />
+                <QuestCreateModal />
             </body>
         </html>
     );

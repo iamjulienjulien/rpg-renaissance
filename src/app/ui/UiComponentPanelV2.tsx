@@ -5,8 +5,8 @@ import React, { useMemo, useState } from "react";
 import { UiPanel } from "@/components/ui/UiPanel";
 import { UiChip } from "@/components/ui/UiChip";
 import UiActionButton from "@/components/ui/UiActionButton";
-import UiActionButtonGroup from "@/components/ui/UiActionButtonGroup";
-import type { UIActionButtonGroupButton } from "@/components/ui/UiActionButtonGroup";
+import { UiActionButtonGroup, type UiActionButtonGroupButton } from "@/components/ui";
+// import type {  } from "@/components/ui/UiActionButtonGroup";
 import UiTooltip from "@/components/ui/UiTooltip";
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -19,9 +19,9 @@ function cn(...classes: Array<string | false | null | undefined>) {
 
 export type UiComponentPanelCodeBlock = {
     key: string;
-    title: string; // ex: "IMPORT"
+    title: string;
     code: string;
-    language?: string; // display only
+    language?: string;
     description?: string;
 };
 
@@ -30,22 +30,17 @@ export type UiComponentPanelPropRow = {
     type: string;
     description: string;
     default?: string;
+    required?: boolean;
 };
 
 export type UiComponentPanelControlRow = {
     key: string;
     label: string;
     hint?: string;
-
-    /** Boutons groupés */
-    buttons: UIActionButtonGroupButton[];
-
-    /** optionnel: taille/variant */
+    buttons: UiActionButtonGroupButton[];
     groupVariant?: "soft" | "solid";
     groupSize?: "xs" | "sm" | "md" | "lg" | "xl";
     fullWidth?: boolean;
-
-    /** optionnel: contenu à droite (ex: chip valeur actuelle) */
     right?: React.ReactNode;
 };
 
@@ -54,26 +49,16 @@ export type UiComponentPanelV2Props = {
     emoji?: string;
     subtitle?: string;
 
-    /** Le panel lui-même (accordéon) */
     collapsible?: boolean;
     defaultCollapsed?: boolean;
 
-    /** Controls (rows) */
-    controls?: UiComponentPanelControlRow[];
-
-    /** Preview card content */
+    controls?: UiComponentPanelControlRow[] | UiComponentPanelControlRow[][];
     preview: React.ReactNode;
-
-    /** Examples card content */
     examples?: React.ReactNode;
-
-    /** Code blocks (import + preview usage, etc.) */
     codeBlocks?: UiComponentPanelCodeBlock[];
-
-    /** Props table */
     propsTable?: UiComponentPanelPropRow[];
 
-    /** Optionnel: tags/chips en header (ex: tone/size) */
+    /** badges représentant l’état courant (variant, size, etc.) */
     headerBadges?: React.ReactNode;
 };
 
@@ -81,68 +66,49 @@ export type UiComponentPanelV2Props = {
 🧰 HELPERS
 ============================================================================ */
 
-function safeCopyLabel(ok: boolean) {
-    return ok ? "✅ Copié" : "📋 Copier";
-}
-
-async function copyToClipboard(text: string) {
-    await navigator.clipboard.writeText(text);
-}
-
 function TableCell({ children }: { children: React.ReactNode }) {
     return <td className="px-3 py-2 align-top text-xs text-white/70">{children}</td>;
 }
 
 function TableHead({ children }: { children: React.ReactNode }) {
-    return (
-        <th className="px-3 py-2 text-left text-[11px] tracking-[0.18em] text-white/55">
-            {children}
-        </th>
-    );
+    return <th className="px-3 py-2 text-left text-sm font-normal text-white/55">{children}</th>;
 }
 
 function CodeBlock({ block }: { block: UiComponentPanelCodeBlock }) {
     const [copied, setCopied] = useState(false);
 
     const onCopy = async () => {
-        try {
-            await copyToClipboard(block.code);
-            setCopied(true);
-            window.setTimeout(() => setCopied(false), 900);
-        } catch {
-            // noop
-        }
+        await navigator.clipboard.writeText(block.code);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 900);
     };
 
     return (
         <div className="rounded-2xl bg-black/25 ring-1 ring-white/10 overflow-hidden">
-            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/10">
-                <div className="min-w-0">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                <div>
                     <div className="flex items-center gap-2">
                         <div className="text-xs tracking-[0.18em] text-white/55">
                             {block.title.toUpperCase()}
                         </div>
-                        {block.language ? (
+                        {block.language && (
                             <UiChip tone="slate" size="xs">
                                 {block.language}
                             </UiChip>
-                        ) : null}
+                        )}
                     </div>
-
-                    {block.description ? (
-                        <div className="mt-1 text-xs text-white/45 line-clamp-2">
-                            {block.description}
-                        </div>
-                    ) : null}
+                    {/* {block.description && (
+                        <div className="mt-1 text-xs text-white/45">{block.description}</div>
+                    )} */}
                 </div>
 
-                <UiActionButton variant="soft" size="sm" onClick={onCopy}>
-                    {safeCopyLabel(copied)}
+                <UiActionButton variant="soft" size="xs" onClick={onCopy} active={copied}>
+                    {copied ? "✅ Copié" : "📋 Copier"}
                 </UiActionButton>
             </div>
 
-            <pre className="p-4 overflow-auto text-xs leading-relaxed text-white/70">
-                <code>{block.code}</code>
+            <pre className="p-4 overflow-auto font-mono text-xs text-white/70 bg-black/40">
+                <code className="font-mono">{block.code}</code>
             </pre>
         </div>
     );
@@ -168,154 +134,161 @@ export default function UiComponentPanelV2({
     headerBadges,
 }: UiComponentPanelV2Props) {
     const [codeOpen, setCodeOpen] = useState(false);
+    const hasCode = Boolean(codeBlocks?.length);
 
-    const hasCode = Array.isArray(codeBlocks) && codeBlocks.length > 0;
+    const controlRows = useMemo<UiComponentPanelControlRow[][]>(() => {
+        if (!controls) return [];
 
-    const headerRight = (
-        <div className="flex items-center gap-2">
-            {headerBadges ? (
-                <div className="hidden sm:flex items-center gap-2">{headerBadges}</div>
-            ) : null}
+        // Si c’est déjà un tableau de tableaux → OK
+        if (Array.isArray(controls[0])) {
+            return controls as UiComponentPanelControlRow[][];
+        }
 
-            {hasCode ? (
-                <UiTooltip content={codeOpen ? "Masquer le code" : "Afficher le code"}>
-                    <span>
-                        <UiActionButton
-                            variant={codeOpen ? "solid" : "soft"}
-                            size="sm"
-                            onClick={() => setCodeOpen((v) => !v)}
-                        >
-                            {"</>"} Code
-                        </UiActionButton>
-                    </span>
-                </UiTooltip>
-            ) : null}
-        </div>
-    );
+        // Sinon on wrap dans une seule ligne
+        return [controls as UiComponentPanelControlRow[]];
+    }, [controls]);
 
     const controlsSection = useMemo(() => {
-        if (!controls || controls.length === 0) return null;
+        if (!controlRows.length) return null;
 
         return (
-            <div className="mt-4 space-y-3">
-                {controls.map((row) => (
-                    <div key={row.key} className="flex flex-col gap-2">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="min-w-0">
-                                <div className="text-xs tracking-[0.18em] text-white/45">
-                                    {row.label}
+            <div className="space-y-4">
+                {controlRows.map((line, lineIndex) => (
+                    <div key={lineIndex} className="flex justify-between gap-6">
+                        {line.map((row) => (
+                            <div key={row.key} className="space-y-2">
+                                <div>
+                                    <div className="text-xs tracking-[0.18em] text-white/45">
+                                        {row.label}
+                                    </div>
                                 </div>
-                                {row.hint ? (
-                                    <div className="mt-1 text-xs text-white/40">{row.hint}</div>
-                                ) : null}
+
+                                <UiActionButtonGroup
+                                    variant={row.groupVariant ?? "soft"}
+                                    size="xs"
+                                    buttons={row.buttons}
+                                />
                             </div>
-
-                            {row.right ? <div className="shrink-0">{row.right}</div> : null}
-                        </div>
-
-                        <UiActionButtonGroup
-                            variant={row.groupVariant ?? "soft"}
-                            size={row.groupSize ?? "sm"}
-                            fullWidth={row.fullWidth ?? true}
-                            buttons={row.buttons}
-                            className="w-full"
-                        />
+                        ))}
                     </div>
                 ))}
             </div>
         );
-    }, [controls]);
+    }, [controlRows]);
+
+    /* ================= PREVIEW ================= */
 
     const previewCard = (
-        <div className="mt-4 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
-            <div className="text-xs tracking-[0.18em] text-white/55">PREVIEW</div>
-            <div className="mt-3">{preview}</div>
+        <div>
+            <div className="mt-4 text-xs tracking-[0.18em] text-white/55">PREVIEW</div>
+            <div className="mt-2 rounded-2xl bg-black/25  ring-1 ring-white/10">
+                <div className="border-b border-white/10 p-4 pt-4">{controlsSection}</div>
+                <div className="flex items-center justify-between p-4 bg-black/20 border-b border-white/10">
+                    {headerBadges && <div className="flex flex-wrap gap-2">{headerBadges}</div>}
+                    {hasCode && (
+                        <UiTooltip content={codeOpen ? "Masquer le code" : "Afficher le code"}>
+                            <UiActionButton
+                                variant="soft"
+                                active={codeOpen}
+                                size="xs"
+                                onClick={() => setCodeOpen((v) => !v)}
+                            >
+                                ⌨️ Code
+                            </UiActionButton>
+                        </UiTooltip>
+                    )}
+                </div>
+
+                <div className="p-4 bg-black/45 rounded-b-2xl">{preview}</div>
+            </div>
         </div>
     );
 
-    const examplesCard = examples ? (
-        <div className="mt-4 rounded-2xl bg-black/20 p-4 ring-1 ring-white/10">
-            <div className="text-xs tracking-[0.18em] text-white/55">EXAMPLES</div>
-            <div className="mt-3">{examples}</div>
-        </div>
-    ) : null;
+    /* ================= CODE ================= */
 
     const codeSection =
         hasCode && codeOpen ? (
             <div className="mt-4 space-y-3">
                 <div className="text-xs tracking-[0.18em] text-white/55">CODE</div>
                 <div className="grid gap-3">
-                    {(codeBlocks ?? []).map((b) => (
+                    {codeBlocks!.map((b) => (
                         <CodeBlock key={b.key} block={b} />
                     ))}
                 </div>
             </div>
         ) : null;
 
-    const propsSection =
-        propsTable && propsTable.length ? (
-            <div className="mt-5">
-                <div className="text-xs tracking-[0.18em] text-white/55">PROPS</div>
+    /* ================= EXAMPLES ================= */
 
-                <div className="mt-3 overflow-hidden rounded-2xl ring-1 ring-white/10">
-                    <div className="overflow-auto">
-                        <table className="min-w-[860px] w-full border-collapse">
-                            <thead className="bg-black/20">
-                                <tr>
-                                    <TableHead>name</TableHead>
-                                    <TableHead>type</TableHead>
-                                    <TableHead>description</TableHead>
-                                    <TableHead>default</TableHead>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {propsTable.map((p) => (
-                                    <tr
-                                        key={p.name}
-                                        className="border-t border-white/10 hover:bg-white/[0.03]"
-                                    >
-                                        <TableCell>
-                                            <span className="font-mono text-white/85">
-                                                {p.name}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>
-                                            <span className="font-mono text-white/70">
-                                                {p.type}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>{p.description}</TableCell>
-                                        <TableCell>
-                                            {p.default ? (
-                                                <span className="font-mono text-white/55">
-                                                    {p.default}
-                                                </span>
-                                            ) : (
-                                                <span className="text-white/30">—</span>
-                                            )}
-                                        </TableCell>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+    const examplesSection = examples ? (
+        <div>
+            <div className="text-xs tracking-[0.18em] text-white/55 mt-6">EXAMPLES</div>
+            <div className="">
+                <div className="mt-3">{examples}</div>
             </div>
-        ) : null;
+        </div>
+    ) : null;
+
+    /* ================= PROPS ================= */
+
+    const propsSection = propsTable?.length ? (
+        <div className="mt-5 pb-1">
+            <div className="text-xs tracking-[0.18em] text-white/55">PROPS</div>
+
+            <div className="mt-3 overflow-auto rounded-2xl ring-1 ring-white/10">
+                <table className="min-w-245 w-full border-collapse bg-black/25">
+                    <thead className="">
+                        <tr>
+                            <TableHead>name</TableHead>
+                            <TableHead>description</TableHead>
+                            <TableHead>type</TableHead>
+                            <TableHead>default</TableHead>
+                            <TableHead>required</TableHead>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-black/45">
+                        {propsTable.map((p) => (
+                            <tr key={p.name} className="border-t border-white/10 hover:bg-white/3">
+                                <TableCell>
+                                    <span className="font-mono text-white/85">{p.name}</span>
+                                </TableCell>
+                                <TableCell>
+                                    <span className="text-xs text-white/45">{p.description}</span>
+                                </TableCell>
+                                <TableCell>
+                                    <span className="font-mono text-white/70">{p.type}</span>
+                                </TableCell>
+                                <TableCell>
+                                    {p.default ?? <span className="text-white/30">—</span>}
+                                </TableCell>
+                                <TableCell>
+                                    {p.required ? (
+                                        <UiChip tone="amber" size="xs">
+                                            required
+                                        </UiChip>
+                                    ) : (
+                                        <span className="text-white/30">false</span>
+                                    )}
+                                </TableCell>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    ) : null;
 
     return (
         <UiPanel
             title={title}
             emoji={emoji}
-            subtitle={subtitle}
-            right={headerRight}
+            subtitle={subtitle ?? undefined}
             collapsible={collapsible}
             defaultOpen={defaultCollapsed}
         >
-            {controlsSection}
             {previewCard}
-            {examplesCard}
             {codeSection}
+            {examplesSection}
             {propsSection}
         </UiPanel>
     );

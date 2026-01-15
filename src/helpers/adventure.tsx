@@ -113,7 +113,7 @@ export function CurrentCharacterPill() {
 
     if (currentCharacter?.name) {
         return (
-            <UiPill>
+            <UiPill title="Maître du jeu">
                 {currentCharacter?.emoji ?? currentCharacter.emoji + " "}
                 {currentCharacter.name}
             </UiPill>

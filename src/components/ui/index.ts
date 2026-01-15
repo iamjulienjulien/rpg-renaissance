@@ -1,38 +1,44 @@
 // src/components/ui/index.ts
 
 /* ============================================================================
-🧩 Core UI components
+🧩 UI Controls
 ============================================================================ */
 
-// Chips / Pills / Panels
 export * from "./UiChip";
 export * from "./UiPill";
+export * from "./UiActionButton";
+export * from "./UiActionButtonGroup";
+export * from "./UiToolbar";
+
+/* ============================================================================
+🧩 UI Surfaces
+============================================================================ */
+
 export * from "./UiPanel";
-export { UiGradientPanel } from "./UiGradientPanel";
-export { UiModal } from "./UiModal";
 export * from "./UiCard";
-// Form
+export * from "./UiGradientPanel";
+export * from "./UiGradientCard";
+
+/* ============================================================================
+🧩 UI Form Elements
+============================================================================ */
+export * from "./UiFormText";
 export * from "./UiFormSelect";
 export * from "./UiFormDate";
+
+export { UiModal } from "./UiModal";
 
 /* ============================================================================
 🧭 Actions & Controls (alias UiXXXX)
 ============================================================================ */
 
-// ⛔️ fichiers internes peuvent rester en UIActionButton,
+// ⛔️ fichiers internes peuvent rester en UiActionButton,
 // ✅ l’API publique est normalisée en UiActionButton
 
-export { default as UiActionButton } from "./UiActionButton";
-export { default as UiActionButtonGroup } from "./UiActionButtonGroup";
-
-export { type UIActionButtonGroupButton as UiActionButtonGroupButton } from "./UiActionButtonGroup";
-export { UiFormText, type UiFormTextTone } from "./UiFormText";
+// export { type UiActionButtonGroupButton as UiActionButtonGroupButton } from "./UiActionButtonGroup";
 
 /* ============================================================================
 🪄 Overlays & helpers
 ============================================================================ */
 
 export { default as UiTooltip } from "./UiTooltip";
-
-// export { type UiF}
-// export { type UiA}

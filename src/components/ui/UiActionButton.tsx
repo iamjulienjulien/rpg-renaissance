@@ -2,12 +2,9 @@
 
 import React from "react";
 import { useUiAction, type UiAction } from "@/components/RpgUi";
+import { cn } from "@/lib/utills";
 
-function cn(...classes: Array<string | false | null | undefined>) {
-    return classes.filter(Boolean).join(" ");
-}
-
-export type UIActionButtonProps = {
+export type UiActionButtonProps = {
     children: React.ReactNode;
     onClick?: () => void;
 
@@ -23,7 +20,81 @@ export type UIActionButtonProps = {
     size?: "xs" | "sm" | "md" | "lg" | "xl";
 };
 
-const SIZE: Record<NonNullable<UIActionButtonProps["size"]>, string> = {
+export const UiActionButtonPropsTable = [
+    {
+        name: "children",
+        type: "React.ReactNode",
+        required: true,
+        description: "Contenu du bouton (texte, icône ou composition libre).",
+        default: "—",
+    },
+    {
+        name: "onClick",
+        type: "() => void",
+        required: false,
+        description: "Callback déclenché lors du clic sur le bouton.",
+        default: "undefined",
+    },
+    {
+        name: "variant",
+        type: `"soft" | "solid" | "master" | "magic" | "danger" | "ghost"`,
+        required: false,
+        description:
+            "Style visuel du bouton. Influence les couleurs, le contraste et le ressenti (primaire, magique, destructif, etc.).",
+        default: `"soft"`,
+    },
+    {
+        name: "disabled",
+        type: "boolean",
+        required: false,
+        description: "Désactive le bouton et empêche toute interaction utilisateur.",
+        default: "false",
+    },
+    {
+        name: "active",
+        type: "boolean",
+        required: false,
+        description: "Force l’état actif du bouton (utile pour les toggles ou états persistants).",
+        default: "false",
+    },
+    {
+        name: "className",
+        type: "string",
+        required: false,
+        description: "Classes CSS supplémentaires pour personnaliser ou surcharger le style.",
+        default: "undefined",
+    },
+    {
+        name: "action",
+        type: "UiAction",
+        required: false,
+        description: "Action métier associée au bouton (pattern action / intent du jeu).",
+        default: "undefined",
+    },
+    {
+        name: "hint",
+        type: "string",
+        required: false,
+        description: "Texte d’aide ou de contexte affiché au survol ou à proximité du bouton.",
+        default: "undefined",
+    },
+    {
+        name: "fullWidth",
+        type: "boolean",
+        required: false,
+        description: "Si activé, le bouton occupe toute la largeur disponible de son conteneur.",
+        default: "false",
+    },
+    {
+        name: "size",
+        type: `"xs" | "sm" | "md" | "lg" | "xl"`,
+        required: false,
+        description: "Taille du bouton. Affecte la hauteur, le padding et la taille du texte.",
+        default: `"md"`,
+    },
+];
+
+const SIZE: Record<NonNullable<UiActionButtonProps["size"]>, string> = {
     xs: "text-xs px-3 py-1.5 rounded-xl",
     sm: "text-sm px-3.5 py-2 rounded-2xl",
     md: "rpg-text-sm px-4 py-2 rounded-2xl",
@@ -31,7 +102,7 @@ const SIZE: Record<NonNullable<UIActionButtonProps["size"]>, string> = {
     xl: "text-base px-6 py-3 rounded-3xl",
 };
 
-function HintPill({ variant, hint }: { variant: UIActionButtonProps["variant"]; hint: string }) {
+function HintPill({ variant, hint }: { variant: UiActionButtonProps["variant"]; hint: string }) {
     const base = "rounded-full px-2 py-0.5 text-[11px] ring-1 whitespace-nowrap";
 
     if (variant === "master") {
@@ -69,7 +140,7 @@ function HintPill({ variant, hint }: { variant: UIActionButtonProps["variant"]; 
     );
 }
 
-export function UIActionButton(props: UIActionButtonProps) {
+export function UiActionButton(props: UiActionButtonProps) {
     const disabled = !!props.disabled;
     const active = !!props.active && !disabled; // ✅
     const variant = props.variant ?? "soft";
@@ -241,15 +312,15 @@ export function UIActionButton(props: UIActionButtonProps) {
             className={cn(
                 props.className,
                 fullWidth && "w-full",
-                "inline-flex items-center gap-2 ring-1 transition",
+                "inline-flex items-center gap-2 ring-1 transition cursor-pointer",
                 sizeCls,
                 isSolid
                     ? active
                         ? "bg-[hsl(var(--accent)/0.2)] ring-[hsl(var(--accent)/0.4)]"
                         : "bg-[hsl(var(--accent)/0.12)] ring-[hsl(var(--accent)/0.25)]"
                     : active
-                      ? "bg-[hsl(var(--panel-2)/0.95)] ring-[hsl(var(--accent)/0.35)]"
-                      : "bg-[hsl(var(--panel-2)/0.35)] ring-[hsl(var(--ring))]",
+                      ? "bg-[hsl(var(--panel-2-active))]  ring-[hsl(var(--ring))]"
+                      : "bg-[hsl(var(--panel-2))]  hover:bg-[hsl(var(--panel-2-hover))] ring-[hsl(var(--ring))]",
                 "text-[hsl(var(--text))]",
                 disabled && "opacity-60 pointer-events-none"
             )}
@@ -260,4 +331,4 @@ export function UIActionButton(props: UIActionButtonProps) {
     );
 }
 
-export default UIActionButton;
+export default UiActionButton;

@@ -14,7 +14,7 @@ export type UiPanelProps = {
     right?: React.ReactNode;
     children: React.ReactNode;
 
-    variant?: "default" | "soft" | "ghost";
+    variant?: "default" | "soft" | "ghost" | "theme";
     tone?: "theme" | "neutral";
     padded?: boolean;
     className?: string;
@@ -27,6 +27,100 @@ export type UiPanelProps = {
     /** Footer */
     footer?: React.ReactNode;
 };
+
+export const UiPanelPropsTable = [
+    {
+        name: "children",
+        type: "React.ReactNode",
+        description: "Contenu principal affiché à l’intérieur du panel.",
+        default: "—",
+        required: true,
+    },
+    {
+        name: "title",
+        type: "string",
+        description: "Titre du panel, affiché en en-tête (en capitales).",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "subtitle",
+        type: "string",
+        description: "Sous-titre affiché sous le titre principal.",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "emoji",
+        type: "string",
+        description: "Emoji affiché avant le titre du panel.",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "right",
+        type: "React.ReactNode",
+        description: "Contenu affiché à droite du header (actions, badges, boutons…).",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "variant",
+        type: '"default" | "soft" | "ghost" | "theme"',
+        description: "Variant visuel du panel (fond, ring et intensité du glow).",
+        default: '"default"',
+        required: false,
+    },
+    {
+        name: "tone",
+        type: '"theme" | "neutral"',
+        description: "Ton général du panel (actuellement réservé pour extensions futures).",
+        default: '"theme"',
+        required: false,
+    },
+    {
+        name: "padded",
+        type: "boolean",
+        description: "Ajoute un padding interne standard autour du contenu du panel.",
+        default: "true",
+        required: false,
+    },
+    {
+        name: "className",
+        type: "string",
+        description: "Classes CSS supplémentaires appliquées au conteneur principal.",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "collapsible",
+        type: "boolean",
+        description: "Si true, le panel devient repliable (mode accordion).",
+        default: "false",
+        required: false,
+    },
+    {
+        name: "defaultOpen",
+        type: "boolean",
+        description: "État initial du panel si collapsible (ouvert ou fermé).",
+        default: "true",
+        required: false,
+    },
+    {
+        name: "onToggle",
+        type: "(open: boolean) => void",
+        description: "Callback déclenché lors de l’ouverture ou fermeture du panel.",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "footer",
+        type: "React.ReactNode",
+        description: "Contenu affiché en bas du panel, séparé par une bordure (footer).",
+        default: "—",
+        required: false,
+    },
+];
 
 export function UiPanel({
     title,
@@ -62,7 +156,9 @@ export function UiPanel({
             ? "bg-transparent ring-white/10"
             : variant === "soft"
               ? "bg-[hsl(var(--panel)/0.55)] ring-[hsl(var(--ring)/0.6)]"
-              : "bg-[hsl(var(--panel)/0.75)] ring-[hsl(var(--ring))]";
+              : variant === "theme"
+                ? "bg-[hsl(var(--panel)/0.45)] ring-[hsl(var(--accent)/0.3)]"
+                : "bg-[hsl(var(--panel)/0.75)] ring-[hsl(var(--ring))]";
 
     const glowStyle =
         variant === "ghost"
@@ -76,18 +172,21 @@ export function UiPanel({
                 baseStyle,
                 glowStyle,
                 padded && "p-5",
+                collapsible && !open ? "cursor-pointer select-none" : "",
                 className
             )}
+            onClick={collapsible && !open ? toggle : undefined}
+            role={collapsible && !open ? "button" : undefined}
         >
             {/* HEADER */}
             {(title || right) && (
                 <div
                     className={cn(
                         "flex items-start justify-between gap-3",
-                        collapsible && "cursor-pointer select-none"
+                        collapsible && open ? "cursor-pointer select-none" : ""
                     )}
-                    onClick={toggle}
-                    role={collapsible ? "button" : undefined}
+                    onClick={collapsible && open ? toggle : undefined}
+                    role={collapsible && open ? "button" : undefined}
                     aria-expanded={collapsible ? open : undefined}
                 >
                     <div>
@@ -121,7 +220,7 @@ export function UiPanel({
             {/* BODY */}
             <div
                 className={cn(
-                    title ? (subtitle ? "mt-4" : "mt-2") : "",
+                    collapsible && !open ? "" : title ? (subtitle ? "mt-4" : "mt-2") : "",
                     collapsible && "transition-[grid-template-rows,opacity] duration-200 ease-out",
                     collapsible &&
                         (open
@@ -129,7 +228,7 @@ export function UiPanel({
                             : "grid grid-rows-[0fr] opacity-0")
                 )}
             >
-                <div className={collapsible ? "overflow-hidden" : undefined}>
+                <div className={collapsible ? "overflow-hidden px-1" : undefined}>
                     {(!collapsible || open) && children}
                 </div>
             </div>

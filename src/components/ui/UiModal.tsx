@@ -102,7 +102,7 @@ export function UiModal(props: UiModalProps) {
     useEffect(() => {
         const body = document.body;
 
-        console.log("anyOpenModal", anyModalOpen());
+        // console.log("anyOpenModal", anyModalOpen());
 
         // aucun modal ouvert → on restaure le body
         if (!anyModalOpen()) {
@@ -142,7 +142,7 @@ export function UiModal(props: UiModalProps) {
     }, [isOpen, closeOnEscape, closeModal, id]);
 
     useEffect(() => {
-        console.log("modalStack", modalStack);
+        // console.log("modalStack", modalStack);
     }, [modalStack]);
 
     const onBackdrop = () => {

@@ -10,7 +10,7 @@ import { usePlayerStore } from "@/stores/playerStore";
 import { useGameStore } from "@/stores/gameStore";
 
 import { UserContextForm } from "@/components/account/UserContextForm";
-import UIActionButton from "@/components/ui/UiActionButton";
+import UiActionButton from "@/components/ui/UiActionButton";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -211,14 +211,14 @@ export default function OnboardingIdentityPage() {
                                 ↩️ Retour
                             </ActionButton> */}
 
-                            <UIActionButton
+                            <UiActionButton
                                 variant="master"
                                 size="xl"
                                 disabled={!canStart}
                                 onClick={() => void onStart()}
                             >
                                 {submitting ? "⏳" : "✨ Étape suivante"}
-                            </UIActionButton>
+                            </UiActionButton>
                         </div>
 
                         {/* {!nameDraft.trim() ? (

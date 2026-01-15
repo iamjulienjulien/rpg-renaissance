@@ -52,6 +52,72 @@ export type UiPillProps = {
     className?: string;
 };
 
+export const UiPillPropsTable = [
+    {
+        name: "children",
+        type: "React.ReactNode",
+        description: "Contenu principal du pill (texte, icône, ou combinaison).",
+        default: "—",
+        required: true,
+    },
+    {
+        name: "tone",
+        type: '"theme" | "neutral" | "emerald" | "violet" | "amber" | "rose" | "sky" | "slate"',
+        description: "Définit la couleur visuelle et l’ambiance du pill.",
+        default: '"neutral"',
+        required: false,
+    },
+    {
+        name: "size",
+        type: '"xs" | "sm" | "md"',
+        description: "Contrôle la taille du pill (padding et taille du texte).",
+        default: '"sm"',
+        required: false,
+    },
+    {
+        name: "title",
+        type: "string",
+        description: "Texte du tooltip affiché au survol (via UiTooltip).",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "onClick",
+        type: "() => void",
+        description: "Callback appelé lors du clic sur le pill.",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "action",
+        type: "UiAction",
+        description: "Action UI globale déclenchée via le uiStore.",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "disabled",
+        type: "boolean",
+        description: "Désactive le pill (non cliquable, opacité réduite).",
+        default: "false",
+        required: false,
+    },
+    {
+        name: "clickable",
+        type: "boolean",
+        description: "Force l’apparence cliquable même sans action ou onClick.",
+        default: "false",
+        required: false,
+    },
+    {
+        name: "className",
+        type: "string",
+        description: "Classes CSS supplémentaires pour personnalisation.",
+        default: "—",
+        required: false,
+    },
+];
+
 /* ============================================================================
 🎨 STYLES
 ============================================================================ */

@@ -125,6 +125,231 @@ export type UiFormSelectProps = {
     defaultOpen?: boolean;
 };
 
+export const UiFormSelectPropsTable = [
+    {
+        name: "id",
+        type: "string",
+        description: "Identifiant HTML (input-like) du trigger.",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "label",
+        type: "React.ReactNode",
+        description: "Label affiché au-dessus du select.",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "placeholder",
+        type: "string",
+        description: "Texte affiché quand aucune option n’est sélectionnée.",
+        default: '"Sélectionner…"',
+
+        required: false,
+    },
+    {
+        name: "hint",
+        type: "React.ReactNode",
+        description: "Texte d’aide affiché sous le champ (si pas d’erreur).",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "error",
+        type: "React.ReactNode",
+        description: "Message d’erreur (prioritaire sur hint).",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "tone",
+        type: '"theme" | "neutral" | "danger"',
+        description:
+            "Ton visuel (ring/glow). Si error est présent, le style danger prend le dessus.",
+        default: '"neutral"',
+        required: false,
+    },
+    {
+        name: "size",
+        type: '"sm" | "md" | "lg"',
+        description: "Taille visuelle (hauteur, padding, radius du trigger + spacing du menu).",
+        default: '"md"',
+        required: false,
+    },
+    {
+        name: "disabled",
+        type: "boolean",
+        description: "Désactive le champ.",
+        default: "false",
+        required: false,
+    },
+    {
+        name: "loading",
+        type: "boolean",
+        description: "État de chargement (désactive et affiche loadingText).",
+        default: "false",
+        required: false,
+    },
+    {
+        name: "clearable",
+        type: "boolean",
+        description: "Affiche un bouton ✖ pour effacer la sélection (si une valeur est présente).",
+        default: "false",
+        required: false,
+    },
+    {
+        name: "multiple",
+        type: "boolean",
+        description: "Active la sélection multiple (affichage en chips + +N).",
+        default: "false",
+        required: false,
+    },
+    {
+        name: "value",
+        type: "UiSelectValue | UiSelectValue[] | null",
+        description: "Valeur contrôlée (single: value | null, multi: value[] | null).",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "defaultValue",
+        type: "UiSelectValue | UiSelectValue[] | null",
+        description: "Valeur initiale non contrôlée.",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "onChange",
+        type: "(value: UiSelectValue | UiSelectValue[] | null) => void",
+        description:
+            "Callback déclenché lors d’un changement. En single: renvoie value ou null. En multi: renvoie value[] ou null.",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "options",
+        type: "UiFormSelectOption[]",
+        description: "Liste d’options simples (ignorée si groups est fourni).",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "groups",
+        type: "UiFormSelectGroup[]",
+        description: "Options groupées (prioritaires sur options si fournies).",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "searchable",
+        type: "boolean",
+        description: "Active la recherche interne dans le menu.",
+        default: "true",
+        required: false,
+    },
+    {
+        name: "searchPlaceholder",
+        type: "string",
+        description: "Placeholder du champ de recherche.",
+        default: '"Rechercher…"',
+
+        required: false,
+    },
+    {
+        name: "filterOption",
+        type: "(opt: UiFormSelectOption, query: string) => boolean",
+        description:
+            "Filtre custom pour la recherche. Par défaut filtre label/description/value en lowercase.",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "clearTitle",
+        type: "string",
+        description: "Titre (tooltip HTML via title) du bouton clear ✖.",
+        default: '"Effacer"',
+        required: false,
+    },
+    {
+        name: "emptyText",
+        type: "string",
+        description: "Texte affiché quand aucune option ne matche la recherche.",
+        default: '"Aucun résultat"',
+        required: false,
+    },
+    {
+        name: "loadingText",
+        type: "string",
+        description: "Texte affiché dans le trigger quand loading=true.",
+        default: '"Chargement…"',
+        required: false,
+    },
+    {
+        name: "maxChips",
+        type: "number",
+        description: "Nombre maximum de chips affichées en multi (le reste est condensé en +N).",
+        default: "2",
+        required: false,
+    },
+    {
+        name: "renderValue",
+        type: "(args: { multiple: boolean; selected: UiFormSelectOption[]; placeholder: string }) => React.ReactNode",
+        description: "Rendu custom de la valeur affichée dans le trigger (placeholder inclus).",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "renderOption",
+        type: "(opt: UiFormSelectOption, state: { selected: boolean }) => React.ReactNode",
+        description: "Rendu custom d’une option dans le menu.",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "className",
+        type: "string",
+        description: "Classes CSS appliquées au wrapper du trigger/menu.",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "fieldClassName",
+        type: "string",
+        description: "Classes CSS appliquées au wrapper global (label + champ + message).",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "menuWidthClassName",
+        type: "string",
+        description: "Classes CSS pour régler la largeur min / contraintes du menu (Portal).",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "onOpenChange",
+        type: "(open: boolean) => void",
+        description: "Callback appelé à l’ouverture/fermeture du menu.",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "open",
+        type: "boolean",
+        description: "Contrôle l’état d’ouverture (mode contrôlé).",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "defaultOpen",
+        type: "boolean",
+        description: "État initial d’ouverture (mode non contrôlé).",
+        default: "false",
+        required: false,
+    },
+];
+
 type FlatItem =
     | { kind: "group"; label: string | null }
     | { kind: "option"; groupLabel: string | null; opt: UiFormSelectOption };

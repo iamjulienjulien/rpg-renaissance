@@ -7,7 +7,7 @@ import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel } from "@/components/RpgUi";
 import CharacterGrid from "@/components/CharacterGrid";
 import { useGameStore } from "@/stores/gameStore";
-import UIActionButton from "@/components/ui/UiActionButton";
+import UiActionButton from "@/components/ui/UiActionButton";
 import { UiPanel } from "@/components/ui";
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -323,14 +323,14 @@ export default function OnboardingAdventurePage() {
                         </div>
 
                         <div className="mt-4 flex justify-end">
-                            <UIActionButton
+                            <UiActionButton
                                 variant="master"
                                 size="xl"
                                 disabled={!canSubmit}
                                 onClick={() => void onComplete()}
                             >
                                 {saving ? "⏳" : "✨ Étape suivante"}
-                            </UIActionButton>
+                            </UiActionButton>
                         </div>
                     </div>
                 </Panel>

@@ -375,7 +375,7 @@ export function buildContextPrompt(args: BuildContextPromptArgs) {
                 "Il doit orienter ta réponse vers l’exécution: actions réalistes, critères de réussite, prochaine étape immédiate.",
                 "Ne remplace pas la quête par une autre: si elle est floue, clarifie-la en 1 à 3 questions maximum.",
                 "",
-                qTitle ? `Quête: ${qTitle}` : "Quête: (non renseignée)"
+                qTitle ? `Intitulé de la quête à réaliser : ${qTitle}` : "Quête: (non renseignée)"
             );
 
             if (qStatus) {

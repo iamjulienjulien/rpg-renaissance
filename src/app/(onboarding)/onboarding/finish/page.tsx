@@ -9,7 +9,7 @@ import { ActionButton, Panel, Pill } from "@/components/RpgUi";
 import { useGameStore } from "@/stores/gameStore";
 
 import type { AdventureQuestWithStatus, AdventureRoom, Chapter } from "@/types/game";
-import UIActionButton from "@/components/ui/UiActionButton";
+import UiActionButton from "@/components/ui/UiActionButton";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -324,7 +324,7 @@ export default function OnboardingFinishPage() {
                     </div>
 
                     {/* CTA final full width */}
-                    <UIActionButton
+                    <UiActionButton
                         variant="master"
                         size="xl"
                         onClick={() => void onStart()}
@@ -332,7 +332,7 @@ export default function OnboardingFinishPage() {
                         // className="w-full justify-center py-4 rounded-3xl text-base"
                     >
                         {starting ? "⏳ Démarrage…" : "🚀 Terminer l’onboarding et démarrer"}
-                    </UIActionButton>
+                    </UiActionButton>
 
                     <div className="text-xs text-white/50 text-center">
                         Un bon premier chapitre: clair, court, jouable. Le reste viendra. ✨

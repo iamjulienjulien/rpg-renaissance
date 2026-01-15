@@ -9,6 +9,7 @@ import AdminAdventuresPanel from "./AdminAdventuresPanel";
 import AdminChaptersPanel from "./AdminChaptersPanel";
 import AdminQuestsPanel from "./AdminQuestsPanel";
 import AdminSystemLogsPanel from "./AdminSystemLogsPanel";
+import AdminListContactsPanel from "./AdminListContactsPanel";
 
 type Props = {
     searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -82,6 +83,8 @@ export default async function AdminPage(props: Props) {
                     route={route ?? null}
                 />
             ) : null}
+
+            {tab === "listContacts" ? <AdminListContactsPanel /> : null}
 
             <footer className="text-center text-xs text-white/40">
                 Admin Console • Logs branchés sur Supabase

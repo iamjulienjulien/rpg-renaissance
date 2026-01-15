@@ -258,6 +258,12 @@ export type SystemLogsFilters = {
     offset?: number;
 };
 
+export type ListContactsFilters = {
+    q: string;
+    limit: number;
+    offset: number;
+};
+
 type AdminState = {
     // KPIs
     kpis: AdminKpis | null;
@@ -361,6 +367,14 @@ type AdminState = {
     openSystemLog: (id: string) => void;
     closeSystemLog: () => void;
     fetchSystemLogById: (id: string) => Promise<void>;
+
+    listContacts: any[];
+    listContactsCount: number | null;
+    listContactsLoading: boolean;
+    listContactsError: string | null;
+    listContactsFilters: ListContactsFilters;
+
+    fetchListContacts: (opts?: { reset?: boolean }) => Promise<void>;
 };
 
 /* ============================================================================
@@ -461,6 +475,16 @@ function toSystemLogsQueryString(filters: SystemLogsFilters) {
     params.set("offset", String(filters.offset ?? 0));
 
     return params.toString();
+}
+
+function toListContactsQueryString(filters: { q?: string; limit?: number; offset?: number }) {
+    const sp = new URLSearchParams();
+
+    if (filters.q) sp.set("q", filters.q);
+    if (typeof filters.limit === "number") sp.set("limit", String(filters.limit));
+    if (typeof filters.offset === "number") sp.set("offset", String(filters.offset));
+
+    return sp.toString();
 }
 
 /* ============================================================================
@@ -1072,6 +1096,62 @@ export const useAdminStore = create<AdminState>((set, get) => ({
                 selectedSystemLogLoading: false,
                 selectedSystemLogError: e?.message || "Failed to fetch system_log row",
             } as any);
+        }
+    },
+
+    listContacts: [],
+    listContactsCount: null,
+    listContactsLoading: false,
+    listContactsError: null,
+    listContactsFilters: {
+        q: "",
+        limit: 50,
+        offset: 0,
+    },
+
+    fetchListContacts: async (opts) => {
+        const reset = !!opts?.reset;
+
+        const filters = get().listContactsFilters;
+        const nextFilters = reset ? { ...filters, offset: 0 } : filters;
+
+        if (reset) {
+            set({ listContactsFilters: nextFilters });
+        }
+
+        set({
+            listContactsLoading: true,
+            listContactsError: null,
+        });
+
+        try {
+            const qs = toListContactsQueryString(nextFilters);
+
+            const res = await fetch(`/api/admin/list-contacts?${qs}`, {
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+                cache: "no-store",
+            });
+
+            const json = await res.json().catch(() => null);
+
+            if (!res.ok) {
+                throw new Error(json?.error || `HTTP ${res.status}`);
+            }
+
+            const rows = Array.isArray(json?.rows) ? json.rows : [];
+
+            set({
+                listContacts: rows,
+                listContactsCount: typeof json?.count === "number" ? json.count : null,
+                listContactsLoading: false,
+                listContactsError: null,
+            });
+        } catch (e: any) {
+            set({
+                listContactsLoading: false,
+                listContactsError: e?.message || "Failed to fetch contacts",
+            });
         }
     },
 }));

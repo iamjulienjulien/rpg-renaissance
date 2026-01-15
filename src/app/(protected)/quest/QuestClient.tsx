@@ -17,7 +17,7 @@ import { ActionButton, Panel, Pill } from "@/components/RpgUi";
 import MasterCard from "@/components/MasterCard";
 import { UiAnimatePresence, UiMotionDiv } from "@/components/motion/UiMotion";
 import UiTooltip from "@/components/ui/UiTooltip";
-import UIToolbar from "@/components/ui/UiToolbar";
+import UiToolbar from "@/components/ui/UiToolbar";
 import UiLightbox, { type UiLightboxItem } from "@/components/ui/UiLightbox";
 import QuestCreateModal from "@/components/modals/QuestCreateModal";
 import QuestPhotoUploadModal from "@/components/modals/QuestPhotoUploadModal";
@@ -34,7 +34,7 @@ import { formatJournalTime } from "@/helpers/dateTime";
 import QuestMjThreadCard from "./QuestMjThreadCard";
 import { useDevStore } from "@/stores/devStore";
 import QuestEditModal from "@/components/modals/QuestEditModal";
-import UIActionButton from "@/components/ui/UiActionButton";
+import UiActionButton from "@/components/ui/UiActionButton";
 import { useAiStore } from "@/stores/aiStore";
 import { QuestTimeline } from "./QuestTimeline";
 
@@ -346,6 +346,7 @@ export default function QuestClient() {
 
     useEffect(() => {
         console.log("questCongratGenerating change", questCongratGenerating);
+        console.log(questCongratGenerating, waitForCongrat);
         if (waitForCongrat && !questCongratGenerating) {
             console.log("reloadQuestMessages");
             void refreshQuestMessages(currentQuestThreadId ?? "");
@@ -525,7 +526,7 @@ export default function QuestClient() {
                 </div>
             ) : (
                 <div>
-                    <UIToolbar
+                    <UiToolbar
                         align="between"
                         items={[
                             {
@@ -902,14 +903,14 @@ export default function QuestClient() {
 
                         {/* RIGHT */}
                         <div className="flex flex-col gap-4">
-                            <UIToolbar
+                            <UiToolbar
                                 align="between"
                                 fullWidth
                                 items={[
                                     {
                                         type: "group",
                                         variant: "solid",
-                                        size: "sm",
+                                        size: "md",
                                         buttons: getActionsToolbarItems(),
                                     },
                                 ]}
@@ -932,7 +933,7 @@ export default function QuestClient() {
                                             </ActionButton> */}
 
                                                 {(!missionMd || devModeEnabled) && (
-                                                    <UIActionButton
+                                                    <UiActionButton
                                                         variant="magic"
                                                         onClick={onRegenerateMission}
                                                         disabled={questMissionGenerating}
@@ -940,7 +941,7 @@ export default function QuestClient() {
                                                         {waitForMission && questMissionGenerating
                                                             ? "⏳ Génération en cours"
                                                             : "✨ Générer l'ordre de mission"}
-                                                    </UIActionButton>
+                                                    </UiActionButton>
                                                 )}
 
                                                 <ActionButton
@@ -989,7 +990,7 @@ export default function QuestClient() {
                                                 ✍️ Modifier la quête
                                             </ActionButton> */}
 
-                                                <UIActionButton
+                                                <UiActionButton
                                                     variant="magic"
                                                     onClick={onEncourage}
                                                     disabled={questEncouragementGenerating}
@@ -998,10 +999,10 @@ export default function QuestClient() {
                                                     questEncouragementGenerating
                                                         ? "⏳ Génération en cours"
                                                         : "✨ Demander un encouragement"}
-                                                </UIActionButton>
+                                                </UiActionButton>
 
                                                 {(!missionMd || devModeEnabled) && (
-                                                    <UIActionButton
+                                                    <UiActionButton
                                                         variant="magic"
                                                         onClick={onRegenerateMission}
                                                         disabled={questMissionGenerating}
@@ -1009,7 +1010,7 @@ export default function QuestClient() {
                                                         {waitForMission && questMissionGenerating
                                                             ? "⏳ Génération en cours"
                                                             : "✨ Générer l'ordre de mission"}
-                                                    </UIActionButton>
+                                                    </UiActionButton>
                                                 )}
 
                                                 {/* ✅ NEW: Chain quest */}

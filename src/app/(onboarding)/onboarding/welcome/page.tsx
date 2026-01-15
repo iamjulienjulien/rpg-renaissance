@@ -7,7 +7,7 @@ import ReactMarkdown from "react-markdown";
 
 import RpgShell from "@/components/RpgShell";
 import { ActionButton, Panel, Pill } from "@/components/RpgUi";
-import UIActionButton from "@/components/ui/UiActionButton";
+import UiActionButton from "@/components/ui/UiActionButton";
 
 import { useGameStore } from "@/stores/gameStore";
 import type { Adventure } from "@/types/game";
@@ -456,13 +456,13 @@ export default function OnboardingWelcomePage() {
 
                     {/* CTA */}
                     <div className="grid gap-3">
-                        <UIActionButton
+                        <UiActionButton
                             variant="master"
                             size="xl"
                             onClick={() => router.push("/adventure")}
                         >
                             🚀 Lancer l'aventure
-                        </UIActionButton>
+                        </UiActionButton>
 
                         {/* <div className="text-xs text-white/50 text-center">
                             Prochaine étape: choisir tes premières quêtes. 🗡️

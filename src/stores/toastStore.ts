@@ -296,7 +296,7 @@ export const useToastStore = create<ToastStore>()(
 
             startLive: async () => {
                 // anti double start (Strict Mode)
-                console.log("startLive");
+                // console.log("startLive");
                 if (get()._started) return;
 
                 const supabase = supabaseBrowser();

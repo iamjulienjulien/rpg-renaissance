@@ -40,6 +40,58 @@ export type UiChipProps = {
     className?: string;
 };
 
+export const UiChipPropsTable = [
+    {
+        name: "children",
+        type: "React.ReactNode",
+        description: "Contenu principal du chip (texte, icône inline, ou combinaison).",
+        default: "—",
+        required: true,
+    },
+    {
+        name: "tone",
+        type: '"theme" | "neutral" | "emerald" | "violet" | "amber" | "rose" | "sky" | "slate"',
+        description: "Définit la couleur visuelle et l’ambiance du chip.",
+        default: '"neutral"',
+        required: false,
+    },
+    {
+        name: "size",
+        type: '"xs" | "sm" | "md"',
+        description: "Contrôle la taille du chip (padding et taille du texte).",
+        default: '"sm"',
+        required: false,
+    },
+    {
+        name: "icon",
+        type: "React.ReactNode",
+        description: "Icône optionnelle affichée avant le contenu (emoji ou JSX).",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "onClick",
+        type: "() => void",
+        description: "Rend le chip cliquable et déclenche cette fonction au clic.",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "disabled",
+        type: "boolean",
+        description: "Désactive le chip (non cliquable, opacité réduite).",
+        default: "false",
+        required: false,
+    },
+    {
+        name: "className",
+        type: "string",
+        description: "Classes CSS supplémentaires pour personnalisation.",
+        default: "—",
+        required: false,
+    },
+];
+
 const toneClasses: Record<UiChipTone, string> = {
     theme: "bg-[hsl(var(--accent)/0.12)] text-[hsl(var(--accent))] ring-[hsl(var(--accent)/0.35)]",
 

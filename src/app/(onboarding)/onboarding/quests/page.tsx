@@ -6,7 +6,7 @@ import { ActionButton, Panel, Pill } from "@/components/RpgUi";
 import RoomsSelector from "@/components/RoomsSelector";
 import { QuestDifficultyPill } from "@/helpers/questDifficulty";
 import { useGameStore } from "@/stores/gameStore";
-import UIActionButton from "@/components/ui/UiActionButton";
+import UiActionButton from "@/components/ui/UiActionButton";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -413,7 +413,7 @@ export default function OnboardingQuestsPage() {
                                 </div>
 
                                 <div className="mt-4 flex justify-end">
-                                    <UIActionButton
+                                    <UiActionButton
                                         variant="master"
                                         size="xl"
                                         disabled={
@@ -422,7 +422,7 @@ export default function OnboardingQuestsPage() {
                                         onClick={() => void onNext()}
                                     >
                                         {starting ? "⏳" : "✨ Étape suivante"}
-                                    </UIActionButton>
+                                    </UiActionButton>
                                 </div>
 
                                 {/* {backlog.length === 0 ? (

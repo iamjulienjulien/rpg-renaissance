@@ -66,12 +66,24 @@ export default function UiEmojiPicker({ value, onChange, disabled }: EmojiPicker
 
     console.log("data", data);
 
-    // let emo = [];
-    // data.forEach((d) => {
-    //     const e = String.fromCodePoint(parseInt(d.unified, 16));
-    //     console.log("d", e);
-    //     emo.push(e);
-    // });
+    const categories = ["Activities", "Travel & Places"];
+
+    const availableCategories: any[] = [];
+
+    data.forEach((d) => {
+        if (!availableCategories.includes(d.category)) {
+            availableCategories.push(d.category);
+        }
+    });
+
+    console.log("a", availableCategories);
+
+    let emo: any[] = [];
+    data.filter((d) => categories.includes(d.category)).forEach((d) => {
+        const e = String.fromCodePoint(parseInt(d.unified, 16));
+        // console.log("d", e);
+        emo.push(e);
+    });
 
     // close on outside click
     React.useEffect(() => {
@@ -109,9 +121,9 @@ export default function UiEmojiPicker({ value, onChange, disabled }: EmojiPicker
                         p-2 grid grid-cols-8 gap-1
                     "
                 >
-                    {EMOJIS.map((emoji) => (
+                    {emo.map((emoji) => (
                         <button
-                            key={emoji}
+                            key={emoji.name}
                             type="button"
                             onClick={() => {
                                 onChange(emoji);

@@ -21,6 +21,10 @@ import AdventureConfigModal from "./_components/modals/AdventureConfigModal";
 import ChapterConfigModal from "./_components/modals/ChapterConfigModal";
 import RenownGainModal from "./_components/modals/RenownGainModal";
 import ChapterTransitionModal from "./_components/modals/ChapterTransitionModal";
+import CurrentAdventureBlock from "./_components/CurrentAdventureBlock";
+import CurrentPlayerBlock from "./_components/CurrentPlayerBlock";
+import CurrentCharacterBlock from "./_components/CurrentCharacterBlock";
+import CurrentChapterBlock from "./_components/CurrentChapterBlock";
 
 /* ============================================================================
 🧰 HELPERS
@@ -37,6 +41,7 @@ function normalizeQuest(q: ChapterQuestFull["adventure_quests"]) {
 }
 
 function adventureFallbackEmoji(code?: string | null) {
+    console.log("c", code);
     if (code === "home_realignment") return "🏠";
     return "🧭";
 }
@@ -209,7 +214,8 @@ export default function AdventurePage() {
     }, [chapterItems]);
 
     const advEmoji = useMemo(() => {
-        const code = (adventure as any)?.code ?? (chapter as any)?.adventure_code ?? null;
+        console.log("a", adventure);
+        const code = (adventure as any)?.type_code ?? (chapter as any)?.adventure_code ?? null;
         return (adventure as any)?.emoji ?? adventureFallbackEmoji(code);
     }, [adventure, chapter]);
 
@@ -468,7 +474,7 @@ export default function AdventurePage() {
                 </Panel>
             ) : (
                 <div className="grid gap-4">
-                    <AdventureBlock
+                    <CurrentAdventureBlock
                         chapter={chapter}
                         adventure={adventure}
                         advEmoji={advEmoji}
@@ -477,6 +483,11 @@ export default function AdventurePage() {
                         onOpenAdventureConfig={openAdventureConfig}
                         onGoPrepare={goPrepare}
                     />
+                    <div className="flex gap-4">
+                        <CurrentPlayerBlock />
+                        <CurrentCharacterBlock />
+                    </div>
+                    <CurrentChapterBlock />
 
                     <ChapterBlock
                         chapter={chapter}
@@ -550,8 +561,6 @@ export default function AdventurePage() {
                     onSubmit={() => void submitTransition()}
                 />
             ) : null}
-
-            <QuestCreateModal />
         </RpgShell>
     );
 }

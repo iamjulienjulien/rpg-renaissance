@@ -155,6 +155,28 @@ export type PlayerPhotoRow = {
     created_at: string;
 };
 
+export type MeAchievementsUpdateResponse = {
+    ok: boolean;
+    session_id: string;
+    user_id: string;
+    results: {
+        achievements: { ok: boolean; unlocked_count: number };
+        renown: {
+            ok: boolean;
+            updated: boolean;
+            prev_level: number | null;
+            next_level: number | null;
+        };
+    };
+    meta?: { triggered_at?: string; request_id?: string | null };
+};
+
+export type UpdateCurrentPlayerAchievementsOpts = {
+    force?: boolean;
+    silent?: boolean;
+    maxAgeMs?: number;
+};
+
 export type ApiResult<T> =
     | { ok: true; status: number; data: T }
     | { ok: false; status: number; error: string; data?: undefined };
@@ -375,6 +397,15 @@ type GameStore = {
     clearCurrentPlayerStats: () => void;
 
     getCurrentPlayerStatsHighlights: () => PlayerStatsHighlights | null;
+
+    currentPlayerAchievementsUpdate: MeAchievementsUpdateResponse | null;
+    currentPlayerAchievementsUpdateFetchedAt: number | null;
+    currentPlayerAchievementsUpdateLoading: boolean;
+    currentPlayerAchievementsUpdateError: string | null;
+
+    updateCurrentPlayerAchievements: (
+        opts?: UpdateCurrentPlayerAchievementsOpts
+    ) => Promise<MeAchievementsUpdateResponse | null>;
 
     /* --------------------------- 🗺️ ADVENTURE --------------------------- */
     startingAdventure: boolean;
@@ -884,6 +915,83 @@ export const useGameStore = create<GameStore>((set, get) => {
                 aiUsageLabel,
                 unreadToastsLabel,
             } satisfies PlayerStatsHighlights;
+        },
+
+        currentPlayerAchievementsUpdate: null,
+        currentPlayerAchievementsUpdateFetchedAt: null,
+        currentPlayerAchievementsUpdateLoading: false,
+        currentPlayerAchievementsUpdateError: null,
+
+        updateCurrentPlayerAchievements: async (opts) => {
+            const force = !!opts?.force;
+            const silent = !!opts?.silent;
+            const maxAgeMs = typeof opts?.maxAgeMs === "number" ? opts.maxAgeMs : 60_000;
+
+            const cached = get().currentPlayerAchievementsUpdate;
+            const fetchedAt = get().currentPlayerAchievementsUpdateFetchedAt;
+
+            if (!force && cached && fetchedAt && Date.now() - fetchedAt < maxAgeMs) {
+                return cached;
+            }
+
+            // évite double fetch concurrent simple
+            if (get().currentPlayerAchievementsUpdateLoading) {
+                return get().currentPlayerAchievementsUpdate;
+            }
+
+            if (!silent) {
+                set({
+                    currentPlayerAchievementsUpdateLoading: true,
+                    currentPlayerAchievementsUpdateError: null,
+                });
+            } else {
+                set({ currentPlayerAchievementsUpdateLoading: true });
+            }
+
+            try {
+                const res = await fetch("/api/me/achievements", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    cache: "no-store",
+                });
+
+                const json = await res.json().catch(() => null);
+
+                if (!res.ok) {
+                    const msg =
+                        (json as any)?.error ??
+                        res.statusText ??
+                        `Failed to update achievements (${res.status})`;
+
+                    set({
+                        currentPlayerAchievementsUpdateLoading: false,
+                        currentPlayerAchievementsUpdateError: msg,
+                    });
+
+                    return null;
+                }
+
+                const data = json as MeAchievementsUpdateResponse;
+
+                set({
+                    currentPlayerAchievementsUpdate: data,
+                    currentPlayerAchievementsUpdateFetchedAt: Date.now(),
+                    currentPlayerAchievementsUpdateLoading: false,
+                    currentPlayerAchievementsUpdateError: null,
+                });
+
+                // Optionnel: si tu veux rafraîchir les stats derrière (renown/achievements visibles)
+                // void (get() as any).getCurrentPlayerStats?.({ force: true, silent: true });
+
+                return data;
+            } catch (e) {
+                const msg = e instanceof Error ? e.message : "Network error";
+                set({
+                    currentPlayerAchievementsUpdateLoading: false,
+                    currentPlayerAchievementsUpdateError: msg,
+                });
+                return null;
+            }
         },
 
         /* =========================================================================

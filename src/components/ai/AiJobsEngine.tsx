@@ -21,9 +21,9 @@ export default function AiJobsEngine() {
         };
     }, [currentUserId, subscribeToAiJobs]);
 
-    React.useEffect(() => {
-        console.info("aiJobsPending change", aiJobsPending);
-    }, [aiJobsPending]);
+    // React.useEffect(() => {
+    //     // console.info("aiJobsPending change", aiJobsPending);
+    // }, [aiJobsPending]);
 
     return null;
 }

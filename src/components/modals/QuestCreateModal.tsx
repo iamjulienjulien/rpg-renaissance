@@ -302,77 +302,79 @@ export default function QuestCreateModal(props: Props) {
             ) : (
                 <div className="mt-2 grid gap-3">
                     {/* HERO SUMMARY (sexy) */}
-                    <UiGradientPanel innerClassName="p-4">
-                        <div className="grid gap-3">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                <div className="text-[11px] tracking-[0.22em] text-white/55">
-                                    ⚙️ PARAMÈTRES RAPIDES
-                                </div>
+                    {false && (
+                        <UiGradientPanel innerClassName="p-4">
+                            <div className="grid gap-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="text-[11px] tracking-[0.22em] text-white/55">
+                                        ⚙️ PARAMÈTRES RAPIDES
+                                    </div>
 
-                                <div className="flex flex-wrap items-center gap-2">
-                                    {/* <UiChip tone="theme" icon="🧭">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {/* <UiChip tone="theme" icon="🧭">
                                         aventure active
                                     </UiChip> */}
 
-                                    {/* <UiChip tone="neutral" icon="🚪">
+                                        {/* <UiChip tone="neutral" icon="🚪">
                                         {currentRoom
                                             ? `${currentRoom.emoji} ${currentRoom.title}`
                                             : "toutes pièces"}
                                     </UiChip> */}
-                                    <Helpers.Chip.room roomCode={roomCode} />
-                                    <Helpers.Chip.priority priority={priority} />
-                                    <Helpers.Chip.difficulty difficulty={difficulty} />
+                                        <Helpers.Chip.room roomCode={roomCode} />
+                                        <Helpers.Chip.priority priority={priority} />
+                                        <Helpers.Chip.difficulty difficulty={difficulty} />
 
-                                    {/* <UiChip tone="neutral" icon="🎚️">
+                                        {/* <UiChip tone="neutral" icon="🎚️">
                                         {difficultyLabel(difficulty)}
                                     </UiChip> */}
 
-                                    <UiChip tone="neutral" icon="⏱️">
-                                        {urgencyLabel(urgency)}
-                                    </UiChip>
+                                        <UiChip tone="neutral" icon="⏱️">
+                                            {urgencyLabel(urgency)}
+                                        </UiChip>
 
-                                    {/* <UiChip tone="neutral" icon="🔒">
+                                        {/* <UiChip tone="neutral" icon="🔒">
                                         {priorityLabel(priority)}
                                     </UiChip> */}
-                                </div>
-                            </div>
-
-                            {isChainMode ? (
-                                <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                        <div className="text-sm font-semibold text-white/85">
-                                            ⛓️ Mode chaîne
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <UiPill tone="theme">📘 Chapitre courant</UiPill>
-                                            {chainParentAdventureQuestId ? (
-                                                <UiPill tone="neutral">🧬 parent lié</UiPill>
-                                            ) : null}
-                                        </div>
                                     </div>
+                                </div>
 
-                                    {chainParentTitle?.trim() ? (
-                                        <div className="mt-2 text-sm text-white/70">
-                                            Parent:{" "}
-                                            <span className="font-semibold text-white/90">
-                                                {chainParentTitle}
-                                            </span>
+                                {isChainMode ? (
+                                    <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <div className="text-sm font-semibold text-white/85">
+                                                ⛓️ Mode chaîne
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <UiPill tone="theme">📘 Chapitre courant</UiPill>
+                                                {chainParentAdventureQuestId ? (
+                                                    <UiPill tone="neutral">🧬 parent lié</UiPill>
+                                                ) : null}
+                                            </div>
                                         </div>
-                                    ) : (
-                                        <div className="mt-2 text-sm text-white/60">
-                                            Crée la prochaine marche. Une action simple, nette,
-                                            gagnable.
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="text-sm text-white/60">
-                                    Donne-lui un titre clair, choisis le lieu, et lance-la dans ton
-                                    flux. Une quête doit donner envie de dire “ok, go”.
-                                </div>
-                            )}
-                        </div>
-                    </UiGradientPanel>
+
+                                        {chainParentTitle?.trim() ? (
+                                            <div className="mt-2 text-sm text-white/70">
+                                                Parent:{" "}
+                                                <span className="font-semibold text-white/90">
+                                                    {chainParentTitle}
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <div className="mt-2 text-sm text-white/60">
+                                                Crée la prochaine marche. Une action simple, nette,
+                                                gagnable.
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="text-sm text-white/60">
+                                        Donne-lui un titre clair, choisis le lieu, et lance-la dans
+                                        ton flux. Une quête doit donner envie de dire “ok, go”.
+                                    </div>
+                                )}
+                            </div>
+                        </UiGradientPanel>
+                    )}
 
                     {/* DESTINATION */}
                     <UiPanel
@@ -397,11 +399,11 @@ export default function QuestCreateModal(props: Props) {
                                 options={targetItems as any}
                                 clearable={false}
                                 searchable={false}
-                                hint={
-                                    target === "chapter"
-                                        ? "Parfait pour avancer l’histoire maintenant."
-                                        : "Idéal pour vider la tête sans pression."
-                                }
+                                // hint={
+                                //     target === "chapter"
+                                //         ? "Parfait pour avancer l’histoire maintenant."
+                                //         : "Idéal pour vider la tête sans pression."
+                                // }
                             />
                         )}
                     </UiPanel>

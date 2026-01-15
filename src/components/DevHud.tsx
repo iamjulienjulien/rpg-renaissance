@@ -7,6 +7,7 @@ import { ActionButton } from "./RpgUi";
 import { useAiStore } from "@/stores/aiStore";
 import { UiActionButton, UiCard, UiChip } from "./ui";
 import { useUiStore } from "@/stores/uiStore";
+import { useGameStore } from "@/stores/gameStore";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -29,12 +30,14 @@ export default function DevHud(props: DevHudProps) {
 
     const { openModal } = useUiStore();
 
+    const { updateCurrentPlayerAchievements } = useGameStore();
+
     // ✅ init safe (évite un setState immédiat “gratuit”)
     const [href, setHref] = useState<string>(() =>
         typeof window !== "undefined" ? window.location.href : ""
     );
 
-    console.log("toasts", toasts);
+    // console.log("toasts", toasts);
 
     const show = devEnabled && overlays;
 
@@ -131,6 +134,10 @@ export default function DevHud(props: DevHudProps) {
         );
     }, [aiJobsPending]);
 
+    const updateAchievements = async () => {
+        await updateCurrentPlayerAchievements({ silent: true, force: true });
+    };
+
     if (!show) return null;
 
     return (
@@ -207,9 +214,12 @@ export default function DevHud(props: DevHudProps) {
                         </div>
                     ) : null}
                 </div>
-                <div className="mt-3">
+                <div className="mt-3 grid gap-3">
                     <UiActionButton size="xs" onClick={() => openModal("devData")}>
                         🔎 Data
+                    </UiActionButton>
+                    <UiActionButton size="xs" onClick={() => updateAchievements()}>
+                        🔎 Achievements
                     </UiActionButton>
                 </div>
 

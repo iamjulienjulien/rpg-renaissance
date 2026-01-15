@@ -2,13 +2,13 @@
 "use client";
 
 import React from "react";
-import UIActionButton, { type UIActionButtonProps } from "@/components/ui/UiActionButton";
+import UiActionButton, { type UiActionButtonProps } from "@/components/ui/UiActionButton";
 
 function cn(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
 }
 
-export type UIActionButtonGroupButton = {
+export type UiActionButtonGroupButton = {
     key?: string;
     children: React.ReactNode;
 
@@ -17,8 +17,10 @@ export type UIActionButtonGroupButton = {
     active?: boolean;
     hint?: string;
 
+    text?: string;
+
     /** Optionnel: override size par bouton (sinon le group size) */
-    size?: UIActionButtonProps["size"];
+    size?: UiActionButtonProps["size"];
 
     /** Optionnel: si tu veux un bouton plein large dans un group fullWidth */
     fullWidth?: boolean;
@@ -27,15 +29,15 @@ export type UIActionButtonGroupButton = {
     className?: string;
 };
 
-export type UIActionButtonGroupProps = {
+export type UiActionButtonGroupProps = {
     /** Les boutons (au lieu de children) */
-    buttons: UIActionButtonGroupButton[];
+    buttons: UiActionButtonGroupButton[];
 
     /** Variant imposé pour tous les boutons du group */
     variant?: "soft" | "solid" | "danger";
 
     /** Taille imposée (sauf override bouton.size) */
-    size?: UIActionButtonProps["size"];
+    size?: UiActionButtonProps["size"];
 
     /** Alignement / wrap */
     className?: string;
@@ -44,19 +46,60 @@ export type UIActionButtonGroupProps = {
     fullWidth?: boolean;
 };
 
+export const UiActionButtonGroupPropsTable = [
+    {
+        name: "buttons",
+        type: "UiActionButtonGroupButton[]",
+        description:
+            "Liste des boutons du groupe. Chaque bouton décrit son contenu, son état (active, disabled), et ses handlers.",
+        default: "—",
+        required: true,
+    },
+    {
+        name: "variant",
+        type: '"soft" | "solid" | "danger"',
+        description:
+            "Variant visuel appliqué à tous les boutons du groupe (style global du segmented control).",
+        default: '"soft"',
+        required: false,
+    },
+    {
+        name: "size",
+        type: '"xs" | "sm" | "md" | "lg" | "xl"',
+        description: "Taille imposée aux boutons du groupe (sauf override via button.size).",
+        default: '"md"',
+        required: false,
+    },
+    {
+        name: "className",
+        type: "string",
+        description: "Classes CSS supplémentaires appliquées au conteneur du groupe.",
+        default: "—",
+        required: false,
+    },
+    {
+        name: "fullWidth",
+        type: "boolean",
+        description:
+            "Si true, le groupe prend toute la largeur disponible. Les boutons peuvent aussi être étendus individuellement.",
+        default: "false",
+        required: false,
+    },
+];
+
 /**
- * UIActionButtonGroup
+ * UiActionButtonGroup
  * - Segmented control (toolbar)
  * - Force variant + size (sauf override size par bouton)
  * - Collage des segments + séparateur subtil
  */
-export default function UIActionButtonGroup({
+export function UiActionButtonGroup({
     buttons,
     variant = "soft",
     size = "md",
     className,
     fullWidth,
-}: UIActionButtonGroupProps) {
+}: UiActionButtonGroupProps) {
     const radius = size === "xs" ? "rounded-xl" : size === "xl" ? "rounded-3xl" : "rounded-2xl";
 
     const shell =
@@ -86,7 +129,8 @@ export default function UIActionButtonGroup({
                 "[&>button+button]:before:content-[''] [&>button+button]:before:absolute",
                 "[&>button+button]:before:left-0 [&>button+button]:before:top-1/2",
                 "[&>button+button]:before:-translate-y-1/2",
-                "[&>button+button]:before:h-[65%] [&>button+button]:before:w-px",
+                "[&>button+button]:before:w-px",
+                // "[&>button+button]:before:h-[65%] [&>button+button]:before:w-px",
                 variant === "danger"
                     ? "[&>button+button]:before:bg-red-400/20"
                     : "[&>button+button]:before:bg-white/10",
@@ -102,7 +146,7 @@ export default function UIActionButtonGroup({
                 "[&>button]:inline-flex [&>button]:items-center [&>button]:justify-center",
 
                 // Active stays readable in-group
-                "[&>button[aria-pressed='true']]:ring-1",
+                // "[&>button[aria-pressed='true']]:ring-1",
                 variant === "danger"
                     ? "[&>button[aria-pressed='true']]:ring-red-300/30"
                     : "[&>button[aria-pressed='true']]:ring-white/15",
@@ -111,7 +155,7 @@ export default function UIActionButtonGroup({
             )}
         >
             {buttons.map((b, idx) => (
-                <UIActionButton
+                <UiActionButton
                     key={b.key ?? String(idx)}
                     variant={variant}
                     size={b.size ?? size}
@@ -122,8 +166,8 @@ export default function UIActionButtonGroup({
                     onClick={b.onClick}
                     className={cn("rounded-none", fullWidth && "flex-1", b.className)}
                 >
-                    {b.children}
-                </UIActionButton>
+                    <span className={b.text ? `text-${b.text}` : ""}>{b.children}</span>
+                </UiActionButton>
             ))}
         </div>
     );

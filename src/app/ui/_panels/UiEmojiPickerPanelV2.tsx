@@ -3,8 +3,8 @@
 
 import React, { useMemo, useState } from "react";
 import UiComponentPanelV2 from "../UiComponentPanelV2";
-import type { UIActionButtonGroupButton } from "@/components/ui/UiActionButtonGroup";
-import { UiChip } from "@/components/ui/UiChip";
+import type { UiActionButtonGroupButton } from "@/components/ui/UiActionButtonGroup";
+import { UiChip } from "@/components/ui";
 
 // ✅ Ton composant renommé
 import UiEmojiPicker from "@/components/ui/UiEmojiPicker";
@@ -62,7 +62,7 @@ export default function UiEmojiPickerPanelV2() {
         return `${lines.join("\n")}\n\n${stateBlock}`;
     }, [value, size, variant, placement, disabled, search, recent, categories]);
 
-    const sizeButtons = useMemo<UIActionButtonGroupButton[]>(() => {
+    const sizeButtons = useMemo<UiActionButtonGroupButton[]>(() => {
         const items: Size[] = ["sm", "md", "lg"];
         return items.map((s) => ({
             key: s,
@@ -72,7 +72,7 @@ export default function UiEmojiPickerPanelV2() {
         }));
     }, [size]);
 
-    const variantButtons = useMemo<UIActionButtonGroupButton[]>(() => {
+    const variantButtons = useMemo<UiActionButtonGroupButton[]>(() => {
         const items: Variant[] = ["soft", "solid"];
         return items.map((v) => ({
             key: v,
@@ -82,7 +82,7 @@ export default function UiEmojiPickerPanelV2() {
         }));
     }, [variant]);
 
-    const placementButtons = useMemo<UIActionButtonGroupButton[]>(() => {
+    const placementButtons = useMemo<UiActionButtonGroupButton[]>(() => {
         const items: Placement[] = ["bottom-start", "bottom-end", "top-start", "top-end"];
         return items.map((p) => ({
             key: p,
@@ -92,7 +92,7 @@ export default function UiEmojiPickerPanelV2() {
         }));
     }, [placement]);
 
-    const flagsButtons = useMemo<UIActionButtonGroupButton[]>(() => {
+    const flagsButtons = useMemo<UiActionButtonGroupButton[]>(() => {
         return [
             {
                 key: "disabled",

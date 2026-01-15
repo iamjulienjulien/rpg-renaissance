@@ -7,6 +7,7 @@ export function useGlobalHotkeys() {
     const toggle = useUiStore((s) => s.toggleCommandPalette);
     const close = useUiStore((s) => s.closeCommandPalette);
     const toggleQuestsPalette = useUiStore((s) => s.toggleQuestsPalette);
+    const { openModal } = useUiStore();
 
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
@@ -19,12 +20,22 @@ export function useGlobalHotkeys() {
                 return;
             }
 
-            const isQ = e.key.toLowerCase() === "g";
-            const isCmdQ = (e.metaKey || e.ctrlKey) && isQ;
+            const isG = e.key.toLowerCase() === "g";
+            const isCmdG = (e.metaKey || e.ctrlKey) && isG;
 
-            if (isCmdQ) {
+            if (isCmdG) {
                 e.preventDefault();
                 toggleQuestsPalette();
+                return;
+            }
+
+            const isN = e.key.toLowerCase() === "n";
+            const isCmdN = (e.metaKey || e.ctrlKey) && isN;
+
+            if (isCmdN) {
+                e.preventDefault();
+                console.log("ok");
+                openModal("questCreate");
                 return;
             }
 

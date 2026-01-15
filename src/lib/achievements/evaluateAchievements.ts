@@ -944,11 +944,13 @@ export async function evaluateAchievements(
         metadata: { event: String(event), is_active: true },
     });
 
-    const { data: catalog, error: e0 } = await supabaseAdmin
-        .from("achievement_catalog")
-        .select("*")
-        .eq("is_active", true)
-        .eq("trigger_event", event);
+    const req0 = supabaseAdmin.from("achievement_catalog").select("*").eq("is_active", true);
+
+    if (event !== "manual_refresh") {
+        req0.eq("trigger_event", event);
+    }
+
+    const { data: catalog, error: e0 } = await req0;
 
     if (e0) {
         Log.error("ach.eval.catalog.fetch.error", e0, {

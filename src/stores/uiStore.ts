@@ -217,6 +217,7 @@ export function useUiAction(action?: UiAction) {
     const closePalette = useUiStore((s) => s.closeCommandPalette);
     const togglePalette = useUiStore((s) => s.toggleCommandPalette);
     const toggleQuestsPalette = useUiStore((s) => s.toggleQuestsPalette);
+    const { openModal } = useUiStore();
 
     const devMode = useUiStore((s) => s.devMode);
     const setDevMode = useUiStore((s) => s.setDevMode);
@@ -232,6 +233,8 @@ export function useUiAction(action?: UiAction) {
     if (action === "enableDevMode") return () => setDevMode(true);
     if (action === "disableDevMode") return () => setDevMode(false);
     if (action === "toggleDevMode") return () => setDevMode(!devMode);
+
+    if (action === "createQuest") return () => openModal("questCreate");
 
     return undefined;
 }

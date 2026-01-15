@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400..900&family=Cormorant+SC:wght@300;400;500;600;700&family=Fondamento:ital@0;1&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=Marcellus&family=Orbitron&display=swap");
+/* @import url("https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400..900&family=Cormorant+SC:wght@300;400;500;600;700&family=Fondamento:ital@0;1&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=Marcellus&family=Orbitron&display=swap"); */
 @import "tailwindcss";
 @config "../../tailwind.config.ts";
 
@@ -27,7 +27,7 @@ body {
     font-family: Arial, Helvetica, sans-serif;
 }
 
-.fondamento-regular {
+/* .fondamento-regular {
     font-family: "Fondamento", cursive;
     font-weight: 400;
     font-style: normal;
@@ -37,7 +37,7 @@ body {
     font-family: "Fondamento", cursive;
     font-weight: 400;
     font-style: italic;
-}
+} */
 
 :root {
     --rpg-text: 16px;
@@ -69,6 +69,11 @@ body {
     line-height: var(--rpg-line);
 }
 
+code {
+    font-family: var(--font-courier-prime);
+    font-size: 1.25em;
+}
+
 /* Thèmes */
 
 :root {
@@ -79,6 +84,14 @@ body {
     --bg: 0 0% 6%;
     --panel: 0 0% 10%;
     --panel-2: 0 0% 14%;
+
+    /* Panel states */
+    --panel-hover: color-mix(in oklab, hsl(var(--panel)), white 6%);
+    --panel-active: color-mix(in oklab, hsl(var(--panel)), white 12%);
+
+    --panel-2-hover: color-mix(in oklab, hsl(var(--panel-2)), white 6%);
+    --panel-2-active: color-mix(in oklab, hsl(var(--panel-2)), white 12%);
+
     --text: 0 0% 92%;
     --muted: 0 0% 65%;
     --border: 0 0% 100% / 0.12;
@@ -107,12 +120,20 @@ body {
     --bg: 230 32% 6%;
     --panel: 230 28% 10%;
     --panel-2: 230 24% 14%;
+
+    /* Panel states */
+    --panel-hover: color-mix(in oklab, hsl(var(--panel)), white 6%);
+    --panel-active: color-mix(in oklab, hsl(var(--panel)), white 12%);
+
+    --panel-2-hover: color-mix(in oklab, hsl(var(--panel-2)), white 6%);
+    --panel-2-active: color-mix(in oklab, hsl(var(--panel-2)), white 12%);
+
     --text: 210 40% 96%;
     --muted: 220 12% 70%;
     --border: 180 100% 70% / 0.14;
 
-    --accent: 178 100% 52%; /* cyan ritual */
-    --accent-2: 285 100% 62%; /* violet occult */
+    --accent: 178 100% 52%;
+    --accent-2: 285 100% 62%;
     --glow: 178 100% 52%;
 
     --shadow: 178 100% 52% / 0.1;
@@ -140,6 +161,13 @@ body {
     --bg: 145 28% 7%;
     --panel: 150 22% 11%;
     --panel-2: 150 18% 15%;
+
+    /* Panel states */
+    --panel-hover: color-mix(in oklab, hsl(var(--panel)), white 6%);
+    --panel-active: color-mix(in oklab, hsl(var(--panel)), white 12%);
+
+    --panel-2-hover: color-mix(in oklab, hsl(var(--panel-2)), white 6%);
+    --panel-2-active: color-mix(in oklab, hsl(var(--panel-2)), white 12%);
 
     /* Soft ivory text */
     --text: 140 25% 92%;
@@ -187,6 +215,13 @@ body {
     --muted: 25 8% 62%; /* cendre claire */
     --border: 30 40% 80% / 0.12;
 
+    /* Panel states */
+    --panel-hover: color-mix(in oklab, hsl(var(--panel)), white 6%);
+    --panel-active: color-mix(in oklab, hsl(var(--panel)), white 12%);
+
+    --panel-2-hover: color-mix(in oklab, hsl(var(--panel-2)), white 6%);
+    --panel-2-active: color-mix(in oklab, hsl(var(--panel-2)), white 12%);
+
     /* Accent */
     --accent: 24 90% 55%; /* braise */
     --accent-2: 0 70% 45%; /* rouge profond */
@@ -224,6 +259,13 @@ body {
     --text: 40 30% 96%; /* ivoire chaud */
     --muted: 30 15% 70%;
     --border: 45 80% 60% / 0.18;
+
+    /* Panel states */
+    --panel-hover: color-mix(in oklab, hsl(var(--panel)), white 6%);
+    --panel-active: color-mix(in oklab, hsl(var(--panel)), white 12%);
+
+    --panel-2-hover: color-mix(in oklab, hsl(var(--panel-2)), white 6%);
+    --panel-2-active: color-mix(in oklab, hsl(var(--panel-2)), white 12%);
 
     /* Accent */
     --accent: 45 85% 55%; /* or de Noël */
@@ -263,6 +305,13 @@ body {
     --panel: 28 40% 10%; /* braise sombre */
     --panel-2: 28 35% 14%; /* pierre chauffée */
 
+    /* Panel states */
+    --panel-hover: color-mix(in oklab, hsl(var(--panel)), white 6%);
+    --panel-active: color-mix(in oklab, hsl(var(--panel)), white 12%);
+
+    --panel-2-hover: color-mix(in oklab, hsl(var(--panel-2)), white 6%);
+    --panel-2-active: color-mix(in oklab, hsl(var(--panel-2)), white 12%);
+
     /* Texte */
     --text: 38 60% 96%; /* ivoire chaud */
     --muted: 32 18% 72%; /* cendre dorée */
@@ -301,6 +350,39 @@ body {
     .text-accent {
         color: hsl(var(--accent));
     }
+    .text-theme,
+    .text-solid {
+        color: hsl(var(--accent));
+    }
+    .text-neutral,
+    .text-soft {
+        color: var(--color-neutral-500);
+    }
+    .text-emerald {
+        color: var(--color-emerald-500);
+    }
+    .text-violet {
+        color: var(--color-violet-500);
+    }
+    .text-amber {
+        color: var(--color-amber-500);
+    }
+    .text-rose {
+        color: var(--color-rose-500);
+    }
+    .text-sky {
+        color: var(--color-sky-500);
+    }
+    .text-slate {
+        color: var(--color-slate-500);
+    }
+    .text-success {
+        color: var(--color-green-500);
+    }
+    .text-error,
+    .text-danger {
+        color: var(--color-red-500);
+    }
     .text-accent-lighter {
         color: hsl(var(--accent) / 0.85);
     }
@@ -313,6 +395,60 @@ body {
         background-clip: text;
         color: transparent;
     }
+
+    .text-gradient-aurora {
+        background-image: linear-gradient(90deg, rgb(34, 211, 238), rgb(217, 70, 239));
+        background-clip: text;
+        -webkit-background-clip: text;
+        color: transparent;
+    }
+
+    .text-gradient-ember {
+        background-image: linear-gradient(90deg, rgb(251, 191, 36), rgb(244, 63, 94));
+        background-clip: text;
+        -webkit-background-clip: text;
+        color: transparent;
+    }
+
+    .text-gradient-cosmic {
+        background-image: linear-gradient(90deg, rgb(99, 102, 241), rgb(217, 70, 239));
+        background-clip: text;
+        -webkit-background-clip: text;
+        color: transparent;
+    }
+
+    .text-gradient-mythic {
+        background-image: linear-gradient(90deg, rgb(52, 211, 153), rgb(14, 165, 233));
+        background-clip: text;
+        -webkit-background-clip: text;
+        color: transparent;
+    }
+
+    .text-gradient-royal {
+        background-image: linear-gradient(90deg, rgb(139, 92, 246), rgb(236, 72, 153));
+        background-clip: text;
+        -webkit-background-clip: text;
+        color: transparent;
+    }
+
+    .text-gradient-mono {
+        background-image: linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.9),
+            rgba(255, 255, 255, 0.4)
+        );
+        background-clip: text;
+        -webkit-background-clip: text;
+        color: transparent;
+    }
+
+    .text-gradient-theme {
+        background-image: linear-gradient(90deg, hsl(var(--accent)), hsl(var(--accent-2)));
+        background-clip: text;
+        -webkit-background-clip: text;
+        color: transparent;
+    }
+
     .text-accent-glow {
         color: hsl(var(--accent));
         text-shadow:

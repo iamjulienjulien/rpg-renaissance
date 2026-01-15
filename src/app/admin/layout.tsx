@@ -116,6 +116,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         () => [
             { href: "/admin", label: "Dashboard", emoji: "📊", active: true },
             { href: "/admin?tab=ai", label: "IA: Générations", emoji: "🧠", active: true },
+            { href: "/admin?tab=listContacts", label: "Contacts", emoji: "👥", active: true },
             { href: "/admin?tab=users", label: "Utilisateurs", emoji: "👤", active: true },
             { href: "/admin?tab=sessions", label: "Sessions", emoji: "🧩", active: true },
             { href: "/admin?tab=adventures", label: "Aventures", emoji: "🧭", active: true },
