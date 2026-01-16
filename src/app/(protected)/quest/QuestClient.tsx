@@ -226,7 +226,9 @@ export default function QuestClient() {
             }
 
             setChapterQuest(json.chapterQuest);
+            console.log("cq", json.chapterQuest);
             setQuest(json.quest);
+            console.log("q", json.quest);
             setMissionMd(json.mission_md ?? json.mission?.mission_md ?? null);
 
             // ✅ NEW
@@ -547,24 +549,34 @@ export default function QuestClient() {
                                 {
                                     type: "group",
                                     variant: "soft",
-                                    buttons: [
-                                        {
-                                            children: "↩️ Retour",
-                                            onClick: () => {
-                                                router.push("/adventure");
-                                            },
-                                        },
-                                        {
-                                            children: "🗺️ Quêtes",
-                                            onClick: () => {
-                                                toggleQuestsPalette();
-                                            },
-                                        },
-                                    ],
+                                    buttons:
+                                        chapterQuest?.status === "done"
+                                            ? [
+                                                  {
+                                                      children: "🗺️ Quêtes",
+                                                      onClick: () => {
+                                                          toggleQuestsPalette();
+                                                      },
+                                                  },
+                                              ]
+                                            : [
+                                                  {
+                                                      children: "↩️ Retour",
+                                                      onClick: () => {
+                                                          router.push("/adventure");
+                                                      },
+                                                  },
+                                                  {
+                                                      children: "🗺️ Quêtes",
+                                                      onClick: () => {
+                                                          toggleQuestsPalette();
+                                                      },
+                                                  },
+                                              ],
                                 },
                             ]}
                         />
-                        {startDatetime && (
+                        {startDatetime && chapterQuest?.status === "doing" && (
                             <div>
                                 ⏱️ <UiStopwatch startAt={startDatetime} format="verbose" />
                             </div>
