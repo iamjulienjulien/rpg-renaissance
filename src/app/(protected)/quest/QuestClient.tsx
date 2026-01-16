@@ -37,6 +37,7 @@ import QuestEditModal from "@/components/modals/QuestEditModal";
 import UiActionButton from "@/components/ui/UiActionButton";
 import { useAiStore } from "@/stores/aiStore";
 import { QuestTimeline } from "./QuestTimeline";
+import UiStopwatch from "@/components/ui/UiStopwatch";
 
 type Quest = {
     id: string;
@@ -138,7 +139,7 @@ export default function QuestClient() {
 
     const encouragement = chapterQuestId ? encouragementById[chapterQuestId] : undefined;
 
-    const { openModal } = useUiStore();
+    const { openModal, toggleQuestsPalette } = useUiStore();
     const { refreshQuestMessages, currentQuestThreadId, currentUserId } = useGameStore();
 
     const {
@@ -345,11 +346,12 @@ export default function QuestClient() {
     const [waitForCongrat, setWaitForCongrat] = useState(false);
 
     useEffect(() => {
-        console.log("questCongratGenerating change", questCongratGenerating);
-        console.log(questCongratGenerating, waitForCongrat);
+        console.log("useEffect questCongratGenerating", questCongratGenerating);
+        console.log("useEffect waitForCongrat", waitForCongrat);
         if (waitForCongrat && !questCongratGenerating) {
             console.log("reloadQuestMessages");
             void refreshQuestMessages(currentQuestThreadId ?? "");
+            console.info("ℹ️ setWaitorCongrat false");
             setWaitForCongrat(false);
         }
     }, [questCongratGenerating, waitForCongrat]);
@@ -357,13 +359,17 @@ export default function QuestClient() {
     const [waitForQuestPhotoMessage, setWaitForQuestPhotoMessage] = useState(false);
 
     useEffect(() => {
-        console.log("questPhotoMessageGenerating change", questPhotoMessageGenerating);
+        console.log("useEffect questPhotoMessageGenerating", questPhotoMessageGenerating);
+
         if (waitForQuestPhotoMessage && !questPhotoMessageGenerating) {
             console.log("reloadMission");
             void refreshQuestMessages(currentQuestThreadId ?? "");
+
             setWaitForQuestPhotoMessage(false);
         }
     }, [questPhotoMessageGenerating, waitForQuestPhotoMessage]);
+
+    const [startDatetime, setStartDatetime] = useState<string | null>(null);
 
     const questJournal = React.useMemo(() => {
         if (!quest?.id) return [];
@@ -375,6 +381,11 @@ export default function QuestClient() {
 
         // console.log("quest", quest);
         console.log("journal", journal);
+
+        const startEntry = journal.find((j) => j.kind == "quest_started") ?? null;
+        if (startEntry?.created_at) {
+            setStartDatetime(startEntry?.created_at);
+        }
 
         return journal;
     }, [journalEntries, quest?.id]);
@@ -401,7 +412,7 @@ export default function QuestClient() {
 
     const onFinish = async () => {
         if (!chapterQuestId || !quest) return;
-
+        console.info("⏱️ [start] onFinish");
         setBusy(true);
         try {
             const cq = await finishQuest(chapterQuestId, {
@@ -414,11 +425,14 @@ export default function QuestClient() {
             clearEncouragement(chapterQuestId);
 
             if (cq) {
+                console.info("ℹ️ setChapterQuest");
                 setChapterQuest(cq);
+                console.info("ℹ️ setWaitorCongrat true");
                 setWaitForCongrat(true);
                 // router.push("/adventure");
             }
         } finally {
+            console.info("🏁 [end] onFinish");
             setBusy(false);
         }
     };
@@ -526,59 +540,47 @@ export default function QuestClient() {
                 </div>
             ) : (
                 <div>
-                    <UiToolbar
-                        align="between"
-                        items={[
-                            {
-                                type: "button",
-                                variant: "soft",
-                                label: "↩️ Retour",
-                                onClick: () => {
-                                    router.push("/adventure");
+                    <div className="flex justify-between">
+                        <UiToolbar
+                            align="between"
+                            items={[
+                                {
+                                    type: "group",
+                                    variant: "soft",
+                                    buttons: [
+                                        {
+                                            children: "↩️ Retour",
+                                            onClick: () => {
+                                                router.push("/adventure");
+                                            },
+                                        },
+                                        {
+                                            children: "🗺️ Quêtes",
+                                            onClick: () => {
+                                                toggleQuestsPalette();
+                                            },
+                                        },
+                                    ],
                                 },
-                            },
-                            {
-                                type: "button",
-                                variant: "soft",
-                                label: "🗺️ Quêtes",
-                                action: "toggleQuestsPalette",
-                                // onClick: () => {
-                                //     router.push("/adventure");
-                                // },
-                            },
-                            // {
-                            //     type: "group",
-                            //     variant: "solid",
-                            //     // size: "sm",
-                            //     buttons: [
-                            //         {
-                            //             children: "▶️ Démarrer",
-                            //             onClick: () => setTab("journal"),
-                            //             active: tab === "journal",
-                            //         },
-                            //         {
-                            //             children: "✍️ Modifier",
-                            //             onClick: () => {
-                            //                 router.push("/adventure");
-                            //             },
-                            //             active: tab === "quests",
-                            //         },
-                            //     ],
-                            // },
-                            // {
-                            //     type: "dropdown",
-                            //     label: "⚙️ Actions",
-                            //     items: [
-                            //         { label: "✨ Générer mission", action: "openPalette" },
-                            //         {
-                            //             label: "📖 Sceller le chapitre",
-                            //             action: "openPalette",
-                            //         },
-                            //         { label: "🗑️ Supprimer", onClick: () => {} },
-                            //     ],
-                            // },
-                        ]}
-                    />
+                            ]}
+                        />
+                        {startDatetime && (
+                            <div>
+                                ⏱️ <UiStopwatch startAt={startDatetime} format="verbose" />
+                            </div>
+                        )}
+                        <UiToolbar
+                            align="between"
+                            items={[
+                                {
+                                    type: "group",
+                                    variant: "solid",
+                                    size: "md",
+                                    buttons: getActionsToolbarItems(),
+                                },
+                            ]}
+                        />
+                    </div>
                     <div className="grid gap-4 mt-5 lg:grid-cols-[1.1fr_0.9fr]">
                         {/* LEFT */}
                         <div className="flex flex-col gap-5">
@@ -903,18 +905,6 @@ export default function QuestClient() {
 
                         {/* RIGHT */}
                         <div className="flex flex-col gap-4">
-                            <UiToolbar
-                                align="between"
-                                fullWidth
-                                items={[
-                                    {
-                                        type: "group",
-                                        variant: "solid",
-                                        size: "md",
-                                        buttons: getActionsToolbarItems(),
-                                    },
-                                ]}
-                            />
                             {chapterQuest.status !== "done" && (
                                 <Panel title="Actions" emoji="⚔️">
                                     <div className="flex flex-col gap-3">
